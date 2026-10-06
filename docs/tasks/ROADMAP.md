@@ -8,7 +8,7 @@
 
 | ID | Задача | Этап | Зависит от | Статус |
 | --- | --- | --- | --- | --- |
-| T-01 | Монорепозиторий и инструменты | Каркас | — | todo |
+| T-01 | Монорепозиторий и инструменты | Каркас | — | done |
 | T-02 | Пакет `shared`: enum, коды ошибок, утилиты времени | Каркас | T-01 | todo |
 | T-03 | Каркас API (NestJS) | Каркас | T-01 | todo |
 | T-04 | БД: Docker Compose, Prisma-схема v1, seed видов и общих правил | Каркас | T-03 | todo |
@@ -48,11 +48,11 @@
 
 ### T-01 Монорепозиторий и инструменты
 Ссылки: `03-architecture.md`, ADR-0003.
-- [ ] pnpm workspaces: `apps/api`, `apps/web`, `packages/shared`; Node LTS в `.nvmrc` и `engines`.
-- [ ] TypeScript strict, общий `tsconfig.base.json`.
-- [ ] ESLint (flat config) + Prettier; правило запрета строк в JSX для `apps/web` (i18next-plugin или аналог).
-- [ ] Корневые скрипты: `dev`, `build`, `lint`, `typecheck`, `test`, `format`.
-- [ ] Husky + lint-staged (prettier, eslint на изменённых файлах).
+- [x] pnpm workspaces: `apps/api`, `apps/web`, `packages/shared`; Node LTS в `.nvmrc` и `engines`.
+- [x] TypeScript strict, общий `tsconfig.base.json`.
+- [x] ESLint (flat config) + Prettier; правило запрета строк в JSX для `apps/web` (i18next-plugin или аналог).
+- [x] Корневые скрипты: `dev`, `build`, `lint`, `typecheck`, `test`, `format`.
+- [x] Husky + lint-staged (prettier, eslint на изменённых файлах).
 
 ### T-02 Пакет `shared`
 Ссылки: `02-business-rules.md`, `05-api.md` (коды ошибок), ADR-0005.

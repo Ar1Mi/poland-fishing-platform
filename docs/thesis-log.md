@@ -16,6 +16,34 @@
 
 ---
 
+## 2026-10-06 · T-01 Монорепозиторий и инструменты
+
+**Сделано:**
+- pnpm workspaces с тремя пакетами (`api`, `web`, `@lowisko/shared`) и общим `tsconfig.base.json`; пакеты пока содержат только заглушки входных файлов.
+- ESLint flat config с типовым анализом (`typescript-eslint`, `projectService`) и правилом `i18next/no-literal-string` для `apps/web/src/**/*.tsx`.
+- Prettier, Husky и lint-staged: перед коммитом ESLint и Prettier проходят по изменённым файлам.
+- Корневые скрипты `dev`, `build`, `lint`, `typecheck`, `test`, `format` (+ `format:check` для CI).
+
+**Решения:**
+- Node 24 — действующая LTS; Node 20 вышла из поддержки, а lint-staged 17 требует Node ≥ 22.22. Версия pnpm закреплена полем `packageManager` (corepack), версия TypeScript — через `catalog:` в `pnpm-workspace.yaml`, одна на все пакеты.
+- TypeScript 6.0.3, а не 7.0: `typescript-eslint` 8.71 поддерживает только `<6.1.0`, а без него нет типового линтинга.
+- В базовом tsconfig `lib: ["ES2023"]` и `types: []`: в `shared` нет ни DOM, ни Node-глобалов, поэтому требование ADR-0003 «чистый TypeScript» проверяет компилятор, а не ревью. `web` добавляет DOM у себя.
+- Правило про строки в JSX работает в режиме `jsx-only` и проверяет текст и видимые атрибуты (`title`, `placeholder`, `alt`, `aria-label`, `label`); технические (`className`, `type`) не трогает. Файлы `*.test.tsx` исключены.
+- Markdown исключён из Prettier: он выравнивает таблицы пробелами, это 784 изменённые строки в 22 файлах документации и шумный diff при каждой смене статуса в ROADMAP.
+- Корневые `dev`, `build`, `test` запускаются с `--if-present`: тестовые раннеры появляются в T-02, T-03, T-05, а не здесь.
+
+**Проблемы:**
+- Локально не было ни pnpm, ни подходящего Node; `nvm install` в неинтерактивной оболочке упал из-за пустого `NVM_DIR`.
+- `pnpm add` не запустил `prepare`, хук появился только после `pnpm run prepare`. На чистом клоне `pnpm install --frozen-lockfile` ставит хук сам (проверено).
+
+**Подтверждение:** автотестов в задаче нет (нет бизнес-логики), проверено командами:
+- `pnpm -r list` — три пакета; `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm format:check`, `pnpm build`, `pnpm dev` завершаются с кодом 0, в том числе на чистом клоне.
+- Файл с `<button title="Kup teraz">Kup zezwolenie</button>` в `apps/web/src` даёт две ошибки `i18next/no-literal-string`; тот же файл в `apps/api` и `*.test.tsx` — ни одной.
+- Файл с неявным `any`, `items[0]` без проверки и `document`/`process` в `shared` даёт TS7006, TS2322, TS2584, TS2591.
+- Коммит с ошибкой ESLint отклонён хуком; неотформатированный файл переформатирован lint-staged.
+
+**Для текста:** `tsconfig.base.json:3-21` — строгий режим и пустые `types` как механизм, удерживающий `shared` платформенно-независимым; `eslint.config.mjs:33-50` — требование «строки только через i18n» как автоматическая проверка, а не договорённость.
+
 ## 2026-10-06 · Проектирование
 
 **Сделано:** требования, бизнес-правила, архитектура, модель данных, API, сценарии, ADR-0001…0010, ROADMAP.
