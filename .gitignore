@@ -1,0 +1,30 @@
+# deps & build
+node_modules/
+dist/
+build/
+.turbo/
+coverage/
+*.tsbuildinfo
+
+# generated
+apps/api/src/generated/
+apps/web/src/shared/api/schema.d.ts
+
+# env & secrets
+.env
+.env.*
+!.env.example
+*.pem
+
+# runtime
+uploads/
+*.log
+.DS_Store
+
+# tests
+playwright-report/
+test-results/
+
+# Claude Code (personal)
+CLAUDE.local.md
+.claude/settings.local.json
