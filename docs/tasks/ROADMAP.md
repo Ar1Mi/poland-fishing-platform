@@ -90,6 +90,7 @@
 Ссылки: `08-testing-and-infra.md` → «CI».
 - [ ] `ci.yml`: install, lint, typecheck, unit, интеграционные, build.
 - [ ] Кэш pnpm; бейдж в README.
+- [ ] Снять `--if-present` с корневых `build` и `test` (все пакеты уже имеют эти скрипты), чтобы пакет без тестов не выпадал из CI молча.
 
 ### T-07 Аутентификация
 FR-01, FR-02. Ссылки: `07-security.md`.

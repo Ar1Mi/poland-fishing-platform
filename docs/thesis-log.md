@@ -20,29 +20,38 @@
 
 **Сделано:**
 - pnpm workspaces с тремя пакетами (`api`, `web`, `@lowisko/shared`) и общим `tsconfig.base.json`; пакеты пока содержат только заглушки входных файлов.
-- ESLint flat config с типовым анализом (`typescript-eslint`, `projectService`) и правилом `i18next/no-literal-string` для `apps/web/src/**/*.tsx`.
+- ESLint flat config с типовым анализом (`typescript-eslint`, `projectService`) и запретом строковых литералов в JSX-разметке `apps/web/src/**/*.tsx`.
 - Prettier, Husky и lint-staged: перед коммитом ESLint и Prettier проходят по изменённым файлам.
 - Корневые скрипты `dev`, `build`, `lint`, `typecheck`, `test`, `format` (+ `format:check` для CI).
 
 **Решения:**
-- Node 24 — действующая LTS; Node 20 вышла из поддержки, а lint-staged 17 требует Node ≥ 22.22. Версия pnpm закреплена полем `packageManager` (corepack), версия TypeScript — через `catalog:` в `pnpm-workspace.yaml`, одна на все пакеты.
+- Node 24 — действующая LTS; Node 20 вышла из поддержки, а lint-staged 17 требует Node ≥ 22.22. Версию проверяет `devEngines.runtime` с `onFail: error`: поле `engines` само по себе pnpm не останавливает. Версия pnpm закреплена полем `packageManager` (corepack), версия TypeScript — через `catalog:` в `pnpm-workspace.yaml`, одна на все пакеты.
 - TypeScript 6.0.3, а не 7.0: `typescript-eslint` 8.71 поддерживает только `<6.1.0`, а без него нет типового линтинга.
 - В базовом tsconfig `lib: ["ES2023"]` и `types: []`: в `shared` нет ни DOM, ни Node-глобалов, поэтому требование ADR-0003 «чистый TypeScript» проверяет компилятор, а не ревью. `web` добавляет DOM у себя.
-- Правило про строки в JSX работает в режиме `jsx-only` и проверяет текст и видимые атрибуты (`title`, `placeholder`, `alt`, `aria-label`, `label`); технические (`className`, `type`) не трогает. Файлы `*.test.tsx` исключены.
-- Markdown исключён из Prettier: он выравнивает таблицы пробелами, это 784 изменённые строки в 22 файлах документации и шумный diff при каждой смене статуса в ROADMAP.
-- Корневые `dev`, `build`, `test` запускаются с `--if-present`: тестовые раннеры появляются в T-02, T-03, T-05, а не здесь.
+- Запрет строк в JSX собран из двух правил. `i18next/no-literal-string` в режиме `jsx-only` проверяет текст, шаблонные литералы и видимые атрибуты (`title`, `placeholder`, `alt`, `aria-label`, `aria-description`, `label`); технические (`className`, `type`) не трогает. Плагин пропускает любые атрибуты на `<a>`, `<svg>`, `<text>` и `label`/`aria-description` на нативных тегах — это закрывают два селектора `no-restricted-syntax`. Файлы `*.test.tsx` исключены.
+- Граница проверки: строки вне JSX (`toast('...')`, переменная с текстом, `.ts`-файлы) линтер не видит, это остаётся на ревью.
+- Markdown исключён из Prettier: он выравнивает таблицы пробелами, это около 400 изменённых строк в 22 файлах документации и шумный diff при каждой смене статуса в ROADMAP.
+- Корневые `dev`, `build`, `test` запускаются с `--if-present`: тестовые раннеры появляются в T-02, T-03, T-05, а не здесь. Пока флаг стоит, пакет без скрипта `test` молча выпадает из прогона, поэтому снятие флага с `build` и `test` записано критерием в T-06.
 
 **Проблемы:**
 - Локально не было ни pnpm, ни подходящего Node; `nvm install` в неинтерактивной оболочке упал из-за пустого `NVM_DIR`.
 - `pnpm add` не запустил `prepare`, хук появился только после `pnpm run prepare`. На чистом клоне `pnpm install --frozen-lockfile` ставит хук сам (проверено).
+- Ревью нашло дыры в первой версии запрета строк (атрибуты на `<a>`/`<svg>`, шаблонные литералы) и то, что `engines` не мешал работать на Node 20; обе исправлены.
+- Ревью выявило то, что проявится в следующих задачах:
+  - файлы вне `include: ["src"]` (`vitest.config.ts`, `vite.config.ts`, `prisma.config.ts`, `apps/api/test`, `apps/web/e2e`) дают в ESLint `Parsing error: ... was not found by the project service`, и lint-staged блокирует коммит — пакету нужен tsconfig, включающий эти файлы, или `allowDefaultProject`;
+  - для JS-конфигов (`*.cjs`, `*.mjs`) не заданы Node-глобалы, `process` и `module` дадут `no-undef`;
+  - TypeScript 6 при `outDir` требует явный `rootDir` (иначе TS5011) — важно для сборки `shared` в T-02;
+  - `isolatedModules` вместе с `emitDecoratorMetadata` (NestJS, T-03) даёт TS1272: интерфейсы в конструкторах импортировать через `import type`;
+  - не проверено, проходит ли `typecheck` приложений против несобранного `shared` — решить в T-02 при описании `exports`.
 
 **Подтверждение:** автотестов в задаче нет (нет бизнес-логики), проверено командами:
 - `pnpm -r list` — три пакета; `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm format:check`, `pnpm build`, `pnpm dev` завершаются с кодом 0, в том числе на чистом клоне.
-- Файл с `<button title="Kup teraz">Kup zezwolenie</button>` в `apps/web/src` даёт две ошибки `i18next/no-literal-string`; тот же файл в `apps/api` и `*.test.tsx` — ни одной.
+- Файл в `apps/web/src` со строками в тексте, шаблонном литерале и атрибутах (`<button title>`, `<a title aria-label>`, `<svg aria-label>`, `<optgroup label>`, `<div aria-description>`, `<Field label>`) даёт ошибку на каждую; те же элементы с `t('...')` — ни одной. В `apps/api` и `*.test.tsx` правило не срабатывает.
+- Под Node 20 `pnpm lint` останавливается с ошибкой версии runtime.
 - Файл с неявным `any`, `items[0]` без проверки и `document`/`process` в `shared` даёт TS7006, TS2322, TS2584, TS2591.
 - Коммит с ошибкой ESLint отклонён хуком; неотформатированный файл переформатирован lint-staged.
 
-**Для текста:** `tsconfig.base.json:3-21` — строгий режим и пустые `types` как механизм, удерживающий `shared` платформенно-независимым; `eslint.config.mjs:33-50` — требование «строки только через i18n» как автоматическая проверка, а не договорённость.
+**Для текста:** `tsconfig.base.json:3-21` — строгий режим и пустые `types` как механизм, удерживающий `shared` платформенно-независимым; `eslint.config.mjs:33-66` — требование «строки только через i18n» как автоматическая проверка JSX-разметки и её граница (строки вне JSX остаются на ревью).
 
 ## 2026-10-06 · Проектирование
 

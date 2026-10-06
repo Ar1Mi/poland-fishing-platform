@@ -45,6 +45,8 @@ pnpm install         # зависимости + git-хук pre-commit (Husky)
 | `pnpm test` | unit-тесты всех пакетов |
 | `pnpm format` | Prettier (`pnpm format:check` — только проверка) |
 
-Перед коммитом хук прогоняет ESLint и Prettier по изменённым файлам (lint-staged). Коммит из GUI-клиента должен видеть Node 24 в `PATH`.
+Пока пакеты — заглушки, `dev`, `build` и `test` ничего не запускают: их наполняют задачи T-02, T-03, T-05.
+
+Перед коммитом хук прогоняет ESLint и Prettier по изменённым файлам (lint-staged); типы он не проверяет — для этого `pnpm typecheck`. Хуку нужны Node 24 и pnpm в `PATH`. Если git запускается не из оболочки с `nvm use` (GUI-клиент, IDE), добавьте их в `~/.config/husky/init.sh`. На другой мажорной версии Node команды pnpm останавливаются с ошибкой (`devEngines` в `package.json`).
 
 База данных, `.env` и `docker compose` появятся в задачах T-03…T-04.
