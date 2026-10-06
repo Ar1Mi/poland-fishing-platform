@@ -28,4 +28,23 @@ Praca inżynierska: *Projekt i implementacja aplikacji internetowej do zarządza
 
 ## Запуск
 
-Появится после задач T-01…T-04. Кратко: `pnpm install`, `cp .env.example .env`, `docker compose up -d`, `pnpm dev`.
+Нужны Node.js 24 LTS (версия в `.nvmrc`) и pnpm (версия в `package.json` → `packageManager`, ставится через corepack):
+
+```bash
+nvm install          # Node из .nvmrc
+corepack enable pnpm # pnpm нужной версии
+pnpm install         # зависимости + git-хук pre-commit (Husky)
+```
+
+| Команда | Что делает |
+| --- | --- |
+| `pnpm dev` | api + web параллельно |
+| `pnpm build` | сборка всех пакетов |
+| `pnpm lint` | ESLint по всему репозиторию |
+| `pnpm typecheck` | `tsc --noEmit` в каждом пакете |
+| `pnpm test` | unit-тесты всех пакетов |
+| `pnpm format` | Prettier (`pnpm format:check` — только проверка) |
+
+Перед коммитом хук прогоняет ESLint и Prettier по изменённым файлам (lint-staged). Коммит из GUI-клиента должен видеть Node 24 в `PATH`.
+
+База данных, `.env` и `docker compose` появятся в задачах T-03…T-04.

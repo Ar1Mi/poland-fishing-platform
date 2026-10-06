@@ -1,0 +1,4 @@
+pnpm-lock.yaml
+
+# Docs and agent instructions are hand-formatted (compact tables); Prettier would re-pad every table.
+*.md
