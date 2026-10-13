@@ -5,3 +5,4 @@ packages:
 # Single source of versions for tools used by more than one package.
 catalog:
   typescript: 6.0.3
+  vitest: 5.0.4

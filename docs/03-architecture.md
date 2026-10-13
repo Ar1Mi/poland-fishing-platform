@@ -60,7 +60,7 @@ docs/
 - **Авторизация:** `JwtAuthGuard` (глобальный, `@Public()` для открытых маршрутов) → `RolesGuard` (`@Roles('ORG_ADMIN')`, `@SuperAdmin()`) → `OrgScopeGuard` (сверяет `:orgId` из маршрута с членством).
 - **Валидация:** глобальный `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true })`.
 - **Swagger:** `/api/docs`; OpenAPI JSON → `openapi-typescript` → типы API-клиента фронтенда (`pnpm gen:api`).
-- **Время:** сервер в UTC; бизнес-«сутки» через `date-fns-tz` в `Europe/Warsaw`; `now` инжектируется через `ClockService` (подменяется в тестах).
+- **Время:** сервер в UTC; бизнес-«сутки» — календарный день `Europe/Warsaw` через `warsawDate()` из `packages/shared` (встроенный `Intl.DateTimeFormat`, без библиотеки часовых поясов — одна реализация для сервера и PWA); `now` инжектируется через `ClockService` (подменяется в тестах).
 - **Статусы разрешения:** хранятся только `PENDING_PAYMENT / PAID / CANCELLED / REVOKED`; `SCHEDULED / ACTIVE / EXPIRED` вычисляются из дат (ADR-0005).
 - **QR:** токен JWS (Ed25519, библиотека `jose`) с `permitId` и `exp = validTo`; QR кодирует `${WEB_URL}/verify/${token}` (ADR-0006).
 - **Платежи:** только уведомление провайдера с проверенной подписью меняет статус на `PAID`; идемпотентность по `sessionId` (ADR-0004).
