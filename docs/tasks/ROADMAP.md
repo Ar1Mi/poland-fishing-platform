@@ -10,7 +10,7 @@
 | --- | --- | --- | --- | --- |
 | T-01 | Монорепозиторий и инструменты | Каркас | — | done |
 | T-02 | Пакет `shared`: enum, коды ошибок, утилиты времени | Каркас | T-01 | done |
-| T-03 | Каркас API (NestJS) | Каркас | T-01 | todo |
+| T-03 | Каркас API (NestJS) | Каркас | T-01 | done |
 | T-04 | БД: Docker Compose, Prisma-схема v1, seed видов и общих правил | Каркас | T-03 | todo |
 | T-05 | Каркас web (React, i18n, API-клиент) | Каркас | T-01 | todo |
 | T-06 | CI GitHub Actions | Каркас | T-03, T-05 | todo |
@@ -64,12 +64,12 @@
 
 ### T-03 Каркас API
 Ссылки: `03-architecture.md` → «Сквозные механизмы».
-- [ ] NestJS, конфиг с Zod-валидацией env, `.env.example`.
-- [ ] Глобальные: `ValidationPipe`, `HttpExceptionFilter` → `{ code, message, details }`, `DomainError`, nestjs-pino, helmet, CORS на `WEB_URL`.
-- [ ] Swagger на `/api/docs`, префикс `/api/v1`, `GET /health`.
-- [ ] `ClockService`.
-- [ ] Jest + один интеграционный тест `/health`.
-- [ ] `apps/api` зависит от `@lowisko/shared` (`workspace:*`); Jest импортирует пакет (он ESM-only — проверить загрузку из `dist` под Jest, а не только `require` в Node).
+- [x] NestJS, конфиг с Zod-валидацией env, `.env.example`. — `src/config/env.spec.ts`; запуск без `API_URL` завершается ошибкой «Invalid environment variables».
+- [x] Глобальные: `ValidationPipe`, `HttpExceptionFilter` → `{ code, message, details }`, `DomainError`, nestjs-pino, helmet, CORS на `WEB_URL`. — `test/error-format.e2e-spec.ts`, `test/health.e2e-spec.ts` (заголовки helmet, CORS, request-id).
+- [x] Swagger на `/api/docs`, префикс `/api/v1`, `GET /health`. — `test/swagger.e2e-spec.ts`; health отдаётся как `/api/v1/health`.
+- [x] `ClockService`. — `/health` возвращает время подменённых часов.
+- [x] Jest + один интеграционный тест `/health`. — `pnpm --filter api test` (36), `pnpm --filter api test:e2e` (17).
+- [x] `apps/api` зависит от `@lowisko/shared` (`workspace:*`); Jest импортирует пакет (он ESM-only — проверить загрузку из `dist` под Jest, а не только `require` в Node). — тесты фильтра и формата ошибок импортируют `ErrorCode` из `dist`; нужен флаг `--experimental-vm-modules`.
 
 ### T-04 БД
 Ссылки: `04-data-model.md`, ADR-0010.

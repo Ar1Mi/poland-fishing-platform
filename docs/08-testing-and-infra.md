@@ -15,6 +15,7 @@
 
 Принципы:
 
+- NestJS 12 и `@lowisko/shared` — ESM-only, а API собирается в CommonJS. Jest 30 загружает их через `require(esm)`; для этого нужны Node ≥ 24.9 и флаг `--experimental-vm-modules` (он уже в скриптах `test` и `test:e2e` пакета `api`).
 - Время инжектируется (`ClockService`, параметр `now`) — тесты не зависят от текущей даты.
 - Интеграционные тесты поднимают свой PostgreSQL в контейнере и применяют миграции; данные создаются фабриками (`test/factories`), не общим seed.
 - Тест IDOR: для каждого маршрута `/orgs/:orgId/*` — запрос от админа другой организации → 403.
@@ -24,8 +25,10 @@
 
 | Переменная | Пример / назначение |
 | --- | --- |
+| `NODE_ENV` | `development` / `test` / `production`; без значения — `production` (JSON-логи, без `pino-pretty`) |
+| `API_PORT` | `3000` |
 | `DATABASE_URL` | `postgresql://lowisko:lowisko@localhost:5432/lowisko` |
-| `WEB_URL`, `API_URL` | `http://localhost:5173`, `http://localhost:3000` |
+| `WEB_URL`, `API_URL` | `http://localhost:5173`, `http://localhost:3000` — только origin, без пути: `WEB_URL` сравнивается с заголовком `Origin` (CORS) |
 | `JWT_ACCESS_SECRET` | случайная строка ≥ 32 байт |
 | `QR_SIGNING_PRIVATE_KEY`, `QR_SIGNING_PUBLIC_KEY` | Ed25519 PEM (скрипт `pnpm --filter api keys:qr`) |
 | `PAYMENTS_PROVIDER` | `fake` (dev, тесты) или `p24` |

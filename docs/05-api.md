@@ -13,6 +13,14 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 
 ## Эндпоинты
 
+### Служебные
+
+| Метод | Путь | Доступ | Назначение |
+| --- | --- | --- | --- |
+| GET | `/health` | public | Проверка живости: `{ "status": "ok", "time": "<ISO 8601, UTC>" }`. Под общим префиксом (`/api/v1/health`), чтобы быть доступным через прокси `/api` |
+
+Каждый ответ несёт заголовок `X-Request-Id`; корректный входящий (`[A-Za-z0-9_-]`, до 64 символов) переиспользуется, иначе генерируется UUID. Тот же id стоит в строках лога запроса. Путь вне `/api/v1` и `/api/docs` получает 404 `NOT_FOUND` в том же JSON-формате.
+
 ### Auth и профиль
 
 | Метод | Путь | Доступ | Назначение |
@@ -128,5 +136,7 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 | 422 | Бизнес-правила: `PERMIT_START_IN_PAST`, `DISCOUNT_NOT_ELIGIBLE`, `PERMIT_TYPE_INACTIVE`, `EDIT_WINDOW_CLOSED`, `PERMIT_NOT_REVOCABLE` |
 | 429 | `RATE_LIMITED` |
 | 500 | `INTERNAL_ERROR` — необработанное исключение; `message` не раскрывает детали, они только в логе |
+
+Ошибки самого фреймворка (неизвестный маршрут, отказ guard, битый JSON) кода не несут — фильтр подбирает его по HTTP-статусу: 401 → `UNAUTHENTICATED`, 403 → `FORBIDDEN`, 404 → `NOT_FOUND`, 429 → `RATE_LIMITED`, прочие 4xx → `VALIDATION_FAILED`, 5xx → `INTERNAL_ERROR` (с фиксированным `message`). Статус ответа при этом сохраняется. Объект ошибки со своим `statusCode`, брошенный не фреймворком (например, HTTP-клиентом внешнего сервиса), считается необработанным исключением → 500.
 
 Коды нарушений улова (`BR-*`) приходят не как HTTP-ошибка, а в `violations` ответа синхронизации — см. `02-business-rules.md`.

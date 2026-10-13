@@ -16,6 +16,40 @@
 
 ---
 
+## 2026-10-13 · T-03 Каркас API
+
+**Сделано:**
+- Приложение NestJS 12 в `apps/api`: конфиг с Zod-схемой env (без валидного окружения процесс не стартует), префикс `/api/v1`, Swagger на `/api/docs`, `GET /api/v1/health`.
+- Единый формат ошибок `{ code, message, details? }`: `DomainError`, глобальный `HttpExceptionFilter`, `ValidationPipe` с `details.fields`.
+- Логи pino с request-id (`X-Request-Id`), helmet, CORS только на `WEB_URL`, `ClockService` как единственное место чтения системных часов.
+- Jest: 36 unit- и 17 интеграционных тестов; API зависит от `@lowisko/shared` через `workspace:*`.
+
+**Решения:**
+- NestJS 12 поставляется только как ESM, но приложение оставлено на CommonJS (так решено в T-02). Jest 30 загружает ESM-пакеты через `require(esm)`; условие — Node ≥ 24.9 и флаг `--experimental-vm-modules`. Флаг зашит в скрипты `test`/`test:e2e`, а `engines` ужесточён до `^24.9.0`. Трансформация `node_modules` в Jest не понадобилась, тесты исполняют тот же `dist`, что и приложение.
+- `GET /health` размещён под общим префиксом (`/api/v1/health`): в продакшне Caddy проксирует только `/api`.
+- В `ErrorCode` добавлен `INTERNAL_ERROR` (500): таблица кодов в `docs/05-api.md` была «минимальным набором» без кода для необработанного исключения. Причина 500 пишется только в лог, клиент получает фиксированный текст.
+- Исключения фреймворка кода не несут — фильтр подбирает его по статусу (401/403/404/429, прочие 4xx → `VALIDATION_FAILED`). Объекту с полем `statusCode` фильтр доверяет, только если это ошибка body-parser (`expose` + `type`): иначе 401 от внешнего сервиса превратился бы в 401 для пользователя и разлогинил бы его.
+- pino-http подключён первым Express-middleware, а nestjs-pino работает в режиме `useExisting`. Стандартное подключение nestjs-pino — это Nest-middleware: оно срабатывает после парсера тела и только под префиксом.
+- `NODE_ENV` по умолчанию `production`: режим разработки (уровень debug, `pino-pretty` из devDependencies) включается явно через `.env`.
+- `WEB_URL` и `API_URL` принимаются только как origin без пути — `WEB_URL` сравнивается с заголовком `Origin`.
+- Install-скрипты зависимостей запрещены в `pnpm-workspace.yaml` (`allowBuilds`): `@scarf/scarf` — телеметрия, `@parcel/watcher` и `unrs-resolver` приходят готовыми бинарниками. Версия zod взята 4.6.5: 4.6.7 вышла менее суток назад, и pnpm отклоняет её политикой `minimumReleaseAge`.
+
+**Проблемы:**
+- Первый запуск Jest упал с «Must use import to load ES Module»: сообщение советует Node 24.9+, хотя стоял 24.21. Причина нашлась в исходниках `jest-runtime` — проверяется `vm.SourceTextModule`, доступный только с `--experimental-vm-modules`.
+- `pnpm add` с точной свежей версией zod молча дописал исключение `minimumReleaseAgeExclude`, а после его удаления lockfile пришлось править вручную — `pnpm install` не перерешивал версию.
+- Ревью (`code-reviewer`) показало на собранном приложении, что запросы, отклонённые до маршрутизации (битый JSON, 413, пути вне `/api/v1`), не логировались, шли без request-id, а неизвестный путь отвечал HTML-страницей Express. Исправлено порядком middleware и JSON-ответом 404; закрыто тестами.
+- То же ревью: фильтр отдавал клиенту `message` у `HttpException` 5xx и доверял любому `statusCode` 4xx; redact заголовков не был покрыт тестами. Исправлено, тесты добавлены.
+- `expect.any()` типизирован как `any` и не проходит типовой линтинг — в тестах значение сужается до `unknown`.
+
+**Подтверждение:**
+- `apps/api/test/health.e2e-spec.ts` — время из подменённого `ClockService`, заголовки helmet, CORS и preflight, request-id, JSON-404 вне префикса.
+- `apps/api/test/error-format.e2e-spec.ts` — 404, валидация с `details.fields` (включая вложенное поле), битый JSON, `DomainError` → 422, необработанное исключение → 500 без утечки причины.
+- `apps/api/test/swagger.e2e-spec.ts` — UI и OpenAPI JSON со схемами `HealthResponseDto`, `ErrorResponseDto`, enum `ErrorCode`.
+- `apps/api/src/common/logging/logger.options.spec.ts` — значения `Authorization`, `Cookie`, `Set-Cookie` не попадают в лог; `src/config/env.spec.ts`; `src/common/filters/http-exception.filter.spec.ts`.
+- `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm --filter api test:e2e`, `pnpm format:check`, `pnpm build` — код 0 на Node 24.21. Вручную: запуск без `API_URL` завершается «Invalid environment variables»; Swagger UI открывается в браузере под CSP helmet без ошибок в консоли.
+
+**Для текста:** `apps/api/src/common/filters/http-exception.filter.ts` — функция `toErrorResponse`: единый контракт ошибок и граница «что видит клиент / что остаётся в логе»; `apps/api/src/config/env.ts` — весь файл: fail-fast конфигурация на Zod в 40 строках.
+
 ## 2026-10-13 · T-02 Пакет `shared`
 
 **Сделано:**

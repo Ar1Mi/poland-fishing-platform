@@ -55,8 +55,8 @@ docs/
 
 ## Сквозные механизмы
 
-- **Конфиг:** `@nestjs/config` + Zod-схема env; приложение не стартует при невалидном env.
-- **Ошибки:** глобальный `HttpExceptionFilter` → `{ code, message, details? }`. Бизнес-ошибки — `DomainError(code, details)`; коды — enum `ErrorCode` в `packages/shared`.
+- **Конфиг:** `@nestjs/config` + Zod-схема env (`src/config/env.ts`); приложение не стартует при невалидном env. Единственный `.env` лежит в корне репозитория; в схему переменная попадает в той задаче, которая первой её читает.
+- **Ошибки:** глобальный `HttpExceptionFilter` → `{ code, message, details? }`. Бизнес-ошибки — `DomainError(code, details)`; коды — enum `ErrorCode` в `packages/shared`. Необработанное исключение → 500 `INTERNAL_ERROR` без деталей в ответе (причина — только в логе).
 - **Авторизация:** `JwtAuthGuard` (глобальный, `@Public()` для открытых маршрутов) → `RolesGuard` (`@Roles('ORG_ADMIN')`, `@SuperAdmin()`) → `OrgScopeGuard` (сверяет `:orgId` из маршрута с членством).
 - **Валидация:** глобальный `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true })`.
 - **Swagger:** `/api/docs`; OpenAPI JSON → `openapi-typescript` → типы API-клиента фронтенда (`pnpm gen:api`).
@@ -65,7 +65,7 @@ docs/
 - **QR:** токен JWS (Ed25519, библиотека `jose`) с `permitId` и `exp = validTo`; QR кодирует `${WEB_URL}/verify/${token}` (ADR-0006).
 - **Платежи:** только уведомление провайдера с проверенной подписью меняет статус на `PAID`; идемпотентность по `sessionId` (ADR-0004).
 - **Файлы** (фото, документы claim): локальный том Docker `uploads/` за абстракцией `StorageService`; лимит 5 МБ, только image/* и application/pdf.
-- **Логи:** `pino` (nestjs-pino), JSON в prod, request-id.
+- **Логи:** `pino` (nestjs-pino), JSON в prod, request-id (заголовок `X-Request-Id`); заголовки `Authorization`, `Cookie`, `Set-Cookie` в лог не попадают.
 
 ## Жизненный цикл разрешения
 
