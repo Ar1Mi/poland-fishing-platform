@@ -60,7 +60,7 @@
 - [x] `ErrorCode` и `CatchErrorCode` — `src/errors.ts`, `src/errors.test.ts`.
 - [x] Утилиты времени `Europe/Warsaw`: `warsawDate(date)`, `isInClosedPeriod(date, from, to)` с переходом через Новый год — `src/time/warsaw.test.ts`.
 - [x] `effectivePermitStatus(permit, now)` + тесты — `src/permits/effective-status.test.ts`.
-- [x] Сборка ESM + d.ts, Vitest — `pnpm --filter @lowisko/shared build` / `test` (24 теста).
+- [x] Сборка ESM + d.ts, Vitest — `pnpm --filter @lowisko/shared build` / `test` (33 теста).
 
 ### T-03 Каркас API
 Ссылки: `03-architecture.md` → «Сквозные механизмы».
@@ -69,6 +69,7 @@
 - [ ] Swagger на `/api/docs`, префикс `/api/v1`, `GET /health`.
 - [ ] `ClockService`.
 - [ ] Jest + один интеграционный тест `/health`.
+- [ ] `apps/api` зависит от `@lowisko/shared` (`workspace:*`); Jest импортирует пакет (он ESM-only — проверить загрузку из `dist` под Jest, а не только `require` в Node).
 
 ### T-04 БД
 Ссылки: `04-data-model.md`, ADR-0010.
@@ -92,6 +93,7 @@
 Ссылки: `08-testing-and-infra.md` → «CI».
 - [ ] `ci.yml`: install, lint, typecheck, unit, интеграционные, build.
 - [ ] Кэш pnpm; бейдж в README.
+- [ ] `packages/shared` собран до `lint`, `typecheck` и `test` (типизированный ESLint и приложения видят пакет через `dist`); проверить на чистом клоне.
 - [ ] Снять `--if-present` с корневых `build` и `test` (все пакеты уже имеют эти скрипты), чтобы пакет без тестов не выпадал из CI молча.
 
 ### T-07 Аутентификация

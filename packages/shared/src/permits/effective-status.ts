@@ -1,5 +1,5 @@
 import { PermitStatus } from '../enums.js';
-import { warsawDate, type DateOnly } from '../time/warsaw.js';
+import { assertDateOnly, warsawDate, type DateOnly } from '../time/warsaw.js';
 
 /** Stored statuses that are final as-is, plus the ones computed from dates for PAID (ADR-0005). */
 export const EffectivePermitStatus = {
@@ -24,6 +24,8 @@ export interface PermitStatusInput {
 /** A PAID permit is ACTIVE for the whole Warsaw calendar days `validFrom`…`validTo`. */
 export function effectivePermitStatus(permit: PermitStatusInput, now: Date): EffectivePermitStatus {
   if (permit.status !== PermitStatus.PAID) return permit.status;
+  assertDateOnly(permit.validFrom);
+  assertDateOnly(permit.validTo);
 
   const today = warsawDate(now);
   if (today < permit.validFrom) return EffectivePermitStatus.SCHEDULED;

@@ -17,11 +17,29 @@ describe('error codes', () => {
     expect(Object.values(CatchErrorCode).filter((code) => http.has(code))).toEqual([]);
   });
 
-  it('maps every ErrorCode to a 4xx status', () => {
+  it('maps every ErrorCode to the status documented in docs/05-api.md', () => {
+    const documented: Record<number, ErrorCode[]> = {
+      400: ['VALIDATION_FAILED'],
+      401: ['UNAUTHENTICATED', 'INVALID_CREDENTIALS', 'EMAIL_NOT_VERIFIED', 'TOKEN_EXPIRED'],
+      403: ['FORBIDDEN', 'ORG_SCOPE_VIOLATION', 'ORG_NOT_ACTIVE'],
+      404: ['NOT_FOUND'],
+      409: ['EMAIL_TAKEN', 'CLAIM_ALREADY_PENDING', 'WATER_ALREADY_CONNECTED'],
+      422: [
+        'PERMIT_START_IN_PAST',
+        'DISCOUNT_NOT_ELIGIBLE',
+        'PERMIT_TYPE_INACTIVE',
+        'EDIT_WINDOW_CLOSED',
+        'PERMIT_NOT_REVOCABLE',
+      ],
+      429: ['RATE_LIMITED'],
+    };
+    const expected = Object.fromEntries(
+      Object.entries(documented).flatMap(([status, codes]) =>
+        codes.map((code) => [code, Number(status)]),
+      ),
+    );
+
+    expect(ERROR_HTTP_STATUS).toEqual(expected);
     expect(Object.keys(ERROR_HTTP_STATUS).sort()).toEqual(Object.values(ErrorCode).sort());
-    for (const status of Object.values(ERROR_HTTP_STATUS)) {
-      expect(status).toBeGreaterThanOrEqual(400);
-      expect(status).toBeLessThan(500);
-    }
   });
 });

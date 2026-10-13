@@ -41,11 +41,29 @@ describe('effectivePermitStatus', () => {
     expect(effectivePermitStatus(permit, utc('2026-01-15T23:00:00'))).toBe('EXPIRED');
   });
 
+  it('follows the Warsaw day across the switch to summer time', () => {
+    const permit = paid('2026-03-29', '2026-03-29');
+    expect(effectivePermitStatus(permit, utc('2026-03-28T22:59:59.999'))).toBe('SCHEDULED');
+    expect(effectivePermitStatus(permit, utc('2026-03-28T23:00:00'))).toBe('ACTIVE');
+    expect(effectivePermitStatus(permit, utc('2026-03-29T21:59:59.999'))).toBe('ACTIVE');
+    expect(effectivePermitStatus(permit, utc('2026-03-29T22:00:00'))).toBe('EXPIRED');
+  });
+
   it('follows the Warsaw day across the switch to winter time', () => {
     const permit = paid('2026-10-25', '2026-10-25');
     expect(effectivePermitStatus(permit, utc('2026-10-24T21:59:59.999'))).toBe('SCHEDULED');
+    expect(effectivePermitStatus(permit, utc('2026-10-24T22:00:00'))).toBe('ACTIVE');
     expect(effectivePermitStatus(permit, utc('2026-10-25T22:59:59.999'))).toBe('ACTIVE');
     expect(effectivePermitStatus(permit, utc('2026-10-25T23:00:00'))).toBe('EXPIRED');
+  });
+
+  it('rejects dates that are not YYYY-MM-DD instead of comparing them as strings', () => {
+    const now = utc('2026-07-01T12:00:00');
+    // A Prisma @db.Date serialised as an instant would otherwise read as SCHEDULED on day one.
+    expect(() =>
+      effectivePermitStatus(paid('2026-07-01T00:00:00.000Z', '2026-07-07'), now),
+    ).toThrow(RangeError);
+    expect(() => effectivePermitStatus(paid('2026-07-01', '07.07.2026'), now)).toThrow(RangeError);
   });
 
   it('handles a permit spanning New Year', () => {

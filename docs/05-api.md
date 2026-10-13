@@ -5,7 +5,7 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 ## Общие правила
 
 - **Аутентификация:** `Authorization: Bearer <access JWT>` (15 мин). Refresh — httpOnly cookie `rt` (7 дней, ротация), путь `/api/v1/auth`.
-- **Ошибки:** `{ "code": "PERMIT_NOT_ACTIVE", "message": "...", "details": {...} }`. `code` стабилен и переводится на фронтенде; `message` — для разработчика.
+- **Ошибки:** `{ "code": "PERMIT_TYPE_INACTIVE", "message": "...", "details": {...} }`. `code` стабилен и переводится на фронтенде; `message` — для разработчика.
 - **Валидация:** 400 + `code: "VALIDATION_FAILED"`, `details.fields: { [field]: string[] }`.
 - **Пагинация:** `?page=1&pageSize=20` (max 100) → `{ items, total, page, pageSize }`.
 - **Даты:** ISO 8601; даты без времени — `YYYY-MM-DD`.

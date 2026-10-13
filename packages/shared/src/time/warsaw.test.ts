@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isInClosedPeriod, warsawDate } from './warsaw.js';
+import { assertDateOnly, isInClosedPeriod, warsawDate } from './warsaw.js';
 
 const utc = (iso: string): Date => new Date(`${iso}Z`);
 
@@ -53,9 +53,19 @@ describe('isInClosedPeriod', () => {
     expect(isInClosedPeriod(utc('2027-03-01T12:00:00'), '12-01', '02-28')).toBe(false);
   });
 
-  it('treats Feb 29 as outside a period ending on Feb 28', () => {
-    expect(isInClosedPeriod(utc('2028-02-29T12:00:00'), '12-01', '02-28')).toBe(false);
-    expect(isInClosedPeriod(utc('2028-02-29T12:00:00'), '12-01', '02-29')).toBe(true);
+  it('closes Feb 29 whenever Feb 28 is closed', () => {
+    const leapDay = utc('2028-02-29T12:00:00');
+    expect(isInClosedPeriod(leapDay, '12-01', '02-28')).toBe(true);
+    expect(isInClosedPeriod(leapDay, '12-01', '02-29')).toBe(true);
+    expect(isInClosedPeriod(leapDay, '02-28', '04-30')).toBe(true);
+    expect(isInClosedPeriod(leapDay, '02-29', '04-30')).toBe(true);
+    expect(isInClosedPeriod(utc('2028-03-01T12:00:00'), '12-01', '02-28')).toBe(false);
+  });
+
+  it('keeps Feb 29 open when Feb 28 is open', () => {
+    const leapDay = utc('2028-02-29T12:00:00');
+    expect(isInClosedPeriod(leapDay, '03-01', '04-30')).toBe(false);
+    expect(isInClosedPeriod(leapDay, '12-01', '02-27')).toBe(false);
   });
 
   it('uses the Warsaw day at the period boundaries', () => {
@@ -78,4 +88,17 @@ describe('isInClosedPeriod', () => {
     expect(() => isInClosedPeriod(date, '04-01', '13-01')).toThrow(RangeError);
     expect(() => isInClosedPeriod(date, '2026-04-01', '05-31')).toThrow(RangeError);
   });
+});
+
+describe('assertDateOnly', () => {
+  it('accepts YYYY-MM-DD', () => {
+    expect(() => assertDateOnly('2026-07-01')).not.toThrow();
+  });
+
+  it.each(['2026-07-01T00:00:00.000Z', '01.07.2026', '2026-7-1', '2026-13-01', ''])(
+    'rejects %j',
+    (value) => {
+      expect(() => assertDateOnly(value)).toThrow(RangeError);
+    },
+  );
 });

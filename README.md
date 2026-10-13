@@ -33,7 +33,7 @@ Praca inżynierska: *Projekt i implementacja aplikacji internetowej do zarządza
 ```bash
 nvm install          # Node из .nvmrc
 corepack enable pnpm # pnpm нужной версии
-pnpm install         # зависимости + git-хук pre-commit (Husky)
+pnpm install         # зависимости + git-хук pre-commit (Husky) + сборка packages/shared
 ```
 
 | Команда | Что делает |
@@ -41,11 +41,11 @@ pnpm install         # зависимости + git-хук pre-commit (Husky)
 | `pnpm dev` | api + web параллельно |
 | `pnpm build` | сборка всех пакетов |
 | `pnpm lint` | ESLint по всему репозиторию |
-| `pnpm typecheck` | `tsc --noEmit` в каждом пакете |
+| `pnpm typecheck` | сборка `packages/shared`, затем `tsc --noEmit` в каждом пакете |
 | `pnpm test` | unit-тесты всех пакетов |
 | `pnpm format` | Prettier (`pnpm format:check` — только проверка) |
 
-Пока пакеты — заглушки, `dev`, `build` и `test` ничего не запускают: их наполняют задачи T-02, T-03, T-05.
+Приложения видят `@lowisko/shared` через его `dist`: пакет собирается при `pnpm install` и перед `pnpm typecheck`, а `pnpm dev` пересобирает его при изменениях. `apps/api` и `apps/web` пока заглушки — их `dev`, `build` и `test` наполняют задачи T-03 и T-05.
 
 Перед коммитом хук прогоняет ESLint и Prettier по изменённым файлам (lint-staged); типы он не проверяет — для этого `pnpm typecheck`. Хуку нужны Node 24 и pnpm в `PATH`. Если git запускается не из оболочки с `nvm use` (GUI-клиент, IDE), добавьте их в `~/.config/husky/init.sh`. На другой мажорной версии Node команды pnpm останавливаются с ошибкой (`devEngines` в `package.json`).
 
