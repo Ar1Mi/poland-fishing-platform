@@ -6,3 +6,9 @@ packages:
 catalog:
   typescript: 6.0.3
   vitest: 5.0.4
+
+# Install scripts are denied: all three ship prebuilt binaries or only send telemetry.
+allowBuilds:
+  '@parcel/watcher': false
+  '@scarf/scarf': false
+  unrs-resolver: false

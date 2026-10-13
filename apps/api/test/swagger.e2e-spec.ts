@@ -1,0 +1,43 @@
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import request from 'supertest';
+import { createTestApp } from './create-test-app';
+
+describe('Swagger', () => {
+  let app: NestExpressApplication;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('serves the UI on /api/docs', async () => {
+    const response = await request(app.getHttpServer()).get('/api/docs').expect(200);
+
+    expect(response.headers['content-type']).toContain('text/html');
+  });
+
+  it('describes /api/v1/health in the OpenAPI JSON on /api/docs-json', async () => {
+    const response = await request(app.getHttpServer()).get('/api/docs-json').expect(200);
+
+    expect(response.body).toMatchObject({
+      paths: {
+        '/api/v1/health': {
+          get: {
+            responses: {
+              '200': {
+                content: {
+                  'application/json': {
+                    schema: { $ref: '#/components/schemas/HealthResponseDto' },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  });
+});
