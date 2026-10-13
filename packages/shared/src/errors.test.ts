@@ -32,6 +32,7 @@ describe('error codes', () => {
         'PERMIT_NOT_REVOCABLE',
       ],
       429: ['RATE_LIMITED'],
+      500: ['INTERNAL_ERROR'],
     };
     const expected = Object.fromEntries(
       Object.entries(documented).flatMap(([status, codes]) =>

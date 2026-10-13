@@ -20,6 +20,7 @@ export const ErrorCode = {
   EDIT_WINDOW_CLOSED: 'EDIT_WINDOW_CLOSED',
   PERMIT_NOT_REVOCABLE: 'PERMIT_NOT_REVOCABLE',
   RATE_LIMITED: 'RATE_LIMITED',
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
 } as const;
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 
@@ -42,6 +43,7 @@ export const ERROR_HTTP_STATUS: Readonly<Record<ErrorCode, number>> = {
   EDIT_WINDOW_CLOSED: 422,
   PERMIT_NOT_REVOCABLE: 422,
   RATE_LIMITED: 429,
+  INTERNAL_ERROR: 500,
 };
 
 /**
