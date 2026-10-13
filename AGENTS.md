@@ -16,6 +16,7 @@
 | Угрозы и меры | `docs/07-security.md` |
 | Тесты, Docker, CI | `docs/08-testing-and-infra.md` |
 | Ключевые сценарии | `docs/09-scenarios.md` |
+| Цвета, шрифты, компоненты UI | `docs/10-design-system.md` |
 | Принятые решения | `docs/adr/` |
 | Задачи и их статус | `docs/tasks/ROADMAP.md` |
 

@@ -57,6 +57,7 @@
 | `07-security.md` | Угрозы, RODO |
 | `08-testing-and-infra.md` | Тесты, Docker, CI, деплой |
 | `09-scenarios.md` | Сквозные сценарии (E2E) |
+| `10-design-system.md` | Дизайн-токены, типографика, компоненты |
 | `adr/` | Решения и их причины |
 | `tasks/ROADMAP.md` | Задачи |
 | `thesis-log.md` | Журнал реализации для текста диплома |

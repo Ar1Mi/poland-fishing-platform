@@ -80,8 +80,9 @@
 - [ ] Testcontainers-хелпер для интеграционных тестов.
 
 ### T-05 Каркас web
-Ссылки: `06-frontend.md`.
+Ссылки: `06-frontend.md`, `10-design-system.md`.
 - [ ] Vite + React + TS, React Router, TanStack Query, Tailwind + shadcn/ui.
+- [ ] Тема Tailwind с токенами дизайн-системы, шрифты из бандла (`@fontsource`), базовые компоненты: `Button`, `Input`, `Badge`, `Alert`, `Card`.
 - [ ] react-i18next: `pl` по умолчанию, `en`, `ru`, переключатель языка.
 - [ ] API-клиент: `pnpm gen:api` (openapi-typescript) + `openapi-fetch`, обработка `{ code }` ошибок с переводом.
 - [ ] Layout mobile-first, страница 404, Vitest + Testing Library.
