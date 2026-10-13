@@ -4,12 +4,12 @@
   "private": true,
   "packageManager": "pnpm@12.9.1",
   "engines": {
-    "node": "^24"
+    "node": "^24.9.0"
   },
   "devEngines": {
     "runtime": {
       "name": "node",
-      "version": "^24",
+      "version": "^24.9.0",
       "onFail": "error"
     }
   },
@@ -18,7 +18,7 @@
     "build": "pnpm -r --if-present run build",
     "lint": "eslint --max-warnings=0",
     "typecheck": "pnpm --filter @lowisko/shared run build && pnpm -r run typecheck",
-    "test": "pnpm -r --if-present run test",
+    "test": "pnpm --filter @lowisko/shared run build && pnpm -r --if-present run test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky && pnpm --filter @lowisko/shared run build"

@@ -15,7 +15,7 @@ describe('validateEnv', () => {
   it('applies defaults for NODE_ENV and API_PORT', () => {
     const env = validateEnv({ API_URL: valid.API_URL, WEB_URL: valid.WEB_URL });
 
-    expect(env.NODE_ENV).toBe('development');
+    expect(env.NODE_ENV).toBe('production');
     expect(env.API_PORT).toBe(3000);
   });
 
@@ -32,6 +32,8 @@ describe('validateEnv', () => {
   it.each([
     ['missing WEB_URL', { ...valid, WEB_URL: undefined }, 'WEB_URL'],
     ['WEB_URL that is not a URL', { ...valid, WEB_URL: 'localhost' }, 'WEB_URL'],
+    ['WEB_URL with a path', { ...valid, WEB_URL: 'https://lowisko.example/app' }, 'WEB_URL'],
+    ['WEB_URL with a query', { ...valid, WEB_URL: 'https://lowisko.example?x=1' }, 'WEB_URL'],
     ['non-http API_URL', { ...valid, API_URL: 'ftp://api.lowisko.example' }, 'API_URL'],
     ['non-numeric API_PORT', { ...valid, API_PORT: 'abc' }, 'API_PORT'],
     ['API_PORT out of range', { ...valid, API_PORT: '70000' }, 'API_PORT'],

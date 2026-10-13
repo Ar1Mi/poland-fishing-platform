@@ -1,12 +1,11 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_PIPE } from '@nestjs/core';
-import { LoggerModule } from 'nestjs-pino';
 import { ClockModule } from './common/clock/clock.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
-import { buildLoggerOptions } from './common/logging/logger.options';
+import { LoggingModule } from './common/logging/logging.module';
 import { createValidationPipe } from './common/pipes/validation.pipe';
-import { type Env, validateEnv } from './config/env';
+import { validateEnv } from './config/env';
 import { HealthModule } from './modules/health/health.module';
 
 @Module({
@@ -19,11 +18,7 @@ import { HealthModule } from './modules/health/health.module';
       envFilePath: ['.env', '../../.env'],
       ignoreEnvFile: process.env.NODE_ENV === 'test',
     }),
-    LoggerModule.forRootAsync({
-      inject: [ConfigService],
-      useFactory: (config: ConfigService<Env, true>) =>
-        buildLoggerOptions(config.get('NODE_ENV', { infer: true })),
-    }),
+    LoggingModule,
     ClockModule,
     HealthModule,
   ],

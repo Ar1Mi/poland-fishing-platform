@@ -1,3 +1,4 @@
+import { ErrorCode } from '@lowisko/shared';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import { createTestApp } from './create-test-app';
@@ -22,7 +23,16 @@ describe('Swagger', () => {
   it('describes /api/v1/health in the OpenAPI JSON on /api/docs-json', async () => {
     const response = await request(app.getHttpServer()).get('/api/docs-json').expect(200);
 
+    expect(response.headers['x-request-id']).toBeDefined();
     expect(response.body).toMatchObject({
+      components: {
+        schemas: {
+          ErrorResponseDto: {
+            properties: { code: { allOf: [{ $ref: '#/components/schemas/ErrorCode' }] } },
+          },
+          ErrorCode: { enum: Object.values(ErrorCode) },
+        },
+      },
       paths: {
         '/api/v1/health': {
           get: {

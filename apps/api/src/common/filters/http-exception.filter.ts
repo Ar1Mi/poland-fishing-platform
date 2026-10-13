@@ -10,6 +10,8 @@ export interface ErrorBody {
   details?: Record<string, unknown>;
 }
 
+const INTERNAL_MESSAGE = 'Internal server error';
+
 // Framework exceptions (unknown route, guard rejection, malformed body) carry no code of their own.
 const CODE_BY_STATUS: Readonly<Record<number, ErrorCode>> = {
   401: ErrorCode.UNAUTHENTICATED,
@@ -18,22 +20,25 @@ const CODE_BY_STATUS: Readonly<Record<number, ErrorCode>> = {
   429: ErrorCode.RATE_LIMITED,
 };
 
-function codeForStatus(status: number): ErrorCode {
-  return (
-    CODE_BY_STATUS[status] ??
-    (status < 500 ? ErrorCode.VALIDATION_FAILED : ErrorCode.INTERNAL_ERROR)
-  );
+function clientError(status: number, message: string): { status: number; body: ErrorBody } {
+  return { status, body: { code: CODE_BY_STATUS[status] ?? ErrorCode.VALIDATION_FAILED, message } };
 }
 
-/** Errors raised by Express middleware (body-parser) expose the status this way. */
-function middlewareClientStatus(exception: unknown): number | undefined {
-  if (typeof exception !== 'object' || exception === null || !('statusCode' in exception)) {
+/**
+ * Status of an error raised by the Express body parser (`http-errors` shape: `expose` + `type`).
+ * Other thrown objects with a `statusCode`, e.g. from an HTTP client, are not trusted.
+ */
+function bodyParserStatus(exception: unknown): number | undefined {
+  if (
+    !(exception instanceof Error) ||
+    !('expose' in exception && exception.expose === true) ||
+    !('type' in exception && typeof exception.type === 'string') ||
+    !('statusCode' in exception && typeof exception.statusCode === 'number')
+  ) {
     return undefined;
   }
   const { statusCode } = exception;
-  return typeof statusCode === 'number' && statusCode >= 400 && statusCode < 500
-    ? statusCode
-    : undefined;
+  return statusCode >= 400 && statusCode < 500 ? statusCode : undefined;
 }
 
 export function toErrorResponse(exception: unknown): { status: number; body: ErrorBody } {
@@ -46,18 +51,16 @@ export function toErrorResponse(exception: unknown): { status: number; body: Err
   }
   if (exception instanceof HttpException) {
     const status = exception.getStatus();
-    return { status, body: { code: codeForStatus(status), message: exception.message } };
+    return status < 500
+      ? clientError(status, exception.message)
+      : { status, body: { code: ErrorCode.INTERNAL_ERROR, message: INTERNAL_MESSAGE } };
   }
-  const clientStatus = middlewareClientStatus(exception);
-  if (clientStatus !== undefined) {
-    const message = exception instanceof Error ? exception.message : 'Bad request';
-    return { status: clientStatus, body: { code: codeForStatus(clientStatus), message } };
+  const parserStatus = bodyParserStatus(exception);
+  if (parserStatus !== undefined) {
+    return clientError(parserStatus, (exception as Error).message);
   }
   // Anything else is a bug: the cause goes to the log, never to the client.
-  return {
-    status: 500,
-    body: { code: ErrorCode.INTERNAL_ERROR, message: 'Internal server error' },
-  };
+  return { status: 500, body: { code: ErrorCode.INTERNAL_ERROR, message: INTERNAL_MESSAGE } };
 }
 
 /** Renders every error as `{ code, message, details? }` (docs/05-api.md). */
@@ -70,6 +73,12 @@ export class HttpExceptionFilter implements ExceptionFilter {
     if (status >= 500) {
       this.logger.error({ err: exception }, 'Unhandled exception');
     }
-    host.switchToHttp().getResponse<Response>().status(status).json(body);
+    const response = host.switchToHttp().getResponse<Response>();
+    // A streamed response (file, PDF) that fails midway cannot be turned into a JSON error.
+    if (response.headersSent) {
+      response.end();
+      return;
+    }
+    response.status(status).json(body);
   }
 }

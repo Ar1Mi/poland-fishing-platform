@@ -97,6 +97,7 @@ describe('error format { code, message, details? }', () => {
       .expect(400);
 
     expect(response.body).toMatchObject({ code: 'VALIDATION_FAILED' });
+    expect(response.headers['x-request-id']).toBeDefined();
   });
 
   it('maps a DomainError to the status of its code', async () => {

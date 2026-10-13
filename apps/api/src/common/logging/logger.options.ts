@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Params } from 'nestjs-pino';
+import type { Options } from 'pino-http';
 import type { Env } from '../../config/env';
 
 export const REQUEST_ID_HEADER = 'x-request-id';
@@ -14,21 +14,19 @@ const LEVEL: Readonly<Record<Env['NODE_ENV'], string>> = {
 };
 
 /** JSON logs in production, pretty output in development, request id on every line. */
-export function buildLoggerOptions(nodeEnv: Env['NODE_ENV']): Params {
+export function buildLoggerOptions(nodeEnv: Env['NODE_ENV']): Options {
   return {
-    pinoHttp: {
-      level: LEVEL[nodeEnv],
-      ...(nodeEnv === 'development' && {
-        transport: { target: 'pino-pretty', options: { singleLine: true } },
-      }),
-      genReqId: (req, res) => {
-        const incoming = req.headers[REQUEST_ID_HEADER];
-        const id =
-          typeof incoming === 'string' && SAFE_REQUEST_ID.test(incoming) ? incoming : randomUUID();
-        res.setHeader(REQUEST_ID_HEADER, id);
-        return id;
-      },
-      redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
+    level: LEVEL[nodeEnv],
+    ...(nodeEnv === 'development' && {
+      transport: { target: 'pino-pretty', options: { singleLine: true } },
+    }),
+    genReqId: (req, res) => {
+      const incoming = req.headers[REQUEST_ID_HEADER];
+      const id =
+        typeof incoming === 'string' && SAFE_REQUEST_ID.test(incoming) ? incoming : randomUUID();
+      res.setHeader(REQUEST_ID_HEADER, id);
+      return id;
     },
+    redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
   };
 }
