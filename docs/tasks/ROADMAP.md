@@ -9,7 +9,7 @@
 | ID | Задача | Этап | Зависит от | Статус |
 | --- | --- | --- | --- | --- |
 | T-01 | Монорепозиторий и инструменты | Каркас | — | done |
-| T-02 | Пакет `shared`: enum, коды ошибок, утилиты времени | Каркас | T-01 | doing |
+| T-02 | Пакет `shared`: enum, коды ошибок, утилиты времени | Каркас | T-01 | done |
 | T-03 | Каркас API (NestJS) | Каркас | T-01 | todo |
 | T-04 | БД: Docker Compose, Prisma-схема v1, seed видов и общих правил | Каркас | T-03 | todo |
 | T-05 | Каркас web (React, i18n, API-клиент) | Каркас | T-01 | todo |
@@ -56,11 +56,11 @@
 
 ### T-02 Пакет `shared`
 Ссылки: `02-business-rules.md`, `05-api.md` (коды ошибок), ADR-0005.
-- [ ] Enum, совпадающие с Prisma (`PermitStatus`, `WaterType`, …) и тест на совпадение после T-04.
-- [ ] `ErrorCode` и `CatchErrorCode`.
-- [ ] Утилиты времени `Europe/Warsaw`: `warsawDate(date)`, `isInClosedPeriod(date, from, to)` с переходом через Новый год.
-- [ ] `effectivePermitStatus(permit, now)` + тесты.
-- [ ] Сборка ESM + d.ts, Vitest.
+- [x] Enum, совпадающие с Prisma (`PermitStatus`, `WaterType`, …) — все 15 из `04-data-model.md` в `src/enums.ts`; тест на совпадение со схемой перенесён критерием в T-04 (схемы ещё нет).
+- [x] `ErrorCode` и `CatchErrorCode` — `src/errors.ts`, `src/errors.test.ts`.
+- [x] Утилиты времени `Europe/Warsaw`: `warsawDate(date)`, `isInClosedPeriod(date, from, to)` с переходом через Новый год — `src/time/warsaw.test.ts`.
+- [x] `effectivePermitStatus(permit, now)` + тесты — `src/permits/effective-status.test.ts`.
+- [x] Сборка ESM + d.ts, Vitest — `pnpm --filter @lowisko/shared build` / `test` (24 теста).
 
 ### T-03 Каркас API
 Ссылки: `03-architecture.md` → «Сквозные механизмы».
@@ -78,6 +78,7 @@
 - [ ] `PrismaService`, последовательность номеров разрешений.
 - [ ] Seed: ~15 видов (pl/en/ru) и общие правила; значения wymiarów i okresów ochronnych — по актуальному rozporządzeniu, источник указан комментарием в seed.
 - [ ] Testcontainers-хелпер для интеграционных тестов.
+- [ ] Тест: enum в `packages/shared/src/enums.ts` совпадают с enum сгенерированного Prisma-клиента (ADR-0003; перенесено из T-02).
 
 ### T-05 Каркас web
 Ссылки: `06-frontend.md`, `10-design-system.md`.
