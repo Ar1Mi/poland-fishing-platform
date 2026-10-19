@@ -11,7 +11,7 @@
 | T-01 | Монорепозиторий и инструменты | Каркас | — | done |
 | T-02 | Пакет `shared`: enum, коды ошибок, утилиты времени | Каркас | T-01 | done |
 | T-03 | Каркас API (NestJS) | Каркас | T-01 | done |
-| T-04 | БД: Docker Compose, Prisma-схема v1, seed видов и общих правил | Каркас | T-03 | todo |
+| T-04 | БД: Docker Compose, Prisma-схема v1, seed видов и общих правил | Каркас | T-03 | done |
 | T-05 | Каркас web (React, i18n, API-клиент) | Каркас | T-01 | todo |
 | T-06 | CI GitHub Actions | Каркас | T-03, T-05 | todo |
 | T-07 | Аутентификация | Каркас | T-04 | todo |
@@ -73,13 +73,13 @@
 
 ### T-04 БД
 Ссылки: `04-data-model.md`, ADR-0010.
-- [ ] `docker-compose.yml`: postgres:16, mailpit.
-- [ ] Prisma 7.x (фиксированная версия), `prisma.config.ts`, `@prisma/adapter-pg`.
-- [ ] `schema.prisma` по документу; первая миграция с SQL-ограничениями из раздела «SQL-ограничения».
-- [ ] `PrismaService`, последовательность номеров разрешений.
-- [ ] Seed: ~15 видов (pl/en/ru) и общие правила; значения wymiarów i okresów ochronnych — по актуальному rozporządzeniu, источник указан комментарием в seed.
-- [ ] Testcontainers-хелпер для интеграционных тестов.
-- [ ] Тест: enum в `packages/shared/src/enums.ts` совпадают с enum сгенерированного Prisma-клиента (ADR-0003; перенесено из T-02).
+- [x] `docker-compose.yml`: postgres:16, mailpit. — `docker compose up -d db mailpit`, оба сервиса `healthy`.
+- [x] Prisma 7.x (фиксированная версия), `prisma.config.ts`, `@prisma/adapter-pg`. — 7.10.0; клиент генерируется в `postinstall`.
+- [x] `schema.prisma` по документу; первая миграция с SQL-ограничениями из раздела «SQL-ограничения». — `prisma/migrations/20261018095038_init`, `test/database-constraints.e2e-spec.ts`.
+- [x] `PrismaService`, последовательность номеров разрешений. — `src/database/`, `test/permit-number.e2e-spec.ts` (смена года по Варшаве, конкурентные запросы, откат транзакции).
+- [x] Seed: ~15 видов (pl/en/ru) и общие правила; значения wymiarów i okresów ochronnych — по актуальному rozporządzeniu, источник указан комментарием в seed. — 20 видов, 16 правил по Dz.U. 2023 poz. 1373 (`prisma/reference-data.ts`); идемпотентность — `test/seed.e2e-spec.ts`. Демо-данные (`SEED_DEMO`) — критерий T-20.
+- [x] Testcontainers-хелпер для интеграционных тестов. — `test/db/` (контейнер на прогон, БД-копия шаблона на файл), `test/factories`.
+- [x] Тест: enum в `packages/shared/src/enums.ts` совпадают с enum сгенерированного Prisma-клиента (ADR-0003; перенесено из T-02). — `src/database/enums.spec.ts`.
 
 ### T-05 Каркас web
 Ссылки: `06-frontend.md`, `10-design-system.md`.
