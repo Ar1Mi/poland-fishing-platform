@@ -1,0 +1,9 @@
+{
+  "page": {
+    "title": "Łowiska w Polsce",
+    "lead": "Tu pojawi się mapa łowisk z wyszukiwarką.",
+    "apiStatus": "Połączenie z serwerem",
+    "apiChecking": "Sprawdzanie…",
+    "apiOk": "Połączono"
+  }
+}

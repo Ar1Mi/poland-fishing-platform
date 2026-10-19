@@ -1,0 +1,21 @@
+{
+  "app": {
+    "name": "Łowisko",
+    "skipToContent": "Przejdź do treści"
+  },
+  "language": {
+    "label": "Język",
+    "pl": "Polski",
+    "en": "English",
+    "ru": "Русский"
+  },
+  "notFound": {
+    "title": "Nie znaleziono strony",
+    "description": "Strona, której szukasz, nie istnieje lub została przeniesiona.",
+    "home": "Wróć na stronę główną"
+  },
+  "routeError": {
+    "title": "Coś poszło nie tak",
+    "reload": "Odśwież stronę"
+  }
+}

@@ -1,0 +1,113 @@
+@import 'tailwindcss';
+@import './fonts.css';
+
+/*
+ * Design tokens (docs/10-design-system.md, ADR-0011). The only place with colour values:
+ * components use semantic classes (bg-primary, text-muted-foreground), never hex.
+ * There is no dark theme in the first version.
+ */
+:root {
+  --primary-dark: #083f46; /* Toń 900 */
+  --primary: #0b5d66; /* Toń 700 */
+  --primary-foreground: #ffffff;
+  --secondary: #dcedec; /* Toń 100 */
+  --secondary-foreground: #083f46;
+  --accent: #c2410c; /* Spławik 600 — one main action per screen */
+  --accent-foreground: #ffffff;
+  --accent-tint: #fbe5d9; /* Spławik 100 */
+  --foreground: #0f2a2e; /* Ink */
+  --muted-foreground: #4a6166;
+  --border: #d5dedb;
+  --input: #9db0ad;
+  --background: #f3f6f4;
+  --card: #ffffff;
+  --card-foreground: #0f2a2e;
+  --ring: #0b5d66;
+  --success: #1b6e45;
+  --success-tint: #ddf0e5;
+  --success-tint-foreground: #14532f;
+  --warning: #8a5300;
+  --warning-tint: #fbebcb;
+  --warning-tint-foreground: #6b4000;
+  --destructive: #a8261d;
+  --destructive-foreground: #ffffff;
+  --destructive-tint: #f8dedb;
+  --destructive-tint-foreground: #7f1a13;
+  --radius: 10px;
+}
+
+@theme inline {
+  --color-primary-dark: var(--primary-dark);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent-tint: var(--accent-tint);
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-background: var(--background);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-tint: var(--success-tint);
+  --color-success-tint-foreground: var(--success-tint-foreground);
+  --color-warning: var(--warning);
+  --color-warning-tint: var(--warning-tint);
+  --color-warning-tint-foreground: var(--warning-tint-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-tint: var(--destructive-tint);
+  --color-destructive-tint-foreground: var(--destructive-tint-foreground);
+
+  --font-sans: 'Onest Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+
+  --radius-sm: 6px; /* badges */
+  --radius-md: var(--radius); /* buttons, inputs */
+  --radius-lg: 16px; /* cards, sheets */
+}
+
+/* Type scale (docs/10-design-system.md → «Типографика»). */
+@theme {
+  --text-display: 40px;
+  --text-display--line-height: 44px;
+  --text-display--font-weight: 700;
+  --text-h1: 28px;
+  --text-h1--line-height: 34px;
+  --text-h1--font-weight: 700;
+  --text-h2: 20px;
+  --text-h2--line-height: 28px;
+  --text-h2--font-weight: 600;
+  --text-body: 16px;
+  --text-body--line-height: 24px;
+  --text-small: 14px;
+  --text-small--line-height: 20px;
+  --text-label: 12px;
+  --text-label--line-height: 16px;
+  --text-label--font-weight: 600;
+  --text-label--letter-spacing: 0.06em;
+}
+
+@layer base {
+  html {
+    @apply bg-background font-sans text-body text-foreground antialiased;
+  }
+
+  /* Visible focus for keyboard users: 3 px ring with a 2 px offset. */
+  :focus-visible {
+    @apply outline-3 outline-offset-2 outline-ring;
+  }
+}
+
+/* Numbers, amounts, sizes, dates and error codes (Data style). */
+@utility text-data {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 500;
+}

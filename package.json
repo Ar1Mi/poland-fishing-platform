@@ -16,12 +16,13 @@
   "scripts": {
     "dev": "pnpm -r --parallel --if-present run dev",
     "build": "pnpm -r --if-present run build",
-    "lint": "eslint --max-warnings=0",
-    "typecheck": "pnpm --filter @lowisko/shared run build && pnpm -r run typecheck",
+    "lint": "pnpm --filter @lowisko/shared run build && pnpm gen:api && eslint --max-warnings=0",
+    "typecheck": "pnpm --filter @lowisko/shared run build && pnpm gen:api && pnpm -r run typecheck",
     "test": "pnpm --filter @lowisko/shared run build && pnpm -r --if-present run test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepare": "husky && pnpm --filter @lowisko/shared run build"
+    "prepare": "husky && pnpm --filter @lowisko/shared run build",
+    "gen:api": "pnpm --filter api run openapi:export && pnpm --filter web run gen:api"
   },
   "lint-staged": {
     "*.{ts,tsx,mts,cts,js,mjs,cjs}": [

@@ -1,0 +1,23 @@
+{
+  "VALIDATION_FAILED": "Sprawdź poprawność wprowadzonych danych.",
+  "UNAUTHENTICATED": "Zaloguj się, aby kontynuować.",
+  "INVALID_CREDENTIALS": "Nieprawidłowy e-mail lub hasło.",
+  "EMAIL_NOT_VERIFIED": "Potwierdź adres e-mail — link wysłaliśmy w wiadomości.",
+  "TOKEN_EXPIRED": "Link wygasł. Poproś o nowy.",
+  "FORBIDDEN": "Nie masz uprawnień do tej operacji.",
+  "ORG_SCOPE_VIOLATION": "Ta operacja dotyczy innej organizacji.",
+  "ORG_NOT_ACTIVE": "Organizacja nie jest aktywna.",
+  "NOT_FOUND": "Nie znaleziono.",
+  "EMAIL_TAKEN": "Konto z tym adresem e-mail już istnieje.",
+  "CLAIM_ALREADY_PENDING": "Wniosek o przejęcie tego łowiska jest już rozpatrywany.",
+  "WATER_ALREADY_CONNECTED": "To łowisko jest już podłączone przez inną organizację.",
+  "PERMIT_START_IN_PAST": "Data rozpoczęcia zezwolenia nie może być w przeszłości.",
+  "DISCOUNT_NOT_ELIGIBLE": "Ta zniżka Ci nie przysługuje.",
+  "PERMIT_TYPE_INACTIVE": "Ten rodzaj zezwolenia nie jest już sprzedawany.",
+  "EDIT_WINDOW_CLOSED": "Czas na zmianę tego wpisu minął.",
+  "PERMIT_NOT_REVOCABLE": "Tego zezwolenia nie można unieważnić.",
+  "RATE_LIMITED": "Zbyt wiele prób. Spróbuj ponownie za chwilę.",
+  "INTERNAL_ERROR": "Wystąpił błąd serwera. Spróbuj ponownie później.",
+  "NETWORK_ERROR": "Brak połączenia z serwerem. Sprawdź internet i spróbuj ponownie.",
+  "UNKNOWN_ERROR": "Coś poszło nie tak. Spróbuj ponownie."
+}
