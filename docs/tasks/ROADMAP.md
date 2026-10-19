@@ -13,7 +13,7 @@
 | T-03 | Каркас API (NestJS) | Каркас | T-01 | done |
 | T-04 | БД: Docker Compose, Prisma-схема v1, seed видов и общих правил | Каркас | T-03 | done |
 | T-05 | Каркас web (React, i18n, API-клиент) | Каркас | T-01 | done |
-| T-06 | CI GitHub Actions | Каркас | T-03, T-05 | todo |
+| T-06 | CI GitHub Actions | Каркас | T-03, T-05 | doing |
 | T-07 | Аутентификация | Каркас | T-04 | todo |
 | T-08 | Организации, членство, guards | Каркас | T-07 | todo |
 | T-09 | Каталог: API и карта | Срез | T-04, T-05 | todo |

@@ -1,0 +1,46 @@
+# Checks every push and pull request (docs/08-testing-and-infra.md → «CI»).
+# Playwright E2E joins with the first scenarios (T-20).
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+# A newer push to the same branch makes the running check obsolete.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      # Version from the packageManager field of package.json.
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # prepare builds packages/shared; apps/api postinstall generates the Prisma client.
+      - run: pnpm install --frozen-lockfile
+
+      # Root lint and typecheck build shared and generate the web API types (pnpm gen:api)
+      # first: schema.d.ts is not committed. A job that runs them per package must do the same.
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+
+      # Testcontainers starts PostgreSQL on the runner's Docker.
+      - run: pnpm --filter api test:e2e
+
+      - run: pnpm build
