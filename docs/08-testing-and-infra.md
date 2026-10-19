@@ -47,7 +47,7 @@
 
 ## CI (GitHub Actions)
 
-`ci.yml` на каждый push и PR:
+`ci.yml` на каждый PR и push в `main`:
 
 1. `pnpm install --frozen-lockfile` (кэш хранилища pnpm по `pnpm-lock.yaml`)
 2. `pnpm format:check` · `pnpm lint` · `pnpm typecheck` — корневые скрипты сами собирают `packages/shared` и типы API-клиента (`pnpm gen:api`)

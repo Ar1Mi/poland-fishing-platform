@@ -2,17 +2,20 @@
 # Playwright E2E joins with the first scenarios (T-20).
 name: CI
 
+# Task branches are checked through their pull request; a push to main checks the merge.
 on:
   push:
+    branches: [main]
   pull_request:
 
 permissions:
   contents: read
 
-# A newer push to the same branch makes the running check obsolete.
+# A newer push to the same pull request makes the running check obsolete; runs on main are
+# never cancelled, so every merge gets its own result.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   check:
@@ -21,6 +24,9 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Install scripts of dependencies run later; they do not need the token.
+          persist-credentials: false
 
       # Version from the packageManager field of package.json.
       - uses: pnpm/action-setup@v6
