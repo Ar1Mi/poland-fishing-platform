@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "gen:api": "openapi-typescript ../api/dist/openapi.json -o src/shared/api/schema.d.ts"
+    "gen:api": "openapi-typescript ../api/dist-openapi/openapi.json -o src/shared/api/schema.d.ts"
   },
   "devDependencies": {
     "@tailwindcss/vite": "4.3.3",

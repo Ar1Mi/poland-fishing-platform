@@ -20,6 +20,6 @@ async function exportOpenApi(outFile: string): Promise<void> {
 
 const outFile = process.argv[2];
 if (!outFile) {
-  throw new Error('Usage: node dist/openapi/export-openapi.js <out.json>');
+  throw new Error('Usage: node dist-openapi/openapi/export-openapi.js <out.json>');
 }
 void exportOpenApi(outFile);

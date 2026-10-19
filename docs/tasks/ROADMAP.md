@@ -94,6 +94,7 @@
 - [ ] `ci.yml`: install, lint, typecheck, unit, интеграционные, build.
 - [ ] Кэш pnpm; бейдж в README.
 - [ ] `packages/shared` собран до `lint`, `typecheck` и `test` (типизированный ESLint и приложения видят пакет через `dist`); проверить на чистом клоне.
+- [ ] `apps/web/src/shared/api/schema.d.ts` не коммитится: job, который запускает `lint`/`typecheck` web не через корневые скрипты, сначала вызывает `pnpm gen:api`.
 - [ ] Снять `--if-present` с корневых `build` и `test` (все пакеты уже имеют эти скрипты), чтобы пакет без тестов не выпадал из CI молча.
 
 ### T-07 Аутентификация

@@ -19,7 +19,7 @@ export function HomePage() {
         </CardHeader>
         <CardContent>
           {health.isPending && (
-            <Badge variant="outline">
+            <Badge variant="neutral">
               <LoaderCircle aria-hidden className="animate-spin" />
               {t('home.page.apiChecking')}
             </Badge>

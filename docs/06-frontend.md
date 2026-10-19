@@ -62,7 +62,7 @@ Workbox: app shell и статика — precache; `/api/v1/waters`, `/species` 
 
 ## API-клиент
 
-- `pnpm gen:api`: API собирается и без БД и `.env` выгружает OpenAPI-документ (`apps/api/dist/openapi.json`), `openapi-typescript` делает из него `src/shared/api/schema.d.ts`. Файл не коммитится; корневые `pnpm lint` и `pnpm typecheck` генерируют его сами.
+- `pnpm gen:api`: API собирается и без БД и `.env` выгружает OpenAPI-документ (`apps/api/dist-openapi/openapi.json`, отдельно от `dist`, чтобы не мешать `nest start --watch`), `openapi-typescript` делает из него `src/shared/api/schema.d.ts`. Файл не коммитится; корневые `pnpm lint` и `pnpm typecheck` генерируют его сами.
 - Клиент — `openapi-fetch`, пути с префиксом `/api/v1`, тот же origin: в dev Vite проксирует `/api` на `localhost:3000`, в prod — Caddy.
 - Запросы идут только через `request()` внутри TanStack Query: он возвращает `data` или бросает `ApiError` с `code`. Компонент показывает `t(errorMessageKey(error))` (`ApiErrorAlert`).
 - Кроме кодов API (`ErrorCode`) у клиента два своих: `NETWORK_ERROR` — ответа нет или прокси вернул 502/503/504 без тела API; `UNKNOWN_ERROR` — ответ не в формате `{ code }` или код неизвестен клиенту.

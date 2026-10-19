@@ -21,6 +21,7 @@ const postgresUrl = z
   });
 
 // Variables are added here by the task that first reads them (docs/08-testing-and-infra.md → «Окружение»).
+// A new required variable also needs a placeholder in src/openapi/fixed-env.ts (`pnpm gen:api`).
 export const envSchema = z.object({
   // The safe mode is the default: development extras (debug level, pino-pretty) are opt-in.
   NODE_ENV: z.enum(['development', 'test', 'production']).default('production'),

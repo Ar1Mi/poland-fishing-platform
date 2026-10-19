@@ -11,7 +11,7 @@
     "test:watch": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --watch",
     "test:e2e": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --config test/jest-e2e.json",
     "postinstall": "prisma generate",
-    "openapi:export": "nest build && node dist/openapi/export-openapi.js dist/openapi.json"
+    "openapi:export": "rm -rf dist-openapi && tsc -p tsconfig.build.json --outDir dist-openapi --sourceMap false && node dist-openapi/openapi/export-openapi.js dist-openapi/openapi.json"
   },
   "dependencies": {
     "@lowisko/shared": "workspace:*",

@@ -19,9 +19,12 @@ const alertVariants = cva(
 
 type AlertProps = ComponentProps<'div'> & VariantProps<typeof alertVariants>;
 
-/** Message block: icon, title and text (RuleAlert builds on it). */
-export function Alert({ className, variant, role = 'alert', ...props }: AlertProps) {
-  return <div role={role} className={cn(alertVariants({ variant }), className)} {...props} />;
+/**
+ * Message block: icon, title and text (RuleAlert builds on it). No live role by default:
+ * pass `role="alert"` only for a message that appears in response to an action or error.
+ */
+export function Alert({ className, variant, ...props }: AlertProps) {
+  return <div className={cn(alertVariants({ variant }), className)} {...props} />;
 }
 
 export function AlertTitle({ className, ...props }: ComponentProps<'p'>) {

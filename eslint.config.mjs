@@ -8,6 +8,7 @@ import tseslint from 'typescript-eslint';
 export default defineConfig(
   globalIgnores([
     '**/dist/',
+    '**/dist-openapi/',
     '**/build/',
     '**/coverage/',
     'apps/api/src/generated/',

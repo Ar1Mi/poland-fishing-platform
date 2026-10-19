@@ -7,11 +7,13 @@ import { Alert, AlertDescription } from './alert';
 export function ApiErrorAlert({ error }: { error: unknown }) {
   const { t } = useTranslation();
   return (
-    <Alert variant="destructive">
+    <Alert variant="destructive" role="alert">
       <CircleAlert aria-hidden />
       <AlertDescription className="text-body">{t(errorMessageKey(error))}</AlertDescription>
       {error instanceof ApiError && (
-        <AlertDescription className="font-mono text-label">{error.code}</AlertDescription>
+        <AlertDescription className="font-mono text-label font-medium">
+          {error.code}
+        </AlertDescription>
       )}
     </Alert>
   );

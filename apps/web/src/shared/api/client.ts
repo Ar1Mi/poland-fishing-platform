@@ -26,7 +26,12 @@ export async function request<T>(call: () => Promise<ClientResult<T>>): Promise<
     if (error instanceof DOMException && error.name === 'AbortError') {
       throw error;
     }
-    throw new ApiError(ClientErrorCode.NETWORK_ERROR, 'The API could not be reached', undefined);
+    // fetch rejects with TypeError when no response arrives; anything else (e.g. a 200 with an
+    // HTML body that is not JSON) means the server answered, but not as the API.
+    if (error instanceof TypeError) {
+      throw new ApiError(ClientErrorCode.NETWORK_ERROR, 'The API could not be reached');
+    }
+    throw new ApiError(ClientErrorCode.UNKNOWN_ERROR, 'Unexpected response from the API');
   }
   if (!result.response.ok) {
     throw parseErrorBody(result.error, result.response.status);

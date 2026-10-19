@@ -66,6 +66,20 @@ describe('request', () => {
     expect(error).toMatchObject({ code: ClientErrorCode.NETWORK_ERROR, status: undefined });
   });
 
+  it('throws UNKNOWN_ERROR when a successful response is not JSON', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response('<!doctype html><html></html>', {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' },
+        }),
+      ),
+    );
+
+    await expect(healthCheck()).rejects.toMatchObject({ code: ClientErrorCode.UNKNOWN_ERROR });
+  });
+
   it('rethrows a cancelled request unchanged', async () => {
     const abort = new DOMException('The operation was aborted.', 'AbortError');
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(abort));

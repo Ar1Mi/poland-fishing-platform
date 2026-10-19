@@ -104,6 +104,15 @@
   }
 }
 
+/* Group captions (Label style): caps on top of the --text-label size, weight and tracking. */
+@utility caption {
+  font-size: var(--text-label);
+  line-height: var(--text-label--line-height);
+  font-weight: var(--text-label--font-weight);
+  letter-spacing: var(--text-label--letter-spacing);
+  text-transform: uppercase;
+}
+
 /* Numbers, amounts, sizes, dates and error codes (Data style). */
 @utility text-data {
   font-family: var(--font-mono);

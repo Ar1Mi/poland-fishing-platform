@@ -17,7 +17,8 @@ import { HealthModule } from './modules/health/health.module';
       validate: validateEnv,
       // The single .env lives in the repository root; scripts run from apps/api.
       envFilePath: ['.env', '../../.env'],
-      ignoreEnvFile: process.env.NODE_ENV === 'test',
+      // Tests and the OpenAPI export (src/openapi) run with a fixed environment.
+      ignoreEnvFile: process.env.NODE_ENV === 'test' || process.env.OPENAPI_EXPORT === '1',
     }),
     LoggingModule,
     ClockModule,
