@@ -62,6 +62,17 @@ describe('database constraints', () => {
       );
     });
 
+    it('refuses to delete an external permit that has catches', async () => {
+      const data = await catchData();
+      const external = await createExternalPermit(prisma, { userId: data.userId });
+      await prisma.catchRecord.create({ data: { ...data, externalPermitId: external.id } });
+
+      await expect(prisma.externalPermit.delete({ where: { id: external.id } })).rejects.toThrow(
+        /CatchRecord_externalPermitId_fkey|Foreign key constraint/,
+      );
+      expect(await prisma.externalPermit.count({ where: { id: external.id } })).toBe(1);
+    });
+
     it('rejects a catch on both kinds of permit at once', async () => {
       const data = await catchData();
       const permit = await createPermit(prisma, { userId: data.userId });
@@ -97,6 +108,8 @@ describe('database constraints', () => {
       ).resolves.toBeDefined();
     });
 
+    // The CHECK validates the MM-DD shape only: a day that does not exist in its month
+    // (02-30) passes here and is left to input validation of the rules API (T-16).
     it.each([
       ['only the start', { closedFrom: '01-01' }],
       ['only the end', { closedTo: '04-30' }],
@@ -110,6 +123,48 @@ describe('database constraints', () => {
       await expect(
         prisma.speciesRule.create({ data: { speciesId: species.id, ...period } }),
       ).rejects.toThrow(/rule_closed_period/);
+    });
+
+    it('allows one general rule per species but several organization rules', async () => {
+      const species = await createSpecies(prisma);
+      const organization = await createOrganization(prisma);
+
+      await prisma.speciesRule.create({ data: { speciesId: species.id, minLengthCm: 45 } });
+      await expect(
+        prisma.speciesRule.create({ data: { speciesId: species.id, minLengthCm: 50 } }),
+      ).rejects.toThrow(/rule_one_general/);
+
+      for (const minLengthCm of [50, 55]) {
+        await expect(
+          prisma.speciesRule.create({
+            data: { speciesId: species.id, organizationId: organization.id, minLengthCm },
+          }),
+        ).resolves.toBeDefined();
+      }
+    });
+
+    it('deletes organization and water rules with their level instead of widening them', async () => {
+      const species = await createSpecies(prisma);
+      const organization = await createOrganization(prisma);
+      const water = await createWater(prisma);
+      const orgRule = await prisma.speciesRule.create({
+        data: { speciesId: species.id, organizationId: organization.id, minLengthCm: 50 },
+      });
+      const waterRule = await prisma.speciesRule.create({
+        data: {
+          speciesId: species.id,
+          organizationId: organization.id,
+          fishingWaterId: water.id,
+          minLengthCm: 55,
+        },
+      });
+
+      await prisma.fishingWater.delete({ where: { id: water.id } });
+      expect(await prisma.speciesRule.findUnique({ where: { id: waterRule.id } })).toBeNull();
+      expect(await prisma.speciesRule.findUnique({ where: { id: orgRule.id } })).not.toBeNull();
+
+      await prisma.organization.delete({ where: { id: organization.id } });
+      expect(await prisma.speciesRule.count({ where: { speciesId: species.id } })).toBe(0);
     });
   });
 

@@ -365,8 +365,10 @@ model SpeciesRule {
   createdAt         DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt         DateTime      @updatedAt @db.Timestamptz(3)
   species           Species       @relation(fields: [speciesId], references: [id])
-  organization      Organization? @relation(fields: [organizationId], references: [id])
-  water             FishingWater? @relation(fields: [fishingWaterId], references: [id])
+  // Cascade, not the default SET NULL: a rule that lost its level would silently widen
+  // (an organization rule would become a general one).
+  organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  water             FishingWater? @relation(fields: [fishingWaterId], references: [id], onDelete: Cascade)
 
   @@index([speciesId])
 }
@@ -392,7 +394,8 @@ model CatchRecord {
   updatedAt        DateTime        @updatedAt @db.Timestamptz(3)
   user             User            @relation(fields: [userId], references: [id])
   permit           Permit?         @relation(fields: [permitId], references: [id])
-  externalPermit   ExternalPermit? @relation(fields: [externalPermitId], references: [id])
+  // Restrict, not SET NULL: catch_exactly_one_permit would reject the orphan anyway.
+  externalPermit   ExternalPermit? @relation(fields: [externalPermitId], references: [id], onDelete: Restrict)
   water            FishingWater    @relation(fields: [fishingWaterId], references: [id])
   species          Species         @relation(fields: [speciesId], references: [id])
 
@@ -464,15 +467,25 @@ ALTER TABLE "FishingWater" ADD CONSTRAINT water_connected_has_org
 ALTER TABLE "Permit" ADD CONSTRAINT permit_dates CHECK ("validTo" >= "validFrom");
 ALTER TABLE "PermitType" ADD CONSTRAINT permit_type_positive CHECK ("durationDays" > 0 AND "priceGrosze" >= 0);
 
+-- одно общее правило на вид (правил организации и водоёма может быть несколько — они сливаются в самое строгое)
+CREATE UNIQUE INDEX rule_one_general ON "SpeciesRule" ("speciesId") WHERE "organizationId" IS NULL AND "fishingWaterId" IS NULL;
+
 -- одна активная заявка на водоём от организации
 CREATE UNIQUE INDEX claim_one_pending ON "WaterClaim" ("fishingWaterId", "organizationId") WHERE "status" = 'PENDING';
 ```
 
-Все ограничения — в `apps/api/prisma/migrations/20261018095038_init/migration.sql`, каждое проверено тестом `apps/api/test/database-constraints.e2e-spec.ts`.
+Все ограничения — в `apps/api/prisma/migrations/20261018095038_init/migration.sql`, каждое проверено тестом `apps/api/test/database-constraints.e2e-spec.ts`. `rule_closed_period` проверяет только форму `MM-DD`: несуществующий день месяца (`02-30`) отсекает валидация входа API правил (T-16).
+
+Удаление (`onDelete`), отличное от умолчаний Prisma:
+
+- `SpeciesRule.organization`, `SpeciesRule.water` — `Cascade`. Умолчание `SET NULL` молча расширяло бы правило: правило удалённой организации стало бы общим для всей страны, правило удалённого водоёма — правилом всей организации.
+- `CatchRecord.externalPermit` — `Restrict`: внешнее разрешение с уловами удалить нельзя (при `SET NULL` удаление упало бы на `catch_exactly_one_permit` с непонятной ошибкой).
 
 ## Номер разрешения
 
-`ZW-{YYYY}-{000001}`: своя последовательность PostgreSQL на каждый год (`permit_number_2026`, …). Её создаёт при первом номере года SQL-функция `next_permit_number(year)` из той же миграции; создание защищено `pg_advisory_xact_lock`, поэтому одновременные первые покупки года не падают на `CREATE SEQUENCE`. Блокировка берётся только пока последовательности нет. Год — по дате `Europe/Warsaw` (`PermitNumberService`, `ClockService`). Номер больше 999999 не обрезается (7 цифр). Пропуски номеров (откат транзакции) допустимы.
+`ZW-{YYYY}-{000001}`: своя последовательность PostgreSQL на каждый год (`permit_number_2026`, …). Её создаёт при первом номере года SQL-функция `next_permit_number(year)` из той же миграции; создание защищено `pg_advisory_xact_lock`, поэтому одновременные первые покупки года не падают на `CREATE SEQUENCE`. Блокировка берётся только пока последовательности нет. И блокировка, и новая последовательность живут до конца транзакции вызывающего кода: если первый номер года взят внутри транзакции покупки, остальные первые покупки года ждут её завершения (`apps/api/test/permit-number.e2e-spec.ts`). Поэтому в T-13 номер берётся в короткой транзакции записи разрешения, без HTTP-запросов к P24 внутри неё.
+
+Функция выполняет DDL во время работы приложения: роли приложения нужно право `CREATE` на схему `public`. С PostgreSQL 15 у `PUBLIC` его нет — приложение должно подключаться владельцем БД (как в `docker-compose.yml`); учесть при деплое (T-30). Год — по дате `Europe/Warsaw` (`PermitNumberService`, `ClockService`). Номер больше 999999 не обрезается (7 цифр). Пропуски номеров (откат транзакции) допустимы.
 
 ## Ключевые решения (для текста диплома)
 

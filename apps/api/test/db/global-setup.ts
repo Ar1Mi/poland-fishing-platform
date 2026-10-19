@@ -21,18 +21,27 @@ export default async function globalSetup(): Promise<void> {
     .start();
   globalThis.__POSTGRES_CONTAINER__ = container;
 
-  const url = container.getConnectionUri();
-  execFileSync('pnpm', ['exec', 'prisma', 'migrate', 'deploy'], {
-    cwd: path.join(__dirname, '../..'),
-    env: { ...process.env, DATABASE_URL: url },
-    stdio: 'pipe',
-  });
+  try {
+    const url = container.getConnectionUri();
+    execFileSync('pnpm', ['exec', 'prisma', 'migrate', 'deploy'], {
+      cwd: path.join(__dirname, '../..'),
+      env: { ...process.env, DATABASE_URL: url },
+      stdio: 'pipe',
+    });
 
-  await withAdminClient(url, (admin) =>
-    admin.$executeRawUnsafe(`CREATE DATABASE "${TEMPLATE_DATABASE}" TEMPLATE "lowisko"`),
-  );
+    await withAdminClient(url, (admin) =>
+      admin.$executeRawUnsafe(`CREATE DATABASE "${TEMPLATE_DATABASE}" TEMPLATE "lowisko"`),
+    );
 
-  // Workers are started after global setup and inherit these variables.
-  process.env.DATABASE_URL = url;
-  process.env.TEST_DATABASE_ADMIN_URL = url;
+    // Workers are started after global setup and inherit these variables. The shared
+    // database is deliberately unreachable: a test that needs the database clones its own
+    // with createTestDatabase(), so one that forgets fails instead of sharing rows.
+    const unusable = new URL(url);
+    unusable.pathname = '/use_createTestDatabase';
+    process.env.DATABASE_URL = unusable.toString();
+    process.env.TEST_DATABASE_ADMIN_URL = url;
+  } catch (error) {
+    await container.stop();
+    throw error;
+  }
 }

@@ -51,6 +51,52 @@ describe('seedReferenceData', () => {
     });
   });
 
+  // Typed independently of reference-data.ts from Dz.U. 2023 poz. 1373 (§ 6.1, § 7.1, § 2.3),
+  // strictest variant where the regulation differs by river section.
+  it.each([
+    ['Esox lucius', 45, '01-01', '04-30', null],
+    ['Sander lucioperca', 45, '03-01', '05-31', null],
+    ['Silurus glanis', 70, '01-01', '05-31', null],
+    ['Leuciscus aspius', 40, null, null, null],
+    ['Barbus barbus', 40, '01-01', '06-30', null],
+    ['Tinca tinca', 25, null, null, null],
+    ['Leuciscus idus', 25, null, null, null],
+    ['Squalius cephalus', 25, null, null, null],
+    ['Scardinius erythrophthalmus', 15, null, null, null],
+    ['Anguilla anguilla', 50, '12-01', '03-31', 2],
+    ['Salmo trutta m. fario', 30, '09-01', '01-31', null],
+    ['Thymallus thymallus', 30, '03-01', '05-31', null],
+    ['Salmo trutta m. trutta', 35, '10-01', '02-28', null],
+    ['Salmo salar', 35, '10-01', '02-28', null],
+    ['Lota lota', 30, '12-01', '02-28', null],
+    ['Acipenser oxyrinchus', null, '01-01', '12-31', null],
+  ])(
+    'stores the general rule of %s from the regulation',
+    async (latinName, minLengthCm, closedFrom, closedTo, dailyLimitCount) => {
+      await seedReferenceData(db.prisma);
+
+      const rule = await db.prisma.speciesRule.findFirstOrThrow({
+        where: { species: { latinName }, organizationId: null, fishingWaterId: null },
+      });
+      expect(rule).toMatchObject({
+        minLengthCm,
+        closedFrom,
+        closedTo,
+        dailyLimitCount,
+        dailyLimitWeightG: null,
+      });
+    },
+  );
+
+  it.each(['Perca fluviatilis', 'Cyprinus carpio', 'Abramis brama', 'Rutilus rutilus'])(
+    'leaves %s without a general rule',
+    async (latinName) => {
+      await seedReferenceData(db.prisma);
+
+      expect(await db.prisma.speciesRule.count({ where: { species: { latinName } } })).toBe(0);
+    },
+  );
+
   it('marks the protected species and closes it all year', async () => {
     await seedReferenceData(db.prisma);
 

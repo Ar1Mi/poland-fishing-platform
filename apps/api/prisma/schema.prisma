@@ -339,8 +339,10 @@ model SpeciesRule {
   createdAt         DateTime      @default(now()) @db.Timestamptz(3)
   updatedAt         DateTime      @updatedAt @db.Timestamptz(3)
   species           Species       @relation(fields: [speciesId], references: [id])
-  organization      Organization? @relation(fields: [organizationId], references: [id])
-  water             FishingWater? @relation(fields: [fishingWaterId], references: [id])
+  // Cascade, not the default SET NULL: a rule that lost its level would silently widen
+  // (an organization rule would become a general one).
+  organization      Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  water             FishingWater? @relation(fields: [fishingWaterId], references: [id], onDelete: Cascade)
 
   @@index([speciesId])
 }
@@ -366,7 +368,8 @@ model CatchRecord {
   updatedAt        DateTime        @updatedAt @db.Timestamptz(3)
   user             User            @relation(fields: [userId], references: [id])
   permit           Permit?         @relation(fields: [permitId], references: [id])
-  externalPermit   ExternalPermit? @relation(fields: [externalPermitId], references: [id])
+  // Restrict, not SET NULL: catch_exactly_one_permit would reject the orphan anyway.
+  externalPermit   ExternalPermit? @relation(fields: [externalPermitId], references: [id], onDelete: Restrict)
   water            FishingWater    @relation(fields: [fishingWaterId], references: [id])
   species          Species         @relation(fields: [speciesId], references: [id])
 

@@ -452,10 +452,10 @@ ALTER TABLE "Payment" ADD CONSTRAINT "Payment_permitId_fkey" FOREIGN KEY ("permi
 ALTER TABLE "SpeciesRule" ADD CONSTRAINT "SpeciesRule_speciesId_fkey" FOREIGN KEY ("speciesId") REFERENCES "Species"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "SpeciesRule" ADD CONSTRAINT "SpeciesRule_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "SpeciesRule" ADD CONSTRAINT "SpeciesRule_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "Organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "SpeciesRule" ADD CONSTRAINT "SpeciesRule_fishingWaterId_fkey" FOREIGN KEY ("fishingWaterId") REFERENCES "FishingWater"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "SpeciesRule" ADD CONSTRAINT "SpeciesRule_fishingWaterId_fkey" FOREIGN KEY ("fishingWaterId") REFERENCES "FishingWater"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "CatchRecord" ADD CONSTRAINT "CatchRecord_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -464,7 +464,7 @@ ALTER TABLE "CatchRecord" ADD CONSTRAINT "CatchRecord_userId_fkey" FOREIGN KEY (
 ALTER TABLE "CatchRecord" ADD CONSTRAINT "CatchRecord_permitId_fkey" FOREIGN KEY ("permitId") REFERENCES "Permit"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "CatchRecord" ADD CONSTRAINT "CatchRecord_externalPermitId_fkey" FOREIGN KEY ("externalPermitId") REFERENCES "ExternalPermit"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "CatchRecord" ADD CONSTRAINT "CatchRecord_externalPermitId_fkey" FOREIGN KEY ("externalPermitId") REFERENCES "ExternalPermit"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "CatchRecord" ADD CONSTRAINT "CatchRecord_fishingWaterId_fkey" FOREIGN KEY ("fishingWaterId") REFERENCES "FishingWater"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -513,6 +513,9 @@ ALTER TABLE "FishingWater" ADD CONSTRAINT water_connected_has_org
 ALTER TABLE "Permit" ADD CONSTRAINT permit_dates CHECK ("validTo" >= "validFrom");
 ALTER TABLE "PermitType" ADD CONSTRAINT permit_type_positive CHECK ("durationDays" > 0 AND "priceGrosze" >= 0);
 
+-- one general rule per species (organization and water rules may be several, they merge to the strictest)
+CREATE UNIQUE INDEX rule_one_general ON "SpeciesRule" ("speciesId") WHERE "organizationId" IS NULL AND "fishingWaterId" IS NULL;
+
 -- one pending claim per water and organization
 CREATE UNIQUE INDEX claim_one_pending ON "WaterClaim" ("fishingWaterId", "organizationId") WHERE "status" = 'PENDING';
 
@@ -520,7 +523,9 @@ CREATE UNIQUE INDEX claim_one_pending ON "WaterClaim" ("fishingWaterId", "organi
 
 -- One sequence per year, created on the first number of that year. The advisory lock
 -- makes concurrent first calls wait instead of racing on CREATE SEQUENCE; it is taken
--- only while the sequence is missing, so later calls do not serialize.
+-- only while the sequence is missing, so later calls do not serialize. Both the lock and
+-- the new sequence live until the caller's transaction ends: other first calls of the
+-- year wait for it (docs/04-data-model.md → «Номер разрешения»).
 CREATE FUNCTION next_permit_number(p_year integer) RETURNS text
 LANGUAGE plpgsql AS $$
 DECLARE
@@ -532,7 +537,10 @@ BEGIN
   END IF;
   IF to_regclass(seq) IS NULL THEN
     PERFORM pg_advisory_xact_lock(hashtext('next_permit_number'));
-    EXECUTE format('CREATE SEQUENCE IF NOT EXISTS %I', seq);
+    -- re-check: a concurrent caller may have created it while we waited
+    IF to_regclass(seq) IS NULL THEN
+      EXECUTE format('CREATE SEQUENCE IF NOT EXISTS %I', seq);
+    END IF;
   END IF;
   n := nextval(seq)::text;
   -- lpad would truncate a seventh digit
