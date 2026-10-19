@@ -13,7 +13,7 @@
 | T-03 | Каркас API (NestJS) | Каркас | T-01 | done |
 | T-04 | БД: Docker Compose, Prisma-схема v1, seed видов и общих правил | Каркас | T-03 | done |
 | T-05 | Каркас web (React, i18n, API-клиент) | Каркас | T-01 | done |
-| T-06 | CI GitHub Actions | Каркас | T-03, T-05 | doing |
+| T-06 | CI GitHub Actions | Каркас | T-03, T-05 | done |
 | T-07 | Аутентификация | Каркас | T-04 | todo |
 | T-08 | Организации, членство, guards | Каркас | T-07 | todo |
 | T-09 | Каталог: API и карта | Срез | T-04, T-05 | todo |
@@ -91,11 +91,11 @@
 
 ### T-06 CI
 Ссылки: `08-testing-and-infra.md` → «CI».
-- [ ] `ci.yml`: install, lint, typecheck, unit, интеграционные, build.
-- [ ] Кэш pnpm; бейдж в README.
-- [ ] `packages/shared` собран до `lint`, `typecheck` и `test` (типизированный ESLint и приложения видят пакет через `dist`); проверить на чистом клоне.
-- [ ] `apps/web/src/shared/api/schema.d.ts` не коммитится: job, который запускает `lint`/`typecheck` web не через корневые скрипты, сначала вызывает `pnpm gen:api`.
-- [ ] Снять `--if-present` с корневых `build` и `test` (все пакеты уже имеют эти скрипты), чтобы пакет без тестов не выпадал из CI молча.
+- [x] `ci.yml`: install, lint, typecheck, unit, интеграционные, build.
+- [x] Кэш pnpm; бейдж в README.
+- [x] `packages/shared` собран до `lint`, `typecheck` и `test` (типизированный ESLint и приложения видят пакет через `dist`); проверить на чистом клоне.
+- [x] `apps/web/src/shared/api/schema.d.ts` не коммитится: job, который запускает `lint`/`typecheck` web не через корневые скрипты, сначала вызывает `pnpm gen:api`.
+- [x] Снять `--if-present` с корневых `build` и `test` (все пакеты уже имеют эти скрипты), чтобы пакет без тестов не выпадал из CI молча.
 
 ### T-07 Аутентификация
 FR-01, FR-02. Ссылки: `07-security.md`.

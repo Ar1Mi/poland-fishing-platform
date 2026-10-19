@@ -16,6 +16,27 @@
 
 ---
 
+## 2026-10-19 · T-06 CI
+
+**Сделано:**
+- `.github/workflows/ci.yml` на каждый push и PR: установка по lockfile, `format:check`, `lint`, `typecheck`, unit-тесты, интеграционные тесты API (Testcontainers на Docker раннера), сборка.
+- Кэш хранилища pnpm через `actions/setup-node`, бейдж CI в README.
+- С корневых `build` и `test` снят `--if-present`: пакет без этих скриптов теперь роняет прогон, а не выпадает молча.
+
+**Решения:**
+- Один job вместо матрицы: шаги идут последовательно на одном раннере, установка и кэш общие; интеграционные тесты занимают секунды. Версии берутся из репозитория, а не дублируются в workflow: pnpm — из `packageManager`, Node — из `.nvmrc`.
+- Workflow запускает только корневые скрипты. Они сами собирают `packages/shared` и генерируют `schema.d.ts` (T-02, T-05), поэтому порядок подготовки описан в одном месте — `package.json` — и одинаков локально и в CI.
+- `concurrency` с отменой устаревшего прогона и `permissions: contents: read` — минимальные права токена (`07-security.md`).
+- Playwright из `08-testing-and-infra.md` отложен до T-20: E2E-сценариев ещё нет.
+
+**Проблемы:**
+- Проверить workflow локально нечем (`act` и `actionlint` не установлены). Поэтому шаги CI повторены на чистом клоне ветки с `CI=true`; прогон на GitHub — после push.
+
+**Подтверждение:**
+- Чистый клон (`git clone --branch t-06-ci`, без `node_modules`, `dist`, клиента Prisma и `schema.d.ts`): `pnpm install --frozen-lockfile`, `format:check`, `lint`, `typecheck`, `test`, `--filter api test:e2e`, `build` — все с кодом 0.
+
+**Для текста:** `.github/workflows/ci.yml` — весь файл: конвейер проверки из семи шагов, где порядок подготовки (сборка `shared`, генерация типов клиента) скрыт за корневыми скриптами, а не размазан по шагам CI.
+
 ## 2026-10-19 · T-05 Каркас web
 
 **Сделано:**
