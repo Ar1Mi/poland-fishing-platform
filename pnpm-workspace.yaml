@@ -7,8 +7,17 @@ catalog:
   typescript: 6.0.3
   vitest: 5.0.4
 
-# Install scripts are denied: all three ship prebuilt binaries or only send telemetry.
+# Install scripts are denied unless a package cannot work without them:
+# prebuilt binaries come as optional dependencies, the rest is telemetry,
+# version notices or optional native speed-ups (ssh2, cpu-features).
+# @prisma/engines downloads the schema engine binary that `prisma migrate` runs.
 allowBuilds:
   '@parcel/watcher': false
+  '@prisma/engines': true
   '@scarf/scarf': false
+  cpu-features: false
+  esbuild: false
+  prisma: false
+  protobufjs: false
+  ssh2: false
   unrs-resolver: false

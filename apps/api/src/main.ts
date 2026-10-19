@@ -9,6 +9,8 @@ import type { Env } from './config/env';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
   setupApp(app);
+  // SIGTERM from Docker closes the database pool (PrismaService.onModuleDestroy).
+  app.enableShutdownHooks();
 
   const config = app.get<ConfigService<Env, true>>(ConfigService);
   await app.listen(config.get('API_PORT', { infer: true }));

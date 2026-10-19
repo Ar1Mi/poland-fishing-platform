@@ -14,6 +14,12 @@ const httpOrigin = z.string().transform((value, ctx) => {
   return url.origin;
 });
 
+const postgresUrl = z
+  .string()
+  .refine((value) => URL.canParse(value) && /^postgres(ql)?:$/.test(new URL(value).protocol), {
+    message: 'must be a postgresql:// connection URL',
+  });
+
 // Variables are added here by the task that first reads them (docs/08-testing-and-infra.md → «Окружение»).
 export const envSchema = z.object({
   // The safe mode is the default: development extras (debug level, pino-pretty) are opt-in.
@@ -21,6 +27,7 @@ export const envSchema = z.object({
   API_PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   API_URL: httpOrigin,
   WEB_URL: httpOrigin,
+  DATABASE_URL: postgresUrl,
 });
 
 export type Env = z.infer<typeof envSchema>;

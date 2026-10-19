@@ -49,4 +49,13 @@ pnpm install         # зависимости + git-хук pre-commit (Husky) + 
 
 Перед коммитом хук прогоняет ESLint и Prettier по изменённым файлам (lint-staged); типы он не проверяет — для этого `pnpm typecheck`. Хуку нужны Node 24 и pnpm в `PATH`. Если git запускается не из оболочки с `nvm use` (GUI-клиент, IDE), добавьте их в `~/.config/husky/init.sh`. На другой мажорной версии Node команды pnpm останавливаются с ошибкой (`devEngines` в `package.json`).
 
-База данных, `.env` и `docker compose` появятся в задачах T-03…T-04.
+### База данных
+
+```bash
+docker compose up -d db mailpit                   # PostgreSQL 16 и Mailpit (UI: http://localhost:8025)
+pnpm --filter api prisma migrate dev              # миграции (DATABASE_URL из .env в корне)
+pnpm --filter api prisma db seed                  # виды рыб и общие правила
+pnpm --filter api test:e2e                        # интеграционные тесты, нужен запущенный Docker
+```
+
+Клиент Prisma генерируется при `pnpm install` в `apps/api/src/generated` (не коммитится).

@@ -1,0 +1,26 @@
+# Development services; api and web run locally via `pnpm dev` (docs/08-testing-and-infra.md → «Docker Compose»).
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: lowisko
+      POSTGRES_PASSWORD: lowisko
+      POSTGRES_DB: lowisko
+    ports:
+      - '5432:5432'
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U lowisko -d lowisko']
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  mailpit:
+    image: axllent/mailpit:v1.31
+    ports:
+      - '1025:1025' # SMTP
+      - '8025:8025' # web UI
+
+volumes:
+  db-data:
