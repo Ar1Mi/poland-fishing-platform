@@ -12,7 +12,7 @@
 | T-02 | Пакет `shared`: enum, коды ошибок, утилиты времени | Каркас | T-01 | done |
 | T-03 | Каркас API (NestJS) | Каркас | T-01 | done |
 | T-04 | БД: Docker Compose, Prisma-схема v1, seed видов и общих правил | Каркас | T-03 | done |
-| T-05 | Каркас web (React, i18n, API-клиент) | Каркас | T-01 | todo |
+| T-05 | Каркас web (React, i18n, API-клиент) | Каркас | T-01 | done |
 | T-06 | CI GitHub Actions | Каркас | T-03, T-05 | todo |
 | T-07 | Аутентификация | Каркас | T-04 | todo |
 | T-08 | Организации, членство, guards | Каркас | T-07 | todo |
@@ -83,11 +83,11 @@
 
 ### T-05 Каркас web
 Ссылки: `06-frontend.md`, `10-design-system.md`.
-- [ ] Vite + React + TS, React Router, TanStack Query, Tailwind + shadcn/ui.
-- [ ] Тема Tailwind с токенами дизайн-системы, шрифты из бандла (`@fontsource`), базовые компоненты: `Button`, `Input`, `Badge`, `Alert`, `Card`.
-- [ ] react-i18next: `pl` по умолчанию, `en`, `ru`, переключатель языка.
-- [ ] API-клиент: `pnpm gen:api` (openapi-typescript) + `openapi-fetch`, обработка `{ code }` ошибок с переводом.
-- [ ] Layout mobile-first, страница 404, Vitest + Testing Library.
+- [x] Vite + React + TS, React Router, TanStack Query, Tailwind + shadcn/ui.
+- [x] Тема Tailwind с токенами дизайн-системы, шрифты из бандла (`@fontsource`), базовые компоненты: `Button`, `Input`, `Badge`, `Alert`, `Card`.
+- [x] react-i18next: `pl` по умолчанию, `en`, `ru`, переключатель языка.
+- [x] API-клиент: `pnpm gen:api` (openapi-typescript) + `openapi-fetch`, обработка `{ code }` ошибок с переводом.
+- [x] Layout mobile-first, страница 404, Vitest + Testing Library.
 
 ### T-06 CI
 Ссылки: `08-testing-and-infra.md` → «CI».

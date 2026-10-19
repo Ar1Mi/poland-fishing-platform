@@ -16,6 +16,41 @@
 
 ---
 
+## 2026-10-19 · T-05 Каркас web
+
+**Сделано:**
+- SPA на Vite 8 + React 19: React Router (data router), TanStack Query, Tailwind 4. Layout mobile-first со ссылкой «к содержимому», заглушка главной (проверяет связь с API через `/health`), страница 404 и запасная страница ошибки маршрута.
+- Тема Tailwind из токенов `10-design-system.md` (цвета, шкала текста, радиусы, кольцо фокуса); шрифты Onest и IBM Plex Mono из бандла; компоненты `Button`, `Input`, `Badge`, `Alert`, `Card` в стиле shadcn/ui и `ApiErrorAlert`.
+- react-i18next: `pl` полностью, `en`/`ru` — с откатом на `pl`, переключатель языка в шапке.
+- Типизированный API-клиент: `pnpm gen:api` (OpenAPI → `openapi-typescript`) + `openapi-fetch`, единая обработка `{ code }` и перевод ошибок.
+
+**Решения:**
+- Документ OpenAPI выгружает отдельный скрипт API (`apps/api/src/openapi/export-openapi.ts`). Ему не нужны ни БД, ни `.env`: Prisma подключается лениво, окружение задано фиксированно. Так типы клиента не зависят от локальной настройки и собираются в CI без запущенного сервера. `schema.d.ts` не коммитится (решение T-01); его генерируют корневые `pnpm lint` и `pnpm typecheck`, около 5 с на `nest build`.
+- В dev Vite проксирует `/api` на API. Браузер работает с тем же origin, что и в prod за Caddy, поэтому клиенту не нужен адрес API в конфигурации.
+- У клиента два своих кода сверх `ErrorCode`: `NETWORK_ERROR` (нет ответа или прокси вернул 502/503/504 без тела API) и `UNKNOWN_ERROR` (тело не в формате `{ code }`). Компоненты видят только `ApiError.code`, а сообщение — `t('errors.' + code)`. Ответы 4xx не повторяются, сеть и 5xx — до двух раз.
+- i18n: один файл на фичу (`locales/{lng}/{feature}.json`), при загрузке они сливаются в одно пространство под именем фичи. Ключи выглядят как `home.page.title`, как требует `06-frontend.md`, и проверяются компилятором по ресурсам `pl` (`i18next.d.ts`). Язык браузера не определяется: по умолчанию `pl`, выбор хранится в `localStorage`.
+- Шрифты (ADR-0011): `@fontsource` не даёт отдельных CSS по наборам символов с `unicode-range` для Onest Variable, а у Plex Mono наборы без `unicode-range` перекрывали бы друг друга. Поэтому `@font-face` описаны вручную только для latin, latin-ext и cyrillic: шесть файлов woff2, около 115 КБ.
+- Зависимости сверх перечисленных в `06-frontend.md` — стандартный набор shadcn/ui (`class-variance-authority`, `clsx`, `tailwind-merge`, `@radix-ui/react-slot`, `lucide-react` для иконок статусов). Тестовые: `jsdom`, Testing Library.
+
+**Проблемы:**
+- Свежие релизы `react-router`, `@tanstack/react-query` и `i18next` (вышли в день задачи) отклонила политика минимального возраста пакетов pnpm, и `pnpm add` сам дописал исключения в `pnpm-workspace.yaml`. Исключения убраны, версии закреплены на релизах на несколько дней старше.
+- `openapi-fetch` запоминает `globalThis.fetch` при создании клиента, и подмена `fetch` в тестах на него не действовала. Клиенту передан `fetch`, который каждый раз берёт глобальную функцию заново.
+- При остановленном API Vite-прокси отвечает 502, и пользователь видел «что-то пошло не так» вместо «нет связи». Ответы 502/503/504 без тела API теперь сводятся к `NETWORK_ERROR`.
+- В скрипте выгрузки окружение нужно задать до загрузки `AppModule`: `ConfigModule` решает, читать ли `.env`, при импорте. Динамический `import()` в CommonJS-сборке требовал расширений путей, поэтому окружение вынесено в модуль `fixed-env.ts`, который импортируется первым.
+- `openapi-typescript` 7 объявляет peer `typescript ^5`, а в проекте 6.0.3. Генерация работает, предупреждение pnpm остаётся.
+- Фирменное кольцо фокуса (Toń 700) почти не видно на тёмной шапке; там у элементов белое кольцо.
+
+**Подтверждение:**
+- `pnpm --filter web test` — 50 тестов:
+  - `apps/web/src/shared/api/{errors,client}.test.ts`: тело ошибки API, неизвестный код, не-JSON, 502/503/504, сбой сети, отмена запроса, тот же origin и префикс `/api/v1`;
+  - `apps/web/src/shared/i18n/i18n.test.ts`: у каждого `ErrorCode` и клиентского кода есть польский текст, в `en`/`ru` нет ключей, которых нет в `pl`;
+  - `apps/web/src/app/routes.test.tsx`: 404, статус API, переведённая ошибка с кодом, переключение языка с `lang` и `localStorage`, откат на `pl`;
+  - `apps/web/src/app/query-client.test.ts`, `apps/web/src/shared/ui/button.test.tsx`.
+- `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm format:check`, `pnpm build` — код 0; `pnpm --filter api test:e2e` — 72 теста (вынесение `createOpenApiDocument` не изменило `/api/docs-json`).
+- Вручную в браузере на 375 px: главная с API (Połączono) и без него (сообщение и код), 404 на `ru` после перезагрузки (язык запомнен), кольцо фокуса 3 px с отступом 2 px. Загружаются только нужные наборы шрифтов (`document.fonts`).
+
+**Для текста:** `apps/web/src/shared/api/errors.ts:35-56` и `apps/web/src/shared/api/client.ts:20-35` — как стабильный `code` из `05-api.md` проходит от фильтра исключений API до переведённого сообщения в UI, включая отказы, которых сервер не формирует (сеть, прокси). `apps/web/src/shared/i18n/i18n.ts` + `i18next.d.ts` — требование «строки только через ключи» проверяет ещё и компилятор: несуществующий ключ — ошибка типов.
+
 ## 2026-10-19 · T-04 БД
 
 **Сделано:**

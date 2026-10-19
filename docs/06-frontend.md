@@ -60,9 +60,18 @@ Background Sync API не используется: его нет в Safari/iOS.
 
 Workbox: app shell и статика — precache; `/api/v1/waters`, `/species` — StaleWhileRevalidate; остальное API — NetworkOnly (данные кэшируются в Dexie, а не в Service Worker). Тайлы карты — CacheFirst с лимитом 500 записей.
 
+## API-клиент
+
+- `pnpm gen:api`: API собирается и без БД и `.env` выгружает OpenAPI-документ (`apps/api/dist/openapi.json`), `openapi-typescript` делает из него `src/shared/api/schema.d.ts`. Файл не коммитится; корневые `pnpm lint` и `pnpm typecheck` генерируют его сами.
+- Клиент — `openapi-fetch`, пути с префиксом `/api/v1`, тот же origin: в dev Vite проксирует `/api` на `localhost:3000`, в prod — Caddy.
+- Запросы идут только через `request()` внутри TanStack Query: он возвращает `data` или бросает `ApiError` с `code`. Компонент показывает `t(errorMessageKey(error))` (`ApiErrorAlert`).
+- Кроме кодов API (`ErrorCode`) у клиента два своих: `NETWORK_ERROR` — ответа нет или прокси вернул 502/503/504 без тела API; `UNKNOWN_ERROR` — ответ не в формате `{ code }` или код неизвестен клиенту.
+- Повторы: ответы 4xx не повторяются, сеть и 5xx — до двух раз.
+
 ## i18n
 
-- Языки `pl` (по умолчанию), `en`, `ru`; файлы `src/shared/i18n/locales/{lng}/{ns}.json`.
+- Языки `pl` (по умолчанию), `en`, `ru`; файлы `src/shared/i18n/locales/{lng}/{ns}.json`. `ns` — фича; при загрузке файлы сливаются в одно пространство i18next под именем фичи, поэтому ключ — `home.page.title`, а не `home:page.title`. Ключи проверяет компилятор по ресурсам `pl`.
+- Язык выбирается переключателем в шапке и запоминается в `localStorage` (`lowisko.locale`); определения по языку браузера нет. После входа (T-07) язык будет браться из профиля.
 - Никаких строк в JSX — только `t('catch.form.length')`. Ключи — `feature.component.element`.
 - Ошибки API переводятся по `code`: `t('errors.' + code)`.
 - До этапа локализации допустимо заполнять только `pl`; пропущенные ключи в `en`/`ru` подхватывает fallback на `pl`.
