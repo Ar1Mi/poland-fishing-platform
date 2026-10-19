@@ -1,7 +1,7 @@
 import { ErrorCode } from '@lowisko/shared';
 import { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { DocumentBuilder, type OpenAPIObject, SwaggerModule } from '@nestjs/swagger';
 import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
@@ -28,7 +28,13 @@ export function setupApp(app: NestExpressApplication): void {
   app.enableCors({ origin: config.get('WEB_URL', { infer: true }), credentials: true });
   app.enableShutdownHooks();
 
-  const document = SwaggerModule.createDocument(
+  SwaggerModule.setup(SWAGGER_PATH, app, createOpenApiDocument(app));
+}
+
+/** OpenAPI document served on `/api/docs-json`; also exported for the web client (`pnpm gen:api`). */
+export function createOpenApiDocument(app: NestExpressApplication): OpenAPIObject {
+  const config = app.get<ConfigService<Env, true>>(ConfigService);
+  return SwaggerModule.createDocument(
     app,
     new DocumentBuilder()
       .setTitle('Łowisko API')
@@ -38,7 +44,6 @@ export function setupApp(app: NestExpressApplication): void {
       .build(),
     { extraModels: [ErrorResponseDto] },
   );
-  SwaggerModule.setup(SWAGGER_PATH, app, document);
 }
 
 /** Express would answer a path outside the API and Swagger with an HTML page; keep the JSON format. */
