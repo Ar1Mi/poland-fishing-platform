@@ -1,15 +1,21 @@
 import { Locale } from '@lowisko/shared';
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
+import enAuth from './locales/en/auth.json';
 import enCommon from './locales/en/common.json';
 import enErrors from './locales/en/errors.json';
 import enHome from './locales/en/home.json';
+import enLegal from './locales/en/legal.json';
+import plAuth from './locales/pl/auth.json';
 import plCommon from './locales/pl/common.json';
 import plErrors from './locales/pl/errors.json';
 import plHome from './locales/pl/home.json';
+import plLegal from './locales/pl/legal.json';
+import ruAuth from './locales/ru/auth.json';
 import ruCommon from './locales/ru/common.json';
 import ruErrors from './locales/ru/errors.json';
 import ruHome from './locales/ru/home.json';
+import ruLegal from './locales/ru/legal.json';
 
 /*
  * One file per feature (`locales/{lng}/{feature}.json`), merged under the feature name into
@@ -17,9 +23,33 @@ import ruHome from './locales/ru/home.json';
  * `pl` is complete; a key missing in `en`/`ru` falls back to `pl` until the localisation stage (T-31).
  */
 export const resources = {
-  pl: { translation: { common: plCommon, home: plHome, errors: plErrors } },
-  en: { translation: { common: enCommon, home: enHome, errors: enErrors } },
-  ru: { translation: { common: ruCommon, home: ruHome, errors: ruErrors } },
+  pl: {
+    translation: {
+      common: plCommon,
+      auth: plAuth,
+      home: plHome,
+      legal: plLegal,
+      errors: plErrors,
+    },
+  },
+  en: {
+    translation: {
+      common: enCommon,
+      auth: enAuth,
+      home: enHome,
+      legal: enLegal,
+      errors: enErrors,
+    },
+  },
+  ru: {
+    translation: {
+      common: ruCommon,
+      auth: ruAuth,
+      home: ruHome,
+      legal: ruLegal,
+      errors: ruErrors,
+    },
+  },
 } as const;
 
 export const LOCALES = Object.values(Locale);

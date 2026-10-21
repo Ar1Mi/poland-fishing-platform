@@ -66,7 +66,11 @@ export class RegisterDto {
   @MaxLength(ANGLER_CARD_NO_MAX_LENGTH)
   anglerCardNo?: string;
 
-  @ApiPropertyOptional({ enum: Object.values(Locale), enumName: 'Locale', default: Locale.pl })
+  @ApiPropertyOptional({
+    enum: Object.values(Locale),
+    enumName: 'Locale',
+    description: 'Defaults to pl.',
+  })
   @IsOptional()
   @IsEnum(Locale)
   locale?: Locale;

@@ -1,4 +1,5 @@
 import createClient from 'openapi-fetch';
+import { authorizedFetch } from '../auth/session';
 import { ApiError, ClientErrorCode, parseErrorBody } from './errors';
 import type { paths } from './schema';
 
@@ -8,8 +9,9 @@ import type { paths } from './schema';
  */
 export const api = createClient<paths>({
   baseUrl: globalThis.location.origin,
-  // Resolved on each call rather than captured once, so tests can stub `fetch`.
-  fetch: (input) => globalThis.fetch(input),
+  // Adds the access token and refreshes it once on 401; resolves `fetch` on each call,
+  // so tests can stub it.
+  fetch: authorizedFetch,
 });
 
 type ClientResult<T> = { data?: T; error?: unknown; response: Response };
