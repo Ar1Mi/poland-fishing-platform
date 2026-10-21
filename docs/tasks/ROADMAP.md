@@ -14,7 +14,7 @@
 | T-04 | БД: Docker Compose, Prisma-схема v1, seed видов и общих правил | Каркас | T-03 | done |
 | T-05 | Каркас web (React, i18n, API-клиент) | Каркас | T-01 | done |
 | T-06 | CI GitHub Actions | Каркас | T-03, T-05 | done |
-| T-07 | Аутентификация | Каркас | T-04 | todo |
+| T-07 | Аутентификация | Каркас | T-04 | done |
 | T-08 | Организации, членство, guards | Каркас | T-07 | todo |
 | T-09 | Каталог: API и карта | Срез | T-04, T-05 | todo |
 | T-10 | Импорт каталога CSV + геокодирование | Срез | T-09 | todo |
@@ -99,12 +99,12 @@
 
 ### T-07 Аутентификация
 FR-01, FR-02. Ссылки: `07-security.md`.
-- [ ] register (+ письмо в Mailpit), verify-email, login, refresh с ротацией и обнаружением повторного использования, logout, forgot/reset.
-- [ ] argon2id, throttler на login.
-- [ ] `JwtAuthGuard` глобально, `@Public()`, `@CurrentUser()`.
-- [ ] `/me` GET/PATCH.
-- [ ] Web: страницы входа/регистрации/сброса, хранение access в памяти, тихий refresh.
-- [ ] Интеграционные тесты всех сценариев, включая повторное использование refresh.
+- [x] register (+ письмо в Mailpit), verify-email, login, refresh с ротацией и обнаружением повторного использования, logout, forgot/reset. — `modules/auth`, `modules/notifications` (nodemailer → `SMTP_URL`); `test/auth.e2e-spec.ts`.
+- [x] argon2id, throttler на login. — хеш `$argon2id$` проверяется тестом регистрации; 5 попыток/мин на IP + email → 429 `RATE_LIMITED`, другой email с того же IP не блокируется.
+- [x] `JwtAuthGuard` глобально, `@Public()`, `@CurrentUser()`. — `APP_GUARD` в `AuthModule`; `access-token.service.spec.ts` (истечение, `alg: none`, чужой ключ).
+- [x] `/me` GET/PATCH. — `test/me.e2e-spec.ts` (нельзя сменить email и `isSuperAdmin`, дата рождения не в будущем по Варшаве).
+- [x] Web: страницы входа/регистрации/сброса, хранение access в памяти, тихий refresh. — `features/auth`, `shared/auth/session.ts` (один общий refresh, повтор после 401); язык берётся из профиля; проверено на 375 px.
+- [x] Интеграционные тесты всех сценариев, включая повторное использование refresh. — 121 интеграционный тест API, 76 тестов web.
 
 ### T-08 Организации и guards
 FR-03.

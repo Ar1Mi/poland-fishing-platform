@@ -35,6 +35,16 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 | GET | `/me/export` | auth | RODO: JSON со всеми данными пользователя |
 | DELETE | `/me` | auth | RODO: удаление с анонимизацией уловов |
 
+Детали (T-07):
+
+- **Регистрация:** `{ email, password, firstName, lastName, birthDate, anglerCardNo?, locale?, acceptTerms: true }` → 204. Email сравнивается без учёта регистра (хранится в нижнем регистре). Пароль 8–128 символов без требований к составу (NIST SP 800-63B); лимиты — в `packages/shared/src/auth/schemas.ts`. `birthDate` не позже сегодняшнего дня по Варшаве. Согласие RODO обязательно, в БД отдельно не хранится: факт регистрации и есть запись согласия. Занятый email → 409 `EMAIL_TAKEN`.
+- **Письма:** ссылки `${WEB_URL}/verify-email?token=…` (24 ч) и `${WEB_URL}/reset-password?token=…` (1 ч), язык — `User.locale`. Новая ссылка того же назначения отменяет неиспользованные. Сбой SMTP не роняет запрос (ошибка в логе).
+- **Одноразовые токены:** неизвестный, использованный или другого назначения → 400 `INVALID_TOKEN`; просроченный → 401 `TOKEN_EXPIRED`.
+- **Вход:** неверный пароль и несуществующий email → одинаково 401 `INVALID_CREDENTIALS` (для несуществующего — сверка с фиктивным хешем, без разницы во времени); `EMAIL_NOT_VERIFIED` — только после верного пароля. Лимит 5 попыток в минуту на пару IP + email → 429 `RATE_LIMITED`.
+- **Токены:** access — JWT HS256 (`jose`), `{ sub: userId, aud: "lowisko-api", iat, exp }`, 15 мин; просроченный → 401 `TOKEN_EXPIRED` (клиент обновляет и повторяет запрос), иначе `UNAUTHENTICATED`. Refresh — случайные 256 бит в cookie `rt` (`HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth; Max-Age=7 дней`); каждая ротация выдаёт токен ещё на 7 дней в той же семье. Предъявление отозванного токена отзывает всю семью; отклонённая cookie стирается.
+- **Выход** отзывает только семью текущей cookie (одно устройство) и только если она принадлежит владельцу access-токена. **Сброс пароля** подтверждает email и отзывает все refresh-токены пользователя.
+- **`/me`:** `PATCH` меняет `firstName`, `lastName`, `birthDate`, `anglerCardNo` (`null` или `""` — удалить), `locale`; email и `isSuperAdmin` не меняются (лишнее поле → 400).
+
 ### Каталог и правила
 
 | Метод | Путь | Доступ | Назначение |
@@ -128,7 +138,7 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 
 | HTTP | Код |
 | --- | --- |
-| 400 | `VALIDATION_FAILED` |
+| 400 | `VALIDATION_FAILED`, `INVALID_TOKEN` |
 | 401 | `UNAUTHENTICATED`, `INVALID_CREDENTIALS`, `EMAIL_NOT_VERIFIED`, `TOKEN_EXPIRED` |
 | 403 | `FORBIDDEN`, `ORG_SCOPE_VIOLATION`, `ORG_NOT_ACTIVE` |
 | 404 | `NOT_FOUND` |
