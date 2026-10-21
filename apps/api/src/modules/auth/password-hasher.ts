@@ -1,10 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, type OnModuleInit } from '@nestjs/common';
 import { argon2id, hash, verify } from 'argon2';
 
 /** argon2id with the library defaults (64 MiB, t=3, p=4), above the OWASP minimum (NFR-04). */
 @Injectable()
-export class PasswordHasher {
-  private dummyHash?: Promise<string>;
+export class PasswordHasher implements OnModuleInit {
+  private dummyHash!: Promise<string>;
+
+  /** Computed up front, so the first unknown-email login is not slower than the others. */
+  onModuleInit(): void {
+    this.dummyHash = this.hash('dummy password for timing');
+  }
 
   hash(password: string): Promise<string> {
     return hash(password, { type: argon2id });
@@ -19,7 +24,6 @@ export class PasswordHasher {
    * does not reveal which emails are registered.
    */
   async verifyAgainstDummy(password: string): Promise<false> {
-    this.dummyHash ??= this.hash('dummy password for timing');
     await verify(await this.dummyHash, password);
     return false;
   }

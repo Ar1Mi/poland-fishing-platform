@@ -4,7 +4,7 @@ import { ThrottlerModule } from '@nestjs/throttler';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { UsersModule } from '../users/users.module';
 import { AccessTokenService } from './access-token.service';
-import { LOGIN_THROTTLE } from './auth.constants';
+import { AUTH_THROTTLERS } from './auth-throttlers';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -13,12 +13,7 @@ import { PasswordHasher } from './password-hasher';
 import { RefreshTokenService } from './refresh-token.service';
 
 @Module({
-  imports: [
-    // In-memory counters: enough for the single API instance on the VPS.
-    ThrottlerModule.forRoot([LOGIN_THROTTLE]),
-    UsersModule,
-    NotificationsModule,
-  ],
+  imports: [ThrottlerModule.forRoot([...AUTH_THROTTLERS]), UsersModule, NotificationsModule],
   controllers: [AuthController],
   providers: [
     AuthService,

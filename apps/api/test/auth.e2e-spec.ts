@@ -270,6 +270,13 @@ describe('auth', () => {
   });
 
   describe('access token', () => {
+    it('accepts the Bearer scheme in any letter case', async () => {
+      const user = await createVerifiedUser(prisma);
+      const { accessToken } = await login(app, user.email);
+
+      await http().get('/api/v1/me').set('Authorization', `bearer ${accessToken}`).expect(200);
+    });
+
     it('is required on routes that are not public', async () => {
       const response = await http().get('/api/v1/me').expect(401);
 
@@ -337,16 +344,23 @@ describe('auth', () => {
       await refresh(otherDevice.cookie).expect(200);
     });
 
-    it('lets only one of two concurrent refreshes with the same token succeed', async () => {
+    it('treats two concurrent refreshes with one token as reuse and leaves no working token', async () => {
       const user = await createVerifiedUser(prisma);
       const { cookie } = await login(app, user.email);
 
-      const statuses = (await Promise.all([refresh(cookie), refresh(cookie)])).map((r) => r.status);
+      const responses = await Promise.all([refresh(cookie), refresh(cookie)]);
 
-      expect(statuses.filter((status) => status === 200).length).toBeLessThanOrEqual(1);
-      expect(await prisma.refreshToken.count({ where: { revokedAt: null } })).toBeLessThanOrEqual(
-        1,
-      );
+      // Whichever order the database picks, the second use of the token is a reuse: at most
+      // one request gets a new token, and that token is revoked with the family.
+      const statuses = responses.map((r) => r.status).sort();
+      expect([
+        [200, 401],
+        [401, 401],
+      ]).toContainEqual(statuses);
+      expect(await prisma.refreshToken.count({ where: { revokedAt: null } })).toBe(0);
+      for (const response of responses.filter((r) => r.status === 200)) {
+        await refresh(refreshCookie(response)).expect(401);
+      }
     });
 
     it('answers 401 and clears the cookie without a valid token', async () => {
@@ -490,6 +504,65 @@ describe('auth', () => {
       });
       await reset(token).expect(204);
     });
+  });
+
+  describe('rate limits', () => {
+    it('allows 20 anonymous auth requests per minute from one IP', async () => {
+      for (let i = 0; i < 20; i++) {
+        await http()
+          .post('/api/v1/auth/verify-email')
+          .send({ token: `made-up-${i}` })
+          .expect(400);
+      }
+
+      const blocked = await http()
+        .post('/api/v1/auth/register')
+        .send({ ...registration, email: 'late@example.test' })
+        .expect(429);
+
+      expect(blocked.body).toMatchObject({ code: 'RATE_LIMITED' });
+    });
+
+    it('does not limit refreshing per IP', async () => {
+      const user = await createVerifiedUser(prisma);
+      let { cookie } = await login(app, user.email);
+
+      for (let i = 0; i < 25; i++) {
+        cookie = refreshCookie(await refresh(cookie).expect(200)) ?? '';
+      }
+    });
+
+    it('sends at most 3 reset emails an hour to one address', async () => {
+      const user = await createVerifiedUser(prisma);
+      const forgot = (email: string) => http().post('/api/v1/auth/forgot-password').send({ email });
+
+      for (let i = 0; i < 3; i++) {
+        await forgot(user.email).expect(204);
+      }
+
+      expect((await forgot(user.email.toUpperCase()).expect(429)).body).toMatchObject({
+        code: 'RATE_LIMITED',
+      });
+      await forgot('someone-else@example.test').expect(204);
+    });
+  });
+
+  it('revokes a token rotated at the same moment as a password reset', async () => {
+    const user = await createVerifiedUser(prisma);
+    const thief = await login(app, user.email);
+    await http().post('/api/v1/auth/forgot-password').send({ email: user.email }).expect(204);
+    await mail.waitFor(user.email);
+    const token = mail.tokenFor(user.email);
+
+    await Promise.all([
+      refresh(thief.cookie),
+      http()
+        .post('/api/v1/auth/reset-password')
+        .send({ token, password: 'a brand new password' })
+        .expect(204),
+    ]);
+
+    expect(await prisma.refreshToken.count({ where: { revokedAt: null } })).toBe(0);
   });
 });
 

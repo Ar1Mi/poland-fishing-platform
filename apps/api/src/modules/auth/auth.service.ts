@@ -88,7 +88,8 @@ export class AuthService {
     }
     const result = await this.refreshTokens.rotate(refreshToken);
     if (result.outcome === 'reused') {
-      this.logger.warn('Refresh token reuse detected, token family revoked');
+      const { userId, familyId } = result;
+      this.logger.warn({ userId, familyId }, 'Refresh token reuse detected, token family revoked');
     }
     if (result.outcome !== 'rotated' || !(await this.users.findById(result.userId))) {
       throw new DomainError(ErrorCode.UNAUTHENTICATED, undefined, 'Invalid refresh token');
@@ -108,16 +109,25 @@ export class AuthService {
   /** Same response whether or not the account exists (no email enumeration). */
   async forgotPassword(email: string): Promise<void> {
     const user = await this.users.findByEmail(email);
-    if (!user) {
-      return;
+    if (user) {
+      // Not awaited: extra database writes and SMTP only for existing accounts would
+      // reveal them by the response time.
+      void this.sendPasswordReset(user);
     }
-    const token = await this.oneTimeTokens.issue(user.id, 'PASSWORD_RESET');
-    // Not awaited: waiting for SMTP only for existing accounts would reveal them by timing.
-    void this.mail.sendPasswordReset(user, token);
+  }
+
+  private async sendPasswordReset(user: User): Promise<void> {
+    try {
+      const token = await this.oneTimeTokens.issue(user.id, 'PASSWORD_RESET');
+      await this.mail.sendPasswordReset(user, token);
+    } catch (err) {
+      this.logger.error({ err, userId: user.id }, 'Issuing a password reset link failed');
+    }
   }
 
   /** The link proves the mailbox: it also confirms the email; all devices are logged out. */
   async resetPassword({ token, password }: ResetPasswordDto): Promise<void> {
+    await this.oneTimeTokens.assertUsable(token, 'PASSWORD_RESET');
     const passwordHash = await this.passwords.hash(password);
     await this.prisma.$transaction(async (tx) => {
       const userId = await this.oneTimeTokens.consume(token, 'PASSWORD_RESET', tx);

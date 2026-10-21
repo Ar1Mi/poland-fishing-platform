@@ -11,15 +11,10 @@ import {
   ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { Throttle } from '@nestjs/throttler';
+import { SkipThrottle, ThrottlerGuard } from '@nestjs/throttler';
 import type { CookieOptions, Request, Response } from 'express';
 import { ErrorResponseDto } from '../../common/errors/error-response.dto';
-import {
-  LOGIN_THROTTLE,
-  REFRESH_COOKIE,
-  REFRESH_COOKIE_PATH,
-  REFRESH_TOKEN_TTL_MS,
-} from './auth.constants';
+import { REFRESH_COOKIE, REFRESH_COOKIE_PATH, REFRESH_TOKEN_TTL_MS } from './auth.constants';
 import { AuthService, type Session } from './auth.service';
 import { type AuthUser, CurrentUser, Public } from './decorators/auth.decorators';
 import {
@@ -30,7 +25,6 @@ import {
   ResetPasswordDto,
   TokenDto,
 } from './dto/auth.dto';
-import { LoginThrottlerGuard } from './guards/login-throttler.guard';
 
 /** docs/07-security.md: httpOnly, Secure, SameSite=Strict, sent to the auth routes only. */
 const REFRESH_COOKIE_OPTIONS: CookieOptions = {
@@ -44,6 +38,10 @@ const error = { type: ErrorResponseDto };
 
 @ApiTags('auth')
 @Controller('auth')
+@UseGuards(ThrottlerGuard)
+// Only the per-IP limit by default; routes below switch on their own (auth-throttlers.ts).
+@SkipThrottle({ login: true, email: true })
+@ApiTooManyRequestsResponse({ ...error, description: 'RATE_LIMITED' })
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
@@ -72,15 +70,10 @@ export class AuthController {
   @Public()
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(LoginThrottlerGuard)
-  @Throttle({ [LOGIN_THROTTLE.name]: { limit: LOGIN_THROTTLE.limit, ttl: LOGIN_THROTTLE.ttl } })
+  @SkipThrottle({ login: false })
   @ApiOperation({ summary: 'Log in: access token in the body, refresh token in the `rt` cookie' })
   @ApiOkResponse({ type: AccessTokenDto })
   @ApiUnauthorizedResponse({ ...error, description: 'INVALID_CREDENTIALS, EMAIL_NOT_VERIFIED' })
-  @ApiTooManyRequestsResponse({
-    ...error,
-    description: 'RATE_LIMITED: 5 attempts/min per IP and email',
-  })
   async login(
     @Body() dto: LoginDto,
     @Res({ passthrough: true }) res: Response,
@@ -90,6 +83,8 @@ export class AuthController {
 
   @Public()
   @Post('refresh')
+  // Cheap, authenticated by the cookie, and done by every open tab: no per-IP limit.
+  @SkipThrottle({ ip: true })
   @HttpCode(HttpStatus.OK)
   @ApiCookieAuth(REFRESH_COOKIE)
   @ApiOperation({ summary: 'Rotate the refresh token and issue a new access token' })
@@ -109,6 +104,7 @@ export class AuthController {
   }
 
   @Post('logout')
+  @SkipThrottle({ ip: true })
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiBearerAuth()
   @ApiCookieAuth(REFRESH_COOKIE)
@@ -126,6 +122,7 @@ export class AuthController {
 
   @Public()
   @Post('forgot-password')
+  @SkipThrottle({ email: false })
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     summary: 'Send a password reset link',

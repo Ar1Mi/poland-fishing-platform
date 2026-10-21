@@ -5,7 +5,8 @@ import { DomainError } from '../../../common/errors/domain-error';
 import { AccessTokenService } from '../access-token.service';
 import { type AuthenticatedRequest, IS_PUBLIC } from '../decorators/auth.decorators';
 
-const BEARER = /^Bearer ([\w-]+\.[\w-]+\.[\w-]+)$/;
+// The scheme name is case-insensitive (RFC 7235).
+const BEARER = /^Bearer ([\w-]+\.[\w-]+\.[\w-]+)$/i;
 
 /** Global guard: every route needs `Authorization: Bearer <access JWT>` unless it is @Public(). */
 @Injectable()

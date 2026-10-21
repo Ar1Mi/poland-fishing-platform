@@ -16,7 +16,18 @@ export type RotationResult =
   /** Unknown or expired. */
   | { outcome: 'invalid' }
   /** A revoked token came back: a stolen older copy, or a race of two refreshes. */
-  | { outcome: 'reused' };
+  | { outcome: 'reused'; userId: string; familyId: string };
+
+/**
+ * Serialises rotations and revocations of one user's tokens until the transaction ends.
+ * Without it a revocation waiting for a rotation's row lock re-checks only the rows it saw
+ * at its start (READ COMMITTED) and misses the successor that rotation inserted: a thief
+ * refreshing at the moment of a password reset would keep a working token. An advisory lock
+ * keyed by the user id needs no row of another module's table.
+ */
+export async function lockUserTokens(db: Db, userId: string): Promise<void> {
+  await db.$queryRaw`SELECT 1 FROM pg_advisory_xact_lock(hashtextextended(${userId}, 0))`;
+}
 
 /**
  * Refresh tokens with rotation (docs/07-security.md): every refresh replaces the token by a
@@ -43,26 +54,28 @@ export class RefreshTokenService {
     if (!current) {
       return { outcome: 'invalid' };
     }
+    const { userId, familyId } = current;
     if (current.revokedAt) {
       // Revoking again is harmless when logout already revoked the family.
-      await this.revokeFamily(current.familyId);
-      return { outcome: 'reused' };
+      await this.revoke(userId, { familyId });
+      return { outcome: 'reused', userId, familyId };
     }
     if (current.expiresAt <= now) {
       return { outcome: 'invalid' };
     }
 
     return this.prisma.$transaction(async (tx) => {
+      await lockUserTokens(tx, userId);
       // Conditional update: of two concurrent rotations of one token only one wins.
       const { count } = await tx.refreshToken.updateMany({
         where: { id: current.id, revokedAt: null },
         data: { revokedAt: now },
       });
       if (count === 0) {
-        await this.revokeFamily(current.familyId, tx);
-        return { outcome: 'reused' } as const;
+        await this.revoke(userId, { familyId }, tx);
+        return { outcome: 'reused', userId, familyId } as const;
       }
-      const next = await this.create(tx, current.userId, current.familyId);
+      const next = await this.create(tx, userId, familyId);
       return { outcome: 'rotated', ...next } as const;
     });
   }
@@ -74,23 +87,25 @@ export class RefreshTokenService {
     });
     // A cookie of another account (shared browser) is not this user's to revoke.
     if (current?.userId === userId) {
-      await this.revokeFamily(current.familyId);
+      await this.revoke(userId, { familyId: current.familyId });
     }
   }
 
   /** Password reset: every device has to log in again. */
-  async revokeAllForUser(userId: string, db: Db = this.prisma): Promise<void> {
-    await db.refreshToken.updateMany({
-      where: { userId, revokedAt: null },
-      data: { revokedAt: this.clock.now() },
-    });
+  revokeAllForUser(userId: string, db?: Db): Promise<void> {
+    return this.revoke(userId, {}, db);
   }
 
-  private async revokeFamily(familyId: string, db: Db = this.prisma): Promise<void> {
-    await db.refreshToken.updateMany({
-      where: { familyId, revokedAt: null },
-      data: { revokedAt: this.clock.now() },
-    });
+  /** Runs in `db` (the caller's transaction) or in a transaction of its own. */
+  private async revoke(userId: string, where: { familyId?: string }, db?: Db): Promise<void> {
+    const run = async (tx: Db): Promise<void> => {
+      await lockUserTokens(tx, userId);
+      await tx.refreshToken.updateMany({
+        where: { userId, ...where, revokedAt: null },
+        data: { revokedAt: this.clock.now() },
+      });
+    };
+    await (db ? run(db) : this.prisma.$transaction(run));
   }
 
   private async create(db: Db, userId: string, familyId: string): Promise<IssuedRefreshToken> {

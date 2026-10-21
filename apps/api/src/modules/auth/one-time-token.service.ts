@@ -38,6 +38,22 @@ export class OneTimeTokenService {
   }
 
   /**
+   * Fails like `consume` without using the token: lets the caller skip expensive work (argon2)
+   * for a made-up link.
+   */
+  async assertUsable(token: string, purpose: OneTimeTokenPurpose): Promise<void> {
+    const row = await this.prisma.oneTimeToken.findUnique({
+      where: { tokenHash: hashOpaqueToken(token) },
+    });
+    if (!row || row.purpose !== purpose || row.usedAt) {
+      throw new DomainError(ErrorCode.INVALID_TOKEN, undefined, 'Invalid or used link');
+    }
+    if (row.expiresAt <= this.clock.now()) {
+      throw new DomainError(ErrorCode.TOKEN_EXPIRED, undefined, 'Link expired');
+    }
+  }
+
+  /**
    * Marks the token used and returns its user. INVALID_TOKEN: unknown, of another purpose or
    * already used; TOKEN_EXPIRED: the link is too old (the UI offers to request a new one).
    */

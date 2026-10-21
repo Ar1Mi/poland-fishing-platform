@@ -18,7 +18,9 @@ export function GuestOnly({ children }: { children: ReactNode }) {
   }
   if (status === 'authenticated') {
     const from = (location.state as RedirectState | null)?.from;
-    return <Navigate to={from?.startsWith('/') ? from : '/'} replace />;
+    // Same-origin paths only: `//host` would leave the site.
+    const target = from?.startsWith('/') && !from.startsWith('//') ? from : '/';
+    return <Navigate to={target} replace />;
   }
   return children;
 }

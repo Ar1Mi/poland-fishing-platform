@@ -12,6 +12,7 @@ describe('/me', () => {
   let app: NestExpressApplication;
   let userId: string;
   let accessToken: string;
+  let now: Date;
 
   const get = () =>
     request(app.getHttpServer()).get('/api/v1/me').set('Authorization', `Bearer ${accessToken}`);
@@ -24,7 +25,8 @@ describe('/me', () => {
   beforeEach(async () => {
     db = await createTestDatabase();
     prisma = prismaServiceFor(db.url);
-    app = await createTestApp({ prisma });
+    now = FIXED_NOW;
+    app = await createTestApp({ prisma, now: () => now });
     const user = await createVerifiedUser(prisma, {
       email: 'jan@example.test',
       anglerCardNo: 'KW-123',
@@ -87,6 +89,16 @@ describe('/me', () => {
       code: 'VALIDATION_FAILED',
       details: { fields: { birthDate: ['birthDate must not be in the future'] } },
     });
+  });
+
+  it('compares the birth date with the calendar day in Warsaw, not in UTC', async () => {
+    now = new Date('2026-10-06T21:59:59.000Z'); // 23:59:59 in Warsaw (CEST)
+    ({ accessToken } = await login(app, 'jan@example.test'));
+    await patch({ birthDate: '2026-10-07' }).expect(400);
+
+    now = new Date('2026-10-06T22:00:00.000Z'); // 2026-10-07 00:00 in Warsaw, still the 6th in UTC
+    await patch({ birthDate: '2026-10-07' }).expect(200);
+    await patch({ birthDate: '2026-10-08' }).expect(400);
   });
 
   it.each([

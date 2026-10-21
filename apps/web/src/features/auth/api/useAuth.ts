@@ -47,10 +47,11 @@ export function useLogout() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => request(() => api.POST('/api/v1/auth/logout')),
-    // Even if the API is unreachable, this tab forgets the session.
+    // Even if the API is unreachable, this tab forgets the session and every cached answer
+    // that belonged to the user.
     onSettled: () => {
       endSession();
-      queryClient.removeQueries({ queryKey: meQueryKey });
+      queryClient.clear();
     },
   });
 }

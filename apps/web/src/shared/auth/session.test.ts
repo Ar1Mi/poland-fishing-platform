@@ -103,6 +103,36 @@ describe('session', () => {
     expect(getSessionStatus()).toBe('guest');
   });
 
+  it('keeps the session when the refresh fails for a reason other than 401', async () => {
+    startSession('expired');
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(jsonResponse({ code: 'TOKEN_EXPIRED', message: 'x' }, 401))
+        .mockResolvedValueOnce(new Response(null, { status: 502 })),
+    );
+
+    await expect(getMe()).rejects.toMatchObject({ code: 'TOKEN_EXPIRED' });
+
+    expect(getSessionStatus()).toBe('authenticated');
+  });
+
+  it('does not refresh when an expired email link answers TOKEN_EXPIRED', async () => {
+    startSession('access-1');
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ code: 'TOKEN_EXPIRED', message: 'x' }, 401));
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(
+      request(() => api.POST('/api/v1/auth/verify-email', { body: { token: 'old' } })),
+    ).rejects.toMatchObject({ code: 'TOKEN_EXPIRED' });
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(getSessionStatus()).toBe('authenticated');
+  });
+
   it('does not refresh after a failed login', async () => {
     startSession('access-1');
     const fetch = vi
