@@ -8,4 +8,7 @@ Object.assign(process.env, {
   API_URL: 'http://localhost:3000',
   WEB_URL: 'http://localhost:5173',
   DATABASE_URL: 'postgresql://openapi@localhost:5432/openapi',
+  JWT_ACCESS_SECRET: 'openapi-export-placeholder-32-bytes',
+  SMTP_URL: 'smtp://localhost:1025',
+  MAIL_FROM: 'openapi@localhost',
 });

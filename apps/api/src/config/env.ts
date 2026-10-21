@@ -20,6 +20,12 @@ const postgresUrl = z
     message: 'must be a postgresql:// connection URL',
   });
 
+const smtpUrl = z
+  .string()
+  .refine((value) => URL.canParse(value) && /^smtps?:$/.test(new URL(value).protocol), {
+    message: 'must be an smtp:// or smtps:// URL',
+  });
+
 // Variables are added here by the task that first reads them (docs/08-testing-and-infra.md → «Окружение»).
 // A new required variable also needs a placeholder in src/openapi/fixed-env.ts (`pnpm gen:api`).
 export const envSchema = z.object({
@@ -29,6 +35,12 @@ export const envSchema = z.object({
   API_URL: httpOrigin,
   WEB_URL: httpOrigin,
   DATABASE_URL: postgresUrl,
+  // HS256 key of access tokens: at least 32 bytes (RFC 7518, 3.2).
+  JWT_ACCESS_SECRET: z
+    .string()
+    .refine((value) => Buffer.byteLength(value) >= 32, { message: 'must be at least 32 bytes' }),
+  SMTP_URL: smtpUrl,
+  MAIL_FROM: z.string().min(1),
 });
 
 export type Env = z.infer<typeof envSchema>;
