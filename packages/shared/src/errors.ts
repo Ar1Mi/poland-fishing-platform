@@ -3,6 +3,7 @@
 /** Codes returned as an HTTP error body `{ code, message, details? }`. */
 export const ErrorCode = {
   VALIDATION_FAILED: 'VALIDATION_FAILED',
+  INVALID_TOKEN: 'INVALID_TOKEN',
   UNAUTHENTICATED: 'UNAUTHENTICATED',
   INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
   EMAIL_NOT_VERIFIED: 'EMAIL_NOT_VERIFIED',
@@ -26,6 +27,7 @@ export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];
 
 export const ERROR_HTTP_STATUS: Readonly<Record<ErrorCode, number>> = {
   VALIDATION_FAILED: 400,
+  INVALID_TOKEN: 400,
   UNAUTHENTICATED: 401,
   INVALID_CREDENTIALS: 401,
   EMAIL_NOT_VERIFIED: 401,
