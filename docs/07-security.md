@@ -18,6 +18,7 @@
 | SQL-инъекции | Prisma; `$queryRaw` только с tagged template | все |
 | Загрузка вредных файлов | Лимит 5 МБ, проверка MIME по сигнатуре (`file-type`), случайные имена, отдача с `Content-Disposition: attachment` для PDF | StorageService |
 | Секреты | Только env; `.env` в `.gitignore`; `.env.example` без значений | — |
+| Цепочка поставок | `pnpm install --frozen-lockfile`; скрипты установки только для разрешённых пакетов (`allowBuilds`); свежие релизы задерживает политика минимального возраста pnpm; CI — триггер `pull_request` (не `pull_request_target`), токен `contents: read`, без сохранения в `.git` | `pnpm-workspace.yaml`, `.github/workflows/ci.yml` |
 
 ## RODO
 

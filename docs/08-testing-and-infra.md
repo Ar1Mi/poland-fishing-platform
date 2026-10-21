@@ -47,14 +47,16 @@
 
 ## CI (GitHub Actions)
 
-`ci.yml` на каждый push и PR:
+`ci.yml` на каждый PR и push в `main`:
 
-1. `pnpm install --frozen-lockfile`
-2. `pnpm lint` · `pnpm typecheck`
+1. `pnpm install --frozen-lockfile` (кэш хранилища pnpm по `pnpm-lock.yaml`)
+2. `pnpm format:check` · `pnpm lint` · `pnpm typecheck` — корневые скрипты сами собирают `packages/shared` и типы API-клиента (`pnpm gen:api`)
 3. `pnpm test` (unit)
 4. `pnpm --filter api test:e2e` (Testcontainers)
 5. `pnpm build`
-6. Playwright E2E (на PR в `main`)
+6. Playwright E2E (на PR в `main`) — добавляется вместе с первыми сценариями (T-20)
+
+Новый push в ту же ветку отменяет идущую проверку; токен workflow — только чтение.
 
 `deploy.yml` — по тегу `v*`: сборка образов → GHCR → SSH на VPS → `docker compose pull && up -d`.
 

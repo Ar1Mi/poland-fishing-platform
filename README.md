@@ -1,5 +1,7 @@
 # Łowisko
 
+[![CI](https://github.com/Ar1Mi/poland-fishing-platform/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Ar1Mi/poland-fishing-platform/actions/workflows/ci.yml)
+
 Praca inżynierska: *Projekt i implementacja aplikacji internetowej do zarządzania zezwoleniami i rejestrem połowów dla wędkarzy.*
 
 Веб-платформа (PWA): каталог водоёмов Польши, покупка zezwoleń на подключённых водоёмах (Przelewy24 sandbox), электронный rejestr połowów с проверкой правил ловли (в том числе офлайн), проверка разрешения инспектором по QR.
@@ -15,7 +17,8 @@ Praca inżynierska: *Projekt i implementacja aplikacji internetowej do zarządza
 | Архитектурные решения | `docs/adr/` |
 | Задачи и статус | `docs/tasks/ROADMAP.md` |
 | Журнал для текста диплома | `docs/thesis-log.md` |
-| Код | `apps/api`, `apps/web`, `packages/shared` (появятся в задачах T-01…T-05) |
+| Код | `apps/api` (NestJS), `apps/web` (React), `packages/shared` (общие типы и правила) |
+| CI | `.github/workflows/ci.yml` |
 
 ## Работа с агентом
 
@@ -40,12 +43,14 @@ pnpm install         # зависимости + git-хук pre-commit (Husky) + 
 | --- | --- |
 | `pnpm dev` | api + web параллельно |
 | `pnpm build` | сборка всех пакетов |
-| `pnpm lint` | ESLint по всему репозиторию |
-| `pnpm typecheck` | сборка `packages/shared`, затем `tsc --noEmit` в каждом пакете |
+| `pnpm lint` | ESLint по всему репозиторию (сначала собирает `shared` и типы API-клиента) |
+| `pnpm typecheck` | сборка `packages/shared` и `pnpm gen:api`, затем `tsc --noEmit` в каждом пакете |
 | `pnpm test` | unit-тесты всех пакетов |
+| `pnpm --filter api test:e2e` | интеграционные тесты API (нужен Docker: Testcontainers) |
+| `pnpm gen:api` | типы API-клиента web из OpenAPI-документа API |
 | `pnpm format` | Prettier (`pnpm format:check` — только проверка) |
 
-Приложения видят `@lowisko/shared` через его `dist`: пакет собирается при `pnpm install` и перед `pnpm typecheck`, а `pnpm dev` пересобирает его при изменениях. `apps/api` и `apps/web` пока заглушки — их `dev`, `build` и `test` наполняют задачи T-03 и T-05.
+Приложения видят `@lowisko/shared` через его `dist`: пакет собирается при `pnpm install` и перед `pnpm typecheck`, а `pnpm dev` пересобирает его при изменениях.
 
 Перед коммитом хук прогоняет ESLint и Prettier по изменённым файлам (lint-staged); типы он не проверяет — для этого `pnpm typecheck`. Хуку нужны Node 24 и pnpm в `PATH`. Если git запускается не из оболочки с `nvm use` (GUI-клиент, IDE), добавьте их в `~/.config/husky/init.sh`. На другой мажорной версии Node команды pnpm останавливаются с ошибкой (`devEngines` в `package.json`).
 
