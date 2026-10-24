@@ -74,15 +74,16 @@ export class OrganizationsService {
 
   /** Activation or blocking; setting the current status again is a no-op. */
   async setStatus(id: string, status: SettableStatus): Promise<OrganizationDto> {
-    // updateMany: a missing row is a count of 0, not an exception.
-    const { count } = await this.prisma.organization.updateMany({
-      where: { id },
-      data: { status },
-    });
-    if (count === 0) {
-      throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'Organization not found');
+    try {
+      return toOrganization(
+        await this.prisma.organization.update({ where: { id }, data: { status } }),
+      );
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'Organization not found');
+      }
+      throw error;
     }
-    return toOrganization(await this.prisma.organization.findUniqueOrThrow({ where: { id } }));
   }
 }
 

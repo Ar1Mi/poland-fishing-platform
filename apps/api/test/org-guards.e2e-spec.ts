@@ -13,6 +13,7 @@ import { createOrganization } from './factories';
 import { expectForeignOrgAdminForbidden, loginOrgMember } from './org-helpers';
 
 // Test-only routes guarded the way real /orgs/:orgId/* and /admin/* routes will be.
+// The staff route has @Roles only: it must bring the scope/status check by itself.
 @Controller()
 class ProbeController {
   @Get('orgs/:orgId/probe/admin')
@@ -23,7 +24,6 @@ class ProbeController {
   }
 
   @Get('orgs/:orgId/probe/staff')
-  @UseGuards(OrgScopeGuard)
   @Roles('ORG_ADMIN', 'INSPECTOR')
   staff(): string {
     return 'ok';
@@ -97,18 +97,32 @@ describe('RolesGuard and OrgScopeGuard', () => {
     await get(`orgs/${member.organizationId}/probe/admin`, member.accessToken).expect(200);
   });
 
-  it.each(['PENDING', 'BLOCKED'] as const)(
-    'rejects members of a %s organization with ORG_NOT_ACTIVE',
-    async (status) => {
+  it.each([
+    ['PENDING', 'admin'],
+    ['BLOCKED', 'admin'],
+    ['BLOCKED', 'staff'],
+  ] as const)(
+    'rejects members of a %s organization with ORG_NOT_ACTIVE (%s route)',
+    async (status, route) => {
       const admin = await loginOrgMember(app, prisma, 'ORG_ADMIN', status);
 
       const response = await get(
-        `orgs/${admin.organizationId}/probe/admin`,
+        `orgs/${admin.organizationId}/probe/${route}`,
         admin.accessToken,
       ).expect(403);
       expect(response.body).toMatchObject({ code: 'ORG_NOT_ACTIVE', details: { status } });
     },
   );
+
+  it('reports an inactive organization before a missing role', async () => {
+    const inspector = await loginOrgMember(app, prisma, 'INSPECTOR', 'BLOCKED');
+
+    const response = await get(
+      `orgs/${inspector.organizationId}/probe/admin`,
+      inspector.accessToken,
+    ).expect(403);
+    expect(response.body).toMatchObject({ code: 'ORG_NOT_ACTIVE' });
+  });
 
   it.each([
     ['an unknown organization id', '6f1c1d2e-8b8a-4c55-9a52-3f0e1d6b7a90'],

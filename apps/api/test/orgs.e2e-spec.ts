@@ -104,6 +104,17 @@ describe('organizations', () => {
       expect(await prisma.membership.count()).toBe(1);
     });
 
+    it('turns the unique index violation into NIP_TAKEN when the pre-check misses it', async () => {
+      await createOrganization(prisma, { nip: '5260250274' });
+      // Simulates the other application committing between the check and the insert.
+      jest.spyOn(prisma.organization, 'count').mockResolvedValueOnce(0);
+
+      await apply(application)
+        .expect(409)
+        .expect(({ body }) => expect(body).toMatchObject({ code: 'NIP_TAKEN' }));
+      expect(await prisma.membership.count()).toBe(0);
+    });
+
     it('requires a logged-in user', async () => {
       await http().post('/api/v1/orgs').send(application).expect(401);
     });
@@ -153,7 +164,10 @@ describe('organizations', () => {
         createdAt: new Date(FIXED_NOW.getTime() - 60_000),
       });
       const newer = await createOrganization(prisma, { createdAt: FIXED_NOW });
-      const active = await createOrganization(prisma, { status: 'ACTIVE' });
+      const active = await createOrganization(prisma, {
+        status: 'ACTIVE',
+        createdAt: new Date(FIXED_NOW.getTime() + 60_000),
+      });
 
       const all = await http().get('/api/v1/admin/orgs').set(auth(superAdminToken)).expect(200);
       const pending = await http()
@@ -161,7 +175,11 @@ describe('organizations', () => {
         .set(auth(superAdminToken))
         .expect(200);
 
-      expect((all.body as { id: string }[]).map((o) => o.id)).toHaveLength(3);
+      expect((all.body as { id: string }[]).map((o) => o.id)).toEqual([
+        older.id,
+        newer.id,
+        active.id,
+      ]);
       expect((pending.body as { id: string }[]).map((o) => o.id)).toEqual([older.id, newer.id]);
       expect(pending.body).not.toContainEqual(expect.objectContaining({ id: active.id }));
     });
