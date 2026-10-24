@@ -127,6 +127,7 @@ FR-22. Ссылки: `08-testing-and-infra.md` → «Данные каталог
 - [ ] Геокодер с лимитом 1 req/s, `GeocodeCache`, User-Agent из env; в тестах — фейк.
 - [ ] CLI-скрипт `pnpm --filter api import:waters data/waters/<file>.csv`.
 - [ ] `data/waters/README.md` с форматом и `mazowieckie.sample.csv` (несколько строк для проверки; полный список собирает автор).
+- [ ] Из T-09: импорт отклоняет `region` вне `REGIONS` и `externalInfoUrl` не http(s); решить об индексе для `bbox` (`lat`/`lng`) под реальный объём каталога (сейчас фильтр без индекса).
 
 ### T-11 Claim водоёма
 FR-24.
@@ -234,18 +235,21 @@ NFR-04.
 ### T-29 Производительность и доступность
 NFR-01, NFR-02, NFR-05, NFR-09.
 - [ ] k6-скрипт и отчёт; Lighthouse CI; axe в Playwright; отчёт покрытия.
+- [ ] Из T-09: `GET /waters` (до 2000 записей, публичный) — в сценарий нагрузки, решить о лимите запросов; бандл web 796 КБ (244 КБ gzip) — разделить код (Leaflet отдельным чанком).
 
 ### T-30 Деплой
 NFR-10.
 - [ ] Dockerfile api и web (multi-stage), `docker-compose.prod.yml` с Caddy, `deploy.yml`.
 - [ ] Миграции при старте, резервная копия БД (cron `pg_dump`).
 - [ ] P24 sandbox работает на публичном URL.
+- [ ] Из T-09: URL тайлов карты — в `VITE_`-переменную (`.env.example`); политика OSM не допускает продакшн-нагрузку на `tile.openstreetmap.org`.
 
 ## Текст и защита
 
 ### T-31 Локализация
 FR-29, NFR-08.
 - [ ] Перевести все ключи `en`, `ru`; проверка отсутствующих ключей в CI.
+- [ ] Из T-09: названия воеводств выводятся как в БД (`mazowieckie`) — ключи `catalog.region.*` для `en`/`ru`.
 
 ### T-32 UML и BPMN
 - [ ] Use case, ERD (из `schema.prisma`), классы CatchValidator, sequence (покупка, синхронизация), state (разрешение), BPMN (покупка, claim) — в `docs/diagrams/` как PlantUML/Mermaid + экспорт в PNG/SVG.
