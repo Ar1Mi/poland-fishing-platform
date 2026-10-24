@@ -57,7 +57,7 @@ docs/
 
 - **Конфиг:** `@nestjs/config` + Zod-схема env (`src/config/env.ts`); приложение не стартует при невалидном env. Единственный `.env` лежит в корне репозитория; в схему переменная попадает в той задаче, которая первой её читает.
 - **Ошибки:** глобальный `HttpExceptionFilter` → `{ code, message, details? }`. Бизнес-ошибки — `DomainError(code, details)`; коды — enum `ErrorCode` в `packages/shared`. Необработанное исключение → 500 `INTERNAL_ERROR` без деталей в ответе (причина — только в логе).
-- **Авторизация:** `JwtAuthGuard` (глобальный, `@Public()` для открытых маршрутов) → `RolesGuard` (`@Roles('ORG_ADMIN')`, `@SuperAdmin()`) → `OrgScopeGuard` (сверяет `:orgId` из маршрута с членством).
+- **Авторизация:** `JwtAuthGuard` (глобальный, `@Public()` для открытых маршрутов) → `RolesGuard` (`@Roles('ORG_ADMIN')`, `@SuperAdmin()`; декораторы сами подключают guard) → `OrgScopeGuard` (сверяет `:orgId` из маршрута с членством и требует статус `ACTIVE`). Оба guard'а читают членство через `OrgAccessService` один раз на запрос и не зависят от порядка; коды ошибок — `05-api.md` → «Детали (T-08)».
 - **Валидация:** глобальный `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true })`.
 - **Swagger:** `/api/docs`; OpenAPI JSON → `openapi-typescript` → типы API-клиента фронтенда (`pnpm gen:api`).
 - **Время:** сервер в UTC; бизнес-«сутки» — календарный день `Europe/Warsaw` через `warsawDate()` из `packages/shared` (встроенный `Intl.DateTimeFormat`, без библиотеки часовых поясов — одна реализация для сервера и PWA); `now` инжектируется через `ClockService` (подменяется в тестах).
