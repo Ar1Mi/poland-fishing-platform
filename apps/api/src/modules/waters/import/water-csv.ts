@@ -35,20 +35,27 @@ export class WaterCsvFormatError extends Error {
   }
 }
 
-/** `row` is the CSV record number with the header as 1, so the first data row is 2. */
+/**
+ * `row` is the line of the file where the record starts (the header is line 1), as an
+ * editor shows it: empty lines and line breaks inside quoted fields are counted.
+ */
 export type WaterCsvRecord =
   { row: number; values: Record<WaterCsvColumn, string> } | { row: number; error: string };
 
 export function parseWaterCsv(content: Buffer | string): WaterCsvRecord[] {
-  let records: string[][];
+  let records: { record: string[]; info: { lines: number } }[];
   try {
     records = parse(content, {
       bom: true,
       trim: true,
       skip_empty_lines: true,
+      // Rows of bare commas, as spreadsheets leave at the end of a file.
+      skip_records_with_empty_values: true,
       // A wrong field count is a problem of that row, not of the whole file.
       relax_column_count: true,
-    });
+      info: true,
+      // The typings do not narrow the record shape by `info: true`.
+    }) as unknown as typeof records;
   } catch (error) {
     if (error instanceof CsvError) {
       throw new WaterCsvFormatError(`not a valid CSV: ${error.message}`);
@@ -56,7 +63,8 @@ export function parseWaterCsv(content: Buffer | string): WaterCsvRecord[] {
     throw error;
   }
 
-  const [header, ...rows] = records;
+  const [first, ...rows] = records;
+  const header = first?.record;
   if (!header) {
     throw new WaterCsvFormatError('the file is empty');
   }
@@ -65,14 +73,19 @@ export function parseWaterCsv(content: Buffer | string): WaterCsvRecord[] {
     throw new WaterCsvFormatError(`at most ${WATER_CSV_MAX_ROWS} rows per file`);
   }
 
-  return rows.map((fields, index) => {
-    const row = index + 2;
+  return rows.map(({ record: fields, info }) => {
+    // `info.lines` is the line where the record ends.
+    const row = info.lines - fields.reduce((sum, field) => sum + lineBreaks(field), 0);
     if (fields.length !== header.length) {
       return { row, error: `expected ${header.length} fields, got ${fields.length}` };
     }
     const values = Object.fromEntries(header.map((column, i) => [column, fields[i] ?? '']));
     return { row, values: values as Record<WaterCsvColumn, string> };
   });
+}
+
+function lineBreaks(field: string): number {
+  return field.match(/\n/g)?.length ?? 0;
 }
 
 function checkHeader(header: string[]): void {

@@ -1,7 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
 import type { Prisma } from '../../../generated/prisma/client';
-import { GEOCODER, type Geocoder } from './geocoder';
+import { GEOCODER, type Geocoder, GeocoderUnavailableError } from './geocoder';
 
 export interface Position {
   lat: number;
@@ -19,14 +19,20 @@ export class GeocodingService {
     @Inject(GEOCODER) private readonly geocoder: Geocoder,
   ) {}
 
-  /** null when the place is unknown; throws GeocoderUnavailableError when nobody answered. */
-  async locate(query: string): Promise<Position | null> {
+  /**
+   * null when the place is unknown; throws GeocoderUnavailableError when nobody answered.
+   * `cachedOnly` answers from the cache and treats a miss as unavailable.
+   */
+  async locate(query: string, { cachedOnly = false } = {}): Promise<Position | null> {
     const key = normalizeQuery(query);
     const cached = await this.prisma.geocodeCache.findUnique({ where: { query: key } });
     if (cached) {
       return cached.lat !== null && cached.lng !== null
         ? { lat: cached.lat, lng: cached.lng }
         : null;
+    }
+    if (cachedOnly) {
+      throw new GeocoderUnavailableError('skipped: the geocoder failed for the previous rows');
     }
 
     const result = await this.geocoder.geocode(key);

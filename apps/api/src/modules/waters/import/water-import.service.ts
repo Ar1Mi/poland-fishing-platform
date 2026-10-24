@@ -11,6 +11,12 @@ import {
   WaterCsvFormatError,
 } from './water-csv';
 
+/**
+ * After this many geocoder failures in a row the import stops asking it: with Nominatim
+ * down every row would wait for the timeout. Cached queries still resolve.
+ */
+export const GEOCODER_FAILURES_TO_STOP = 3;
+
 export interface WaterImportReport {
   created: number;
   updated: number;
@@ -44,6 +50,7 @@ export class WaterImportService {
     const report: WaterImportReport = { created: 0, updated: 0, failed: [] };
     const fail = (row: number, error: string) => report.failed.push({ row, error });
     const firstRowOfKey = new Map<string, number>();
+    const geocoder = { failuresInRow: 0 };
 
     // One row at a time: geocoding is limited to 1 request/s anyway.
     for (const record of records) {
@@ -65,7 +72,7 @@ export class WaterImportService {
       }
       firstRowOfKey.set(key, record.row);
 
-      const position = await this.resolvePosition(row);
+      const position = await this.resolvePosition(row, geocoder);
       if ('error' in position) {
         fail(record.row, position.error);
         continue;
@@ -76,19 +83,25 @@ export class WaterImportService {
     return report;
   }
 
-  private async resolvePosition(row: WaterCsvRow): Promise<Position | { error: string }> {
+  private async resolvePosition(
+    row: WaterCsvRow,
+    geocoder: { failuresInRow: number },
+  ): Promise<Position | { error: string }> {
     if (!('geocodeQuery' in row.position)) {
       return row.position;
     }
     const query = row.position.geocodeQuery;
     try {
-      return (
-        (await this.geocoding.locate(query)) ?? {
-          error: `geocodeQuery: no place found for "${query}"`,
-        }
-      );
+      // Once stopped, the geocoder stays off for the rest of the file.
+      const stopped = geocoder.failuresInRow >= GEOCODER_FAILURES_TO_STOP;
+      const position = await this.geocoding.locate(query, { cachedOnly: stopped });
+      if (!stopped) {
+        geocoder.failuresInRow = 0;
+      }
+      return position ?? { error: `geocodeQuery: no place found for "${query}"` };
     } catch (error) {
       if (error instanceof GeocoderUnavailableError) {
+        geocoder.failuresInRow += 1;
         return { error: `geocodeQuery: ${error.message}` };
       }
       throw error;

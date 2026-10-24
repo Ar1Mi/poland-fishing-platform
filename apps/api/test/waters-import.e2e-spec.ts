@@ -97,6 +97,7 @@ describe('POST /admin/waters/import', () => {
       status: 'CONNECTED',
       organizationId: organization.id,
       description: 'Opis koła',
+      isPublished: false,
     });
 
     const response = await upload(
@@ -114,6 +115,7 @@ describe('POST /admin/waters/import', () => {
         status: 'CONNECTED',
         organizationId: organization.id,
         description: 'Opis koła',
+        isPublished: false,
       }),
     ]);
   });
@@ -191,6 +193,40 @@ describe('POST /admin/waters/import', () => {
     expect((await upload(rows).expect(200)).body).toMatchObject({ created: 1 });
   });
 
+  it('stops asking an unavailable geocoder after 3 failures in a row, cached queries still work', async () => {
+    await upload(csv('RZGW,A,Zalew,RESERVOIR,mazowieckie,,,,,"Zalew Zegrzyński, mazowieckie"'));
+    geocoder.unavailable = true;
+    geocoder.queries.length = 0;
+
+    const response = await upload(
+      csv(
+        'RZGW,B,Jezioro 1,LAKE,mazowieckie,,,,,Miejsce 1',
+        'RZGW,C,Jezioro 2,LAKE,mazowieckie,,,,,Miejsce 2',
+        'RZGW,D,Jezioro 3,LAKE,mazowieckie,,,,,Miejsce 3',
+        'RZGW,E,Jezioro 4,LAKE,mazowieckie,,,,,Miejsce 4',
+        'RZGW,F,Zalew bis,RESERVOIR,mazowieckie,,,,,"Zalew Zegrzyński, mazowieckie"',
+      ),
+    ).expect(200);
+
+    expect(geocoder.queries).toEqual(['miejsce 1', 'miejsce 2', 'miejsce 3']);
+    const report = response.body as Report;
+    expect(report.created).toBe(1);
+    expect(report.failed.map(({ row }) => row)).toEqual([2, 3, 4, 5]);
+    expect(report.failed[3]?.error).toBe(
+      'geocodeQuery: skipped: the geocoder failed for the previous rows',
+    );
+  });
+
+  it('reports the line of the file, counting empty lines and multi-line fields', async () => {
+    const content = `${HEADER}\n\nRZGW,A,"Jezioro\nDuże",LAKE,mazowieckie,,,52,21,\nRZGW,B,Zły,LAKE,Mazowsze,,,52,21,\n`;
+
+    const response = await upload(content).expect(200);
+
+    expect((response.body as Report).failed).toEqual([
+      { row: 5, error: expect.stringContaining('region:') as unknown },
+    ]);
+  });
+
   it.each([
     ['a wrong header', 'name,region\nJezioro,mazowieckie', 'invalid header'],
     ['an empty file', '', 'the file is empty'],
@@ -215,6 +251,16 @@ describe('POST /admin/waters/import', () => {
       code: 'VALIDATION_FAILED',
       details: { file: 'is required' },
     });
+  });
+
+  it('rejects a file sent under another field name', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/api/v1/admin/waters/import')
+      .set({ Authorization: `Bearer ${superAdminToken}` })
+      .attach('csv', Buffer.from(HEADER), 'waters.csv')
+      .expect(400);
+
+    expect(response.body).toMatchObject({ code: 'VALIDATION_FAILED' });
   });
 
   it('rejects a file over 1 MB', async () => {

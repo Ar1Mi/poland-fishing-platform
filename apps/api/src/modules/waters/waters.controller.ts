@@ -81,7 +81,9 @@ export class AdminWatersController {
   @Post('import')
   @HttpCode(200)
   @UseInterceptors(
-    FileInterceptor('file', { limits: { fileSize: WATER_IMPORT_MAX_BYTES, files: 1 } }),
+    FileInterceptor('file', {
+      limits: { fileSize: WATER_IMPORT_MAX_BYTES, files: 1, fields: 0, parts: 1 },
+    }),
   )
   @ApiOperation({
     summary: 'Import catalogue CSV: upsert by source + sourceRef, geocoding empty lat/lng',

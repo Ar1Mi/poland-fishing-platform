@@ -58,6 +58,18 @@ describe('parseWaterCsv', () => {
     });
   });
 
+  it('numbers rows by the line in the file across empty lines and multi-line fields', () => {
+    const csv = `${HEADER}\n\nRZGW,A,"Jezioro\nDuże",LAKE,mazowieckie,,,52,21,\nRZGW,B,Staw,POND,mazowieckie,,,52,21,\n`;
+
+    expect(parseWaterCsv(csv).map((record) => record.row)).toEqual([3, 5]);
+  });
+
+  it('skips rows of bare commas left by spreadsheets', () => {
+    const csv = `${HEADER}\nRZGW,A,Staw,POND,mazowieckie,,,52,21,\n,,,,,,,,,\n , , ,,,,,,,\n`;
+
+    expect(parseWaterCsv(csv)).toHaveLength(1);
+  });
+
   it('reports a row with a wrong number of fields without failing the file', () => {
     const csv = `${HEADER}\nRZGW,WA-1,Jezioro\nRZGW,WA-2,Staw,POND,mazowieckie,,,52,21,\n`;
 
