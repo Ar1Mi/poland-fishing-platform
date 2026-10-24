@@ -1,18 +1,29 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useEffect } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { jsonResponse, mockApi, renderRoute } from '../../../test/render';
 import type { WaterDetail, WaterSummary } from '../api/useWaters';
 import { POLAND_BBOX } from '../lib/map';
 import { LIST_LIMIT } from './CatalogPage';
 
-// Leaflet needs a real layout; the map gets its own browser check. Here it only shows what it got.
+interface MapProps {
+  waters: WaterSummary[];
+  fitToWaters: boolean;
+  onBoundsChange: (bbox: string) => void;
+}
+
+// Leaflet needs a real layout (bboxOf has its own test; the map was checked in a browser).
+// The stand-in reports the initial view of Poland, as the map does once laid out.
 vi.mock('../components/WatersMap', () => ({
-  WatersMap: ({ waters, fitToWaters }: { waters: WaterSummary[]; fitToWaters: boolean }) => (
-    <div data-testid="map" data-fit={String(fitToWaters)}>
-      {waters.length}
-    </div>
-  ),
+  WatersMap: ({ waters, fitToWaters, onBoundsChange }: MapProps) => {
+    useEffect(() => onBoundsChange(POLAND_BBOX), [onBoundsChange]);
+    return (
+      <div data-testid="map" data-fit={String(fitToWaters)}>
+        {waters.length}
+      </div>
+    );
+  },
 }));
 
 const zegrze: WaterSummary = {
@@ -120,6 +131,15 @@ describe('catalogue page', () => {
     expect(await screen.findByText(/Przybliż mapę lub zawęź filtry/)).toBeVisible();
   });
 
+  it('asks for a more precise name when a search was truncated (zooming does not help)', async () => {
+    mockApi({ 'GET /api/v1/waters': watersList([zegrze], true) });
+
+    renderRoute('/?q=staw');
+
+    expect(await screen.findByText(/Wpisz dokładniejszą nazwę/)).toBeVisible();
+    expect(screen.queryByText(/Przybliż mapę/)).not.toBeInTheDocument();
+  });
+
   it(`renders at most ${LIST_LIMIT} entries and says how many there are`, async () => {
     const many = Array.from({ length: LIST_LIMIT + 5 }, (_, i) => ({
       ...zegrze,
@@ -191,11 +211,33 @@ describe('water page', () => {
     ).toBeVisible();
   });
 
+  it('says that online sales are suspended while the organization is blocked', async () => {
+    show(
+      detail({
+        status: 'CONNECTED',
+        organization: {
+          id: '2d9f6c1e-1c1e-4f43-9a51-0d6c2f0d9a13',
+          name: 'Koło PZW nr 12',
+          isActive: false,
+        },
+      }),
+    );
+
+    expect(await screen.findByText('Sprzedaż online wstrzymana')).toBeVisible();
+    expect(screen.getByText('Koło PZW nr 12')).toBeVisible();
+    expect(screen.getByText(/jest obecnie wstrzymana/)).toBeVisible();
+    expect(screen.queryByText('Zezwolenia online')).not.toBeInTheDocument();
+  });
+
   it('shows the organization of a connected water and no external link', async () => {
     show(
       detail({
         status: 'CONNECTED',
-        organization: { id: '2d9f6c1e-1c1e-4f43-9a51-0d6c2f0d9a13', name: 'Koło PZW nr 12' },
+        organization: {
+          id: '2d9f6c1e-1c1e-4f43-9a51-0d6c2f0d9a13',
+          name: 'Koło PZW nr 12',
+          isActive: true,
+        },
         externalOwnerName: 'RZGW Warszawa',
         externalInfoUrl: 'https://www.gov.pl/web/wody-polskie',
       }),

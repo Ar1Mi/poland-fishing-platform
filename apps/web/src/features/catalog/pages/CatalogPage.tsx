@@ -10,7 +10,6 @@ import { useWaters } from '../api/useWaters';
 import { CatalogFilters, type CatalogFilterValues } from '../components/CatalogFilters';
 import { WaterCard } from '../components/WaterCard';
 import { WatersMap } from '../components/WatersMap';
-import { POLAND_BBOX } from '../lib/map';
 
 /** The list renders this many entries; the map shows all of them. */
 export const LIST_LIMIT = 100;
@@ -43,9 +42,13 @@ export function CatalogPage() {
   const { t } = useTranslation();
   const [params, setParams] = useSearchParams();
   const filters = filtersFrom(params);
-  const [bbox, setBbox] = useState(POLAND_BBOX);
+  // Null until the map reports its real bounds: no request for a viewport nobody sees.
+  const [bbox, setBbox] = useState<string | null>(null);
   const searching = Boolean(filters.q);
-  const waters = useWaters({ ...filters, bbox: searching ? undefined : bbox });
+  const waters = useWaters(
+    { ...filters, bbox: searching ? undefined : (bbox ?? undefined) },
+    { enabled: searching || bbox !== null },
+  );
   const items = waters.data?.items ?? [];
 
   return (
@@ -55,12 +58,19 @@ export function CatalogPage() {
         <p className="text-muted-foreground">{t('catalog.page.lead')}</p>
       </div>
       <CatalogFilters value={filters} onChange={(next) => setParams(toParams(next))} />
-      <WatersMap waters={items} onBoundsChange={setBbox} fitToWaters={searching} />
+      <WatersMap
+        waters={items}
+        onBoundsChange={setBbox}
+        // Kept previous data still holds the old viewport: zoom only to the search results.
+        fitToWaters={searching && !waters.isPlaceholderData}
+      />
       {waters.isError && <ApiErrorAlert error={waters.error} />}
       {waters.data?.truncated && (
         <Alert variant="warning" role="status">
           <ZoomIn aria-hidden />
-          <AlertDescription className="text-body">{t('catalog.page.truncated')}</AlertDescription>
+          <AlertDescription className="text-body">
+            {searching ? t('catalog.page.truncatedSearch') : t('catalog.page.truncated')}
+          </AlertDescription>
         </Alert>
       )}
       <section aria-labelledby="catalog-results" className="flex flex-col gap-3">

@@ -228,15 +228,34 @@ describe('waters catalogue', () => {
         .get(`/api/v1/waters/${water.id}`)
         .expect(200);
 
-      expect(response.body).toMatchObject({
-        status: 'CONNECTED',
-        organization: { id: organization.id, name: 'Koło PZW nr 12' },
-      });
+      expect(response.body).toMatchObject({ status: 'CONNECTED' });
       expect((response.body as { organization: object }).organization).toEqual({
         id: organization.id,
         name: 'Koło PZW nr 12',
+        isActive: true,
       });
     });
+
+    it.each(['BLOCKED', 'PENDING'] as const)(
+      'marks the organization of a connected water as inactive when it is %s',
+      async (status) => {
+        const organization = await createOrganization(prisma, { status });
+        const water = await createWater(prisma, {
+          status: 'CONNECTED',
+          organizationId: organization.id,
+        });
+
+        const response = await request(app.getHttpServer())
+          .get(`/api/v1/waters/${water.id}`)
+          .expect(200);
+
+        // The water stays CONNECTED (the claim was approved); only online sales are suspended.
+        expect(response.body).toMatchObject({
+          status: 'CONNECTED',
+          organization: { id: organization.id, isActive: false },
+        });
+      },
+    );
 
     it('answers 404 for an unpublished suggestion', async () => {
       const water = await createWater(prisma, { isPublished: false });

@@ -113,6 +113,11 @@ export class WaterOwnerDto {
 
   @ApiProperty()
   name!: string;
+
+  @ApiProperty({
+    description: 'false while the organization is not ACTIVE (blocked): online sales are suspended',
+  })
+  isActive!: boolean;
 }
 
 export class WaterDetailDto extends WaterSummaryDto {

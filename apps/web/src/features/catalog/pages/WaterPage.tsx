@@ -1,6 +1,6 @@
-import { ArrowLeft, ExternalLink, LoaderCircle, MapPinOff } from 'lucide-react';
+import { ArrowLeft, CirclePause, ExternalLink, LoaderCircle, MapPinOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Link, useParams } from 'react-router';
+import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { formatDate } from '../../../shared/lib/format';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Badge } from '../../../shared/ui/badge';
@@ -14,9 +14,21 @@ export function WaterPage() {
   const { t } = useTranslation();
   const { id = '' } = useParams();
   const water = useWater(id);
+  const location = useLocation();
+  const navigate = useNavigate();
   return (
     <>
-      <Link to="/" className="flex min-h-11 w-fit items-center gap-2 font-semibold text-primary">
+      <Link
+        to="/"
+        onClick={(event) => {
+          // Back to the map as it was left (filters, viewport) when we came from it.
+          if (location.key !== 'default') {
+            event.preventDefault();
+            void navigate(-1);
+          }
+        }}
+        className="flex min-h-11 w-fit items-center gap-2 font-semibold text-primary"
+      >
         <ArrowLeft aria-hidden className="size-5" />
         {t('catalog.water.back')}
       </Link>
@@ -35,6 +47,8 @@ export function WaterPage() {
 function WaterDetails({ water }: { water: WaterDetail }) {
   const { t, i18n } = useTranslation();
   const connected = water.status === 'CONNECTED';
+  // A blocked organization keeps its waters, but does not sell permits meanwhile.
+  const suspended = connected && water.organization?.isActive === false;
   const ownerName = connected ? water.organization?.name : water.externalOwnerName;
   const externalUrl = connected ? null : safeExternalUrl(water.externalInfoUrl);
   return (
@@ -44,7 +58,14 @@ function WaterDetails({ water }: { water: WaterDetail }) {
         <p className="text-muted-foreground">
           {t(`catalog.waterType.${water.type}`)} · {water.region}
         </p>
-        <WaterStatusBadge status={water.status} />
+        {suspended ? (
+          <Badge variant="warning">
+            <CirclePause aria-hidden />
+            {t('catalog.water.suspendedBadge')}
+          </Badge>
+        ) : (
+          <WaterStatusBadge status={water.status} />
+        )}
         {(water.lat === null || water.lng === null) && (
           <p className="flex items-center gap-1 text-small text-muted-foreground">
             <MapPinOff aria-hidden className="size-4" />
@@ -64,7 +85,11 @@ function WaterDetails({ water }: { water: WaterDetail }) {
             </dd>
           </dl>
           <p>
-            {connected ? t('catalog.water.permitsConnected') : t('catalog.water.permitsExternal')}
+            {suspended
+              ? t('catalog.water.permitsSuspended')
+              : connected
+                ? t('catalog.water.permitsConnected')
+                : t('catalog.water.permitsExternal')}
           </p>
           {externalUrl && (
             <a
@@ -85,7 +110,9 @@ function WaterDetails({ water }: { water: WaterDetail }) {
           <CardHeader>
             <CardTitle>{t('catalog.water.description')}</CardTitle>
           </CardHeader>
-          <p className="whitespace-pre-line">{water.description}</p>
+          <CardContent>
+            <p className="whitespace-pre-line">{water.description}</p>
+          </CardContent>
         </Card>
       )}
       <p className="text-small text-muted-foreground">

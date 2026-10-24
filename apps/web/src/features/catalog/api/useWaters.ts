@@ -15,8 +15,9 @@ export interface WaterQuery {
 }
 
 /** Catalogue for the map and the list; the previous result stays on screen while the map moves. */
-export function useWaters(query: WaterQuery) {
+export function useWaters(query: WaterQuery, { enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
+    enabled,
     queryKey: ['waters', query],
     queryFn: ({ signal }) =>
       request(() => api.GET('/api/v1/waters', { params: { query }, signal })),

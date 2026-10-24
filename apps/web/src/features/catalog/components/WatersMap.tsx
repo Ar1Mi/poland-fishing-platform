@@ -1,4 +1,3 @@
-import { formatBbox } from '@lowisko/shared';
 import L, { type MarkerCluster } from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useMemo } from 'react';
@@ -8,14 +7,14 @@ import MarkerClusterGroup from 'react-leaflet-cluster';
 import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
 import { Link } from 'react-router';
 import type { WaterSummary } from '../api/useWaters';
-import { POLAND_BOUNDS, toLatLngBounds, withPosition } from '../lib/map';
+import { bboxOf, POLAND_BOUNDS, toLatLngBounds, withPosition } from '../lib/map';
 import { WaterStatusBadge } from './WaterStatusBadge';
 
 interface WatersMapProps {
   waters: WaterSummary[];
   /** Called with `minLng,minLat,maxLng,maxLat` when the map is laid out and after each move. */
   onBoundsChange: (bbox: string) => void;
-  /** Zoom to the given waters (after a name search). */
+  /** Zoom to the given waters (after a name search, once its results have arrived). */
   fitToWaters: boolean;
 }
 
@@ -37,11 +36,12 @@ export function WatersMap({ waters, onBoundsChange, fitToWaters }: WatersMapProp
   const positioned = useMemo(() => withPosition(waters), [waters]);
   const clusterIcon = (cluster: MarkerCluster) => {
     const count = cluster.getChildCount();
-    return L.divIcon({
-      className: '',
-      html: `<span class="water-cluster" aria-label="${t('catalog.map.cluster', { count })}">${count}</span>`,
-      iconSize: [44, 44],
-    });
+    // Built as an element, so a translation with quotes cannot break out of the attribute.
+    const icon = document.createElement('span');
+    icon.className = 'water-cluster';
+    icon.setAttribute('aria-label', t('catalog.map.cluster', { count }));
+    icon.textContent = String(count);
+    return L.divIcon({ className: '', html: icon, iconSize: [44, 44] });
   };
 
   return (
@@ -89,12 +89,12 @@ export function WatersMap({ waters, onBoundsChange, fitToWaters }: WatersMapProp
 
 function BoundsReporter({ onBoundsChange }: { onBoundsChange: (bbox: string) => void }) {
   const map = useMapEvents({
-    moveend: () => onBoundsChange(boundsOf(map)),
+    moveend: () => onBoundsChange(bboxOf(map.getBounds())),
   });
   // The bounds once laid out; later changes come from moveend. A stable callback (a state
   // setter) keeps this to a single call.
   useEffect(() => {
-    onBoundsChange(boundsOf(map));
+    onBoundsChange(bboxOf(map.getBounds()));
   }, [map, onBoundsChange]);
   return null;
 }
@@ -110,14 +110,4 @@ function FitToWaters({ waters }: { waters: { lat: number; lng: number }[] }) {
     }
   }, [map, waters]);
   return null;
-}
-
-function boundsOf(map: L.Map): string {
-  const bounds = map.getBounds();
-  return formatBbox({
-    minLng: bounds.getWest(),
-    minLat: bounds.getSouth(),
-    maxLng: bounds.getEast(),
-    maxLat: bounds.getNorth(),
-  });
 }

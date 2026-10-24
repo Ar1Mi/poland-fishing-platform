@@ -7,7 +7,8 @@
     "empty": "Brak łowisk spełniających kryteria.",
     "shownOf": "Pokazano {{shown}} z {{count}}. Zawęź wyszukiwanie, aby zobaczyć resztę.",
     "truncated": "W tym widoku jest zbyt wiele łowisk. Przybliż mapę lub zawęź filtry, aby zobaczyć wszystkie.",
-    "loading": "Ładowanie łowisk…"
+    "loading": "Ładowanie łowisk…",
+    "truncatedSearch": "Znaleziono zbyt wiele łowisk. Wpisz dokładniejszą nazwę lub zawęź filtry, aby zobaczyć wszystkie."
   },
   "filters": {
     "title": "Filtry",
@@ -52,7 +53,9 @@
     "externalLinkHint": "(otwiera się w nowej karcie)",
     "description": "Opis",
     "source": "Źródło danych: {{source}}, aktualizacja {{date}}",
-    "noPosition": "Brak położenia na mapie."
+    "noPosition": "Brak położenia na mapie.",
+    "suspendedBadge": "Sprzedaż online wstrzymana",
+    "permitsSuspended": "Sprzedaż zezwoleń w serwisie jest obecnie wstrzymana."
   },
   "source": {
     "RZGW": "RZGW Wody Polskie",
