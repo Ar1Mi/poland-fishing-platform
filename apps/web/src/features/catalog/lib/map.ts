@@ -1,4 +1,4 @@
-import { type Bbox, formatBbox } from '@lowisko/shared';
+import { type Bbox, formatBbox, POLAND_BOUNDS } from '@lowisko/shared';
 
 /** The part of Leaflet's `LatLngBounds` used here (keeps the helper testable without a map). */
 export interface BoundsLike {
@@ -9,7 +9,7 @@ export interface BoundsLike {
 }
 
 /** Initial view: the whole of Poland; the map reports its real bounds once laid out. */
-export const POLAND_BOUNDS: Bbox = { minLng: 14.07, minLat: 49.0, maxLng: 24.15, maxLat: 54.84 };
+export { POLAND_BOUNDS };
 export const POLAND_BBOX = formatBbox(POLAND_BOUNDS);
 
 /** `[[south, west], [north, east]]` as Leaflet takes bounds. */

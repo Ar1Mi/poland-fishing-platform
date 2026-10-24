@@ -41,6 +41,13 @@ export interface Bbox {
   maxLat: number;
 }
 
+/** Extreme points of Poland: the map's initial view and the import's coordinate check. */
+export const POLAND_BOUNDS: Bbox = { minLng: 14.07, minLat: 49.0, maxLng: 24.15, maxLat: 54.84 };
+
+export function isInBbox(lat: number, lng: number, box: Bbox): boolean {
+  return lat >= box.minLat && lat <= box.maxLat && lng >= box.minLng && lng <= box.maxLng;
+}
+
 const NUMBER = /^-?\d+(\.\d+)?$/;
 
 /**
