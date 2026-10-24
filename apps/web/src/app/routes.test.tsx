@@ -1,13 +1,13 @@
-import { screen, within } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { jsonResponse, renderRoute } from '../test/render';
 
-const healthy = () =>
-  vi.stubGlobal(
-    'fetch',
-    vi.fn().mockResolvedValue(jsonResponse({ status: 'ok', time: '2026-10-06T15:20:00.000Z' })),
-  );
+// Leaflet needs a real layout; the catalogue map is not under test here.
+vi.mock('../features/catalog/components/WatersMap', () => ({ WatersMap: () => null }));
+
+const emptyCatalogue = () =>
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ items: [], truncated: false })));
 
 describe('routes', () => {
   it('shows the 404 page with a link home for an unknown path', async () => {
@@ -22,22 +22,14 @@ describe('routes', () => {
     );
   });
 
-  it('shows the API as connected on the home page', async () => {
-    healthy();
+  it('opens the catalogue on the home page', async () => {
+    emptyCatalogue();
 
     renderRoute('/');
 
-    expect(await screen.findByText('Połączono')).toBeVisible();
-  });
-
-  it('shows a translated message with the code when the API cannot be reached', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
-
-    renderRoute('/');
-
-    const alert = await screen.findByRole('alert');
-    expect(within(alert).getByText(/Brak połączenia z serwerem/)).toBeVisible();
-    expect(within(alert).getByText('NETWORK_ERROR')).toBeVisible();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Łowiska w Polsce' }),
+    ).toBeVisible();
   });
 });
 
@@ -61,12 +53,12 @@ describe('language switcher', () => {
   });
 
   it('falls back to Polish for a key not yet translated', async () => {
-    healthy();
+    emptyCatalogue();
     renderRoute('/');
 
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Język' }), 'Русский');
 
-    // home.json in ru is empty until the localisation stage (T-31).
+    // catalog.json in ru is empty until the localisation stage (T-31).
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Łowiska w Polsce' }),
     ).toBeVisible();

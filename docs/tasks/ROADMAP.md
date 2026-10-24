@@ -16,7 +16,7 @@
 | T-06 | CI GitHub Actions | Каркас | T-03, T-05 | done |
 | T-07 | Аутентификация | Каркас | T-04 | done |
 | T-08 | Организации, членство, guards | Каркас | T-07 | done |
-| T-09 | Каталог: API и карта | Срез | T-04, T-05 | todo |
+| T-09 | Каталог: API и карта | Срез | T-04, T-05 | done |
 | T-10 | Импорт каталога CSV + геокодирование | Срез | T-09 | todo |
 | T-11 | Claim водоёма | Срез | T-08, T-09 | todo |
 | T-12 | Типы разрешений | Срез | T-11 | todo |
@@ -117,8 +117,9 @@ FR-03.
 
 ### T-09 Каталог: API и карта
 FR-06, FR-23.
-- [ ] `GET /waters` с фильтрами и `bbox`, `GET /waters/:id`, `GET /species`.
-- [ ] Карта (react-leaflet, кластеры), список/поиск, карточка водоёма: подключён → типы разрешений; не подключён → владелец и ссылка.
+- [x] `GET /waters` с фильтрами и `bbox`, `GET /waters/:id`, `GET /species`. — `modules/waters`, `modules/rules` (species); `test/waters.e2e-spec.ts` (фильтры, поиск с `%`/`_`, границы bbox, потолок 2000 и `truncated`, неопубликованные → 404), `test/species.e2e-spec.ts`. Без пагинации, с потолком — решение записано в `05-api.md` → «Детали (T-09)».
+- [x] Карта (react-leaflet, кластеры), список/поиск, карточка водоёма: не подключён → владелец и ссылка; подключён → организация и метка «Zezwolenia online». — `features/catalog`, `catalog-pages.test.tsx`; проверено в браузере на 375 px (тайлы OSM, кластеры, попап, поиск с приближением, переход к карточке).
+- Список типов разрешений на карточке и цена «od» в списке перенесены в T-12 (нужен `PermitsModule`, `GET /permit-types?waterId=`).
 
 ### T-10 Импорт каталога
 FR-22. Ссылки: `08-testing-and-infra.md` → «Данные каталога».
@@ -126,6 +127,7 @@ FR-22. Ссылки: `08-testing-and-infra.md` → «Данные каталог
 - [ ] Геокодер с лимитом 1 req/s, `GeocodeCache`, User-Agent из env; в тестах — фейк.
 - [ ] CLI-скрипт `pnpm --filter api import:waters data/waters/<file>.csv`.
 - [ ] `data/waters/README.md` с форматом и `mazowieckie.sample.csv` (несколько строк для проверки; полный список собирает автор).
+- [ ] Из T-09: импорт отклоняет `region` вне `REGIONS` и `externalInfoUrl` не http(s); решить об индексе для `bbox` (`lat`/`lng`) под реальный объём каталога (сейчас фильтр без индекса).
 
 ### T-11 Claim водоёма
 FR-24.
@@ -138,6 +140,7 @@ FR-07.
 - [ ] CRUD `/orgs/:orgId/permit-types`, только по своим подключённым водоёмам.
 - [ ] `GET /permit-types?waterId=`.
 - [ ] UI админа организации.
+- [ ] Из T-09: типы разрешений на карточке водоёма (`WaterPage`) и цена «od» в `WaterCard`.
 
 ### T-13 Покупка + FakePaymentProvider
 FR-08, BR-08, BR-09, ADR-0004.
@@ -232,18 +235,21 @@ NFR-04.
 ### T-29 Производительность и доступность
 NFR-01, NFR-02, NFR-05, NFR-09.
 - [ ] k6-скрипт и отчёт; Lighthouse CI; axe в Playwright; отчёт покрытия.
+- [ ] Из T-09: `GET /waters` (до 2000 записей, публичный) — в сценарий нагрузки, решить о лимите запросов; бандл web 796 КБ (244 КБ gzip) — разделить код (Leaflet отдельным чанком).
 
 ### T-30 Деплой
 NFR-10.
 - [ ] Dockerfile api и web (multi-stage), `docker-compose.prod.yml` с Caddy, `deploy.yml`.
 - [ ] Миграции при старте, резервная копия БД (cron `pg_dump`).
 - [ ] P24 sandbox работает на публичном URL.
+- [ ] Из T-09: URL тайлов карты — в `VITE_`-переменную (`.env.example`); политика OSM не допускает продакшн-нагрузку на `tile.openstreetmap.org`.
 
 ## Текст и защита
 
 ### T-31 Локализация
 FR-29, NFR-08.
 - [ ] Перевести все ключи `en`, `ru`; проверка отсутствующих ключей в CI.
+- [ ] Из T-09: названия воеводств выводятся как в БД (`mazowieckie`) — ключи `catalog.region.*` для `en`/`ru`.
 
 ### T-32 UML и BPMN
 - [ ] Use case, ERD (из `schema.prisma`), классы CatchValidator, sequence (покупка, синхронизация), state (разрешение), BPMN (покупка, claim) — в `docs/diagrams/` как PlantUML/Mermaid + экспорт в PNG/SVG.

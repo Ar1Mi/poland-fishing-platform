@@ -72,6 +72,26 @@ export class OrganizationsService {
     return organizations.map(toOrganization);
   }
 
+  /**
+   * What a guest may see of an organization (the owner on a water card); null if unknown.
+   * `isActive`: only an ACTIVE organization sells permits (a blocked one is suspended).
+   */
+  async findPublicProfile(
+    id: string,
+  ): Promise<{ id: string; name: string; isActive: boolean } | null> {
+    const organization = await this.prisma.organization.findUnique({
+      where: { id },
+      select: { id: true, name: true, status: true },
+    });
+    return organization
+      ? {
+          id: organization.id,
+          name: organization.name,
+          isActive: organization.status === OrganizationStatus.ACTIVE,
+        }
+      : null;
+  }
+
   /** Activation or blocking; setting the current status again is a no-op. */
   async setStatus(id: string, status: SettableStatus): Promise<OrganizationDto> {
     try {

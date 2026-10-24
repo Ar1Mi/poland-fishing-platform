@@ -98,6 +98,11 @@
     @apply bg-background font-sans text-body text-foreground antialiased;
   }
 
+  /* Search fields have their own clear button that also applies the change (CatalogFilters). */
+  input[type='search']::-webkit-search-cancel-button {
+    appearance: none;
+  }
+
   /* Visible focus for keyboard users: 3 px ring with a 2 px offset. */
   :focus-visible {
     @apply outline-3 outline-offset-2 outline-ring;
@@ -119,4 +124,49 @@
   font-size: 16px;
   line-height: 24px;
   font-weight: 500;
+}
+
+/*
+ * Catalogue map markers (WatersMap): a connected water is a filled dot, one with only the
+ * register is a ring, so the status is not told by colour alone. Elements over the map
+ * get a shadow (docs/10-design-system.md).
+ */
+.water-marker {
+  display: block;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  border-radius: 9999px;
+  border: 4px solid var(--primary);
+  background: var(--card);
+  box-shadow: 0 1px 3px rgb(15 42 46 / 0.35);
+}
+
+.water-marker--connected {
+  border-color: var(--card);
+  background: var(--primary);
+}
+
+.water-cluster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  border: 3px solid var(--card);
+  background: var(--primary-dark);
+  color: var(--primary-foreground);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgb(15 42 46 / 0.35);
+}
+
+.leaflet-container {
+  font-family: var(--font-sans);
+}
+
+.leaflet-marker-icon:focus-visible {
+  outline: 3px solid var(--ring);
+  outline-offset: 2px;
 }

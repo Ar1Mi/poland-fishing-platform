@@ -56,6 +56,14 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 | GET | `/waters/:id/rules` | public | Эффективные правила по видам (после слияния уровней) |
 | POST | `/waters/suggestions` | auth | Предложить водоём (C, FR-25) |
 
+Детали (T-09):
+
+- **`GET /waters`** — **исключение из правила пагинации**: карте нужны все маркеры видимой области, а страница из 100 элементов теряла бы маркеры и искажала числа в кластерах. Ответ `{ items, truncated }`, не больше `WATERS_LIST_LIMIT` = 2000 записей (`packages/shared/src/catalog/catalog.ts`); при `truncated: true` клиент просит приблизить карту или сузить фильтры. Элемент компактный: `id, name, type, status, region, lat, lng` (≈ 200 байт; 1000 водоёмов ≈ 200 КБ JSON, ≈ 35 КБ gzip). Сортировка по `name`, затем `id`. Решение принято в T-09; если каталог вырастет до десятков тысяч записей — пересмотреть через ADR (кластеризация на сервере).
+- Фильтры: `region` — одно из 16 воеводств в нижнем регистре (`REGIONS`); `type`, `status` — enum; `q` — часть названия без учёта регистра, 1–100 символов после trim, `%` и `_` ищутся как обычные символы (без учёта диакритики: `zegrzynski` не находит «Zegrzyński»). `bbox=minLng,minLat,maxLng,maxLat`, границы включительно, `min ≤ max`; водоёмы без координат в ответ с `bbox` не попадают, без `bbox` — попадают (для списка). Неизвестный параметр или неверное значение → 400 `VALIDATION_FAILED`.
+- Возвращаются только опубликованные записи (`isPublished`); предложение рыбака на модерации и в `/waters/:id` даёт 404 `NOT_FOUND`.
+- **`GET /waters/:id`** — сводка + `description`, `organization: { id, name, isActive } | null` (только публичные поля организации; `isActive: false`, пока организация не `ACTIVE` — водоём остаётся `CONNECTED`, но продажа онлайн приостановлена, карточка пишет «Sprzedaż online wstrzymana»; карта и фильтр `status` показывают его как подключённый), `externalOwnerName`, `externalInfoUrl`, `source`, `updatedAt` (источник и дата — ADR-0007). Типы разрешений приходят отдельно из `GET /permit-types?waterId=` (T-12), правила — из `GET /waters/:id/rules` (T-16). Не-UUID → 400.
+- **`GET /species`** — весь справочник (≈ 15 видов) без пагинации, по `namePl`: `id, latinName, namePl, nameEn, nameRu, isProtected`.
+
 ### Разрешения и оплата
 
 | Метод | Путь | Доступ | Назначение |

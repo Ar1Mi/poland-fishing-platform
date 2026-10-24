@@ -10,7 +10,9 @@ import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
+import { RulesModule } from './modules/rules/rules.module';
 import { UsersModule } from './modules/users/users.module';
+import { WatersModule } from './modules/waters/waters.module';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { UsersModule } from './modules/users/users.module';
     AuthModule,
     UsersModule,
     OrganizationsModule,
+    WatersModule,
+    RulesModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: HttpExceptionFilter },

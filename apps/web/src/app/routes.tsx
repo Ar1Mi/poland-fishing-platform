@@ -4,7 +4,8 @@ import { LoginPage } from '../features/auth/pages/LoginPage';
 import { RegisterPage } from '../features/auth/pages/RegisterPage';
 import { ResetPasswordPage } from '../features/auth/pages/ResetPasswordPage';
 import { VerifyEmailPage } from '../features/auth/pages/VerifyEmailPage';
-import { HomePage } from '../features/home/pages/HomePage';
+import { CatalogPage } from '../features/catalog/pages/CatalogPage';
+import { WaterPage } from '../features/catalog/pages/WaterPage';
 import { PrivacyPolicyPage } from '../features/legal/pages/PrivacyPolicyPage';
 import { NotFoundPage } from '../shared/pages/NotFoundPage';
 import { RouteErrorPage } from '../shared/pages/RouteErrorPage';
@@ -16,7 +17,8 @@ export const routes: RouteObject[] = [
     element: <AppLayout />,
     errorElement: <RouteErrorPage />,
     children: [
-      { index: true, element: <HomePage /> },
+      { index: true, element: <CatalogPage /> },
+      { path: 'waters/:id', element: <WaterPage /> },
       {
         path: 'login',
         element: (
