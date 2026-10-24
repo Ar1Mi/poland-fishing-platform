@@ -70,7 +70,7 @@ source,sourceRef,name,type,region,externalOwnerName,externalInfoUrl,lat,lng,geoc
 RZGW,WA-123,Zalew Zegrzyński,RESERVOIR,mazowieckie,RZGW Warszawa,https://...,,,"Zalew Zegrzyński, mazowieckie"
 ```
 
-- Пустые `lat/lng` → геокодирование по `geocodeQuery` через Nominatim (`countrycodes=pl`): не чаще 1 запроса в секунду на процесс (`MinIntervalLimiter`), результат в `GeocodeCache`; неудачные строки попадают в отчёт импорта, а не роняют его. Полный формат и правила — `data/waters/README.md`.
+- Пустые `lat/lng` → геокодирование по `geocodeQuery` через Nominatim (`countrycodes=pl`): не чаще 1 запроса в секунду на процесс (`MinIntervalLimiter`; не запускайте CLI-импорт одновременно с импортом через API — получится 2 req/s), результат в `GeocodeCache`; неудачные строки попадают в отчёт импорта, а не роняют его. Полный формат и правила — `data/waters/README.md`.
 - Импорт: `POST /admin/waters/import` или `pnpm --filter api import:waters data/waters/<file>.csv` (CLI запускается через `tsx` и собирает сервисы вручную, без Nest DI; путь — относительно каталога вызова; код выхода 2, если есть неудачные строки).
 - В тестах геокодер — `FakeGeocoder` (`apps/api/test/geocoding`), его подставляет `createTestApp`; реальных запросов к Nominatim нет.
 - Первый регион — Mazowsze: списки łowisk RZGW Warszawa и Okręgu Mazowieckiego PZW (собираются вручную, ссылка на источник — в `externalInfoUrl`).
