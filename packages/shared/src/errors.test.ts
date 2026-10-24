@@ -19,11 +19,11 @@ describe('error codes', () => {
 
   it('maps every ErrorCode to the status documented in docs/05-api.md', () => {
     const documented: Record<number, ErrorCode[]> = {
-      400: ['VALIDATION_FAILED'],
+      400: ['VALIDATION_FAILED', 'INVALID_TOKEN'],
       401: ['UNAUTHENTICATED', 'INVALID_CREDENTIALS', 'EMAIL_NOT_VERIFIED', 'TOKEN_EXPIRED'],
       403: ['FORBIDDEN', 'ORG_SCOPE_VIOLATION', 'ORG_NOT_ACTIVE'],
       404: ['NOT_FOUND'],
-      409: ['EMAIL_TAKEN', 'CLAIM_ALREADY_PENDING', 'WATER_ALREADY_CONNECTED'],
+      409: ['EMAIL_TAKEN', 'NIP_TAKEN', 'CLAIM_ALREADY_PENDING', 'WATER_ALREADY_CONNECTED'],
       422: [
         'PERMIT_START_IN_PAST',
         'DISCOUNT_NOT_ELIGIBLE',

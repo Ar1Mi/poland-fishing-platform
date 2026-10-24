@@ -7,7 +7,10 @@ import { LoggingModule } from './common/logging/logging.module';
 import { createValidationPipe } from './common/pipes/validation.pipe';
 import { validateEnv } from './config/env';
 import { DatabaseModule } from './database/database.module';
+import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
+import { OrganizationsModule } from './modules/organizations/organizations.module';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -24,6 +27,9 @@ import { HealthModule } from './modules/health/health.module';
     ClockModule,
     DatabaseModule,
     HealthModule,
+    AuthModule,
+    UsersModule,
+    OrganizationsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: HttpExceptionFilter },

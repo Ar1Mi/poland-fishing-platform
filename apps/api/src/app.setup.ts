@@ -2,6 +2,7 @@ import { ErrorCode } from '@lowisko/shared';
 import { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, type OpenAPIObject, SwaggerModule } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
 import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
@@ -24,6 +25,8 @@ export function setupApp(app: NestExpressApplication): void {
   app.use(app.get<HttpLogger>(HTTP_LOGGER));
   app.use(helmet());
   app.use(rejectUnknownPath);
+  // The refresh token arrives as the `rt` cookie (POST /auth/refresh, /auth/logout).
+  app.use(cookieParser());
   // Credentials: the refresh token travels in an httpOnly cookie (docs/05-api.md).
   app.enableCors({ origin: config.get('WEB_URL', { infer: true }), credentials: true });
   app.enableShutdownHooks();
@@ -41,6 +44,7 @@ export function createOpenApiDocument(app: NestExpressApplication): OpenAPIObjec
       .setVersion('1')
       .addServer(config.get('API_URL', { infer: true }))
       .addBearerAuth()
+      .addCookieAuth('rt')
       .build(),
     { extraModels: [ErrorResponseDto] },
   );

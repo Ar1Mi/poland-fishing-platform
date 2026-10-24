@@ -42,6 +42,7 @@
 ## Docker Compose
 
 - `docker-compose.yml` (dev): `db` (postgres:16), `mailpit` (UI на :8025). API и web запускаются локально через `pnpm dev`.
+- Refresh-cookie всегда `Secure`: Chrome и Firefox принимают её на `http://localhost`, старые версии Safari — нет; для входа в dev используйте Chrome или Firefox.
 - `docker-compose.prod.yml`: `caddy` (HTTPS, проксирует `/api` → api, остальное → статика web), `api`, `db`, том `uploads`.
 - NFR-10: `docker compose -f docker-compose.prod.yml up` поднимает всё, включая миграции и seed демо-данных при `SEED_DEMO=true`.
 

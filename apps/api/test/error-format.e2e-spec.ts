@@ -5,6 +5,7 @@ import { Type } from 'class-transformer';
 import { IsInt, IsString, Min, ValidateNested } from 'class-validator';
 import request from 'supertest';
 import { DomainError } from '../src/common/errors/domain-error';
+import { Public } from '../src/modules/auth/decorators/auth.decorators';
 import { createTestApp } from './create-test-app';
 
 class OwnerDto {
@@ -23,6 +24,7 @@ class EchoDto {
   owner!: OwnerDto;
 }
 
+@Public()
 @Controller('test-errors')
 class TestErrorsController {
   @Post('echo')

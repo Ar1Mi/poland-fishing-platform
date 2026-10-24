@@ -4,17 +4,40 @@ import { Test } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { setupApp } from '../src/app.setup';
 import { ClockService } from '../src/common/clock/clock.service';
+import { PrismaService } from '../src/database/prisma.service';
+import { MAIL_TRANSPORT } from '../src/modules/notifications/mail-transport';
+import { FakeMailTransport } from './mail/fake-mail-transport';
 
 export const FIXED_NOW = new Date('2026-10-06T15:20:00.000Z');
 
-/** The real application with a fixed clock; `controllers` adds test-only routes. */
-export async function createTestApp(
-  extra: Pick<ModuleMetadata, 'controllers'> = {},
-): Promise<NestExpressApplication> {
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule], ...extra })
+export interface TestAppOptions extends Pick<ModuleMetadata, 'controllers' | 'imports'> {
+  /** Test database (createTestDatabase + prismaServiceFor); without it nothing may query. */
+  prisma?: PrismaService;
+  /** Defaults to FIXED_NOW; a function lets a test move time forward. */
+  now?: () => Date;
+  mail?: FakeMailTransport;
+}
+
+/**
+ * The real application with a fixed clock and a fake mail transport; `controllers` adds
+ * test-only routes, `imports` the modules their guards come from.
+ */
+export async function createTestApp({
+  controllers,
+  imports = [],
+  prisma,
+  now = () => FIXED_NOW,
+  mail = new FakeMailTransport(),
+}: TestAppOptions = {}): Promise<NestExpressApplication> {
+  let builder = Test.createTestingModule({ imports: [AppModule, ...imports], controllers })
     .overrideProvider(ClockService)
-    .useValue({ now: () => FIXED_NOW })
-    .compile();
+    .useValue({ now })
+    .overrideProvider(MAIL_TRANSPORT)
+    .useValue(mail);
+  if (prisma) {
+    builder = builder.overrideProvider(PrismaService).useValue(prisma);
+  }
+  const moduleRef = await builder.compile();
 
   const app = moduleRef.createNestApplication<NestExpressApplication>();
   setupApp(app);

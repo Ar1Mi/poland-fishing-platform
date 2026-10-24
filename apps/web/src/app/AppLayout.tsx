@@ -1,10 +1,13 @@
 import { useTranslation } from 'react-i18next';
 import { Link, Outlet } from 'react-router';
+import { useProfileLocale } from '../features/auth/api/useAuth';
+import { AccountMenu } from '../features/auth/components/AccountMenu';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
 /** Mobile-first shell: header with the app name and language, content with 16 px margins. */
 export function AppLayout() {
   const { t } = useTranslation();
+  useProfileLocale();
   return (
     <div className="flex min-h-dvh flex-col">
       <a
@@ -18,7 +21,10 @@ export function AppLayout() {
           <Link to="/" className="text-h2 focus-visible:outline-primary-foreground">
             {t('common.app.name')}
           </Link>
-          <LanguageSwitcher />
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher />
+            <AccountMenu />
+          </div>
         </div>
       </header>
       <main id="main" className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-3 p-4">

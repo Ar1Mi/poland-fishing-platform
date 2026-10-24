@@ -6,6 +6,9 @@ const valid = {
   API_URL: 'https://api.lowisko.example',
   WEB_URL: 'https://lowisko.example',
   DATABASE_URL: 'postgresql://lowisko:secret@db:5432/lowisko',
+  JWT_ACCESS_SECRET: 'a'.repeat(32),
+  SMTP_URL: 'smtp://mail:1025',
+  MAIL_FROM: 'Łowisko <no-reply@lowisko.example>',
 };
 
 describe('validateEnv', () => {
@@ -14,11 +17,7 @@ describe('validateEnv', () => {
   });
 
   it('applies defaults for NODE_ENV and API_PORT', () => {
-    const env = validateEnv({
-      API_URL: valid.API_URL,
-      WEB_URL: valid.WEB_URL,
-      DATABASE_URL: valid.DATABASE_URL,
-    });
+    const env = validateEnv({ ...valid, NODE_ENV: undefined, API_PORT: undefined });
 
     expect(env.NODE_ENV).toBe('production');
     expect(env.API_PORT).toBe(3000);
@@ -44,6 +43,14 @@ describe('validateEnv', () => {
     ['API_PORT out of range', { ...valid, API_PORT: '70000' }, 'API_PORT'],
     ['missing DATABASE_URL', { ...valid, DATABASE_URL: undefined }, 'DATABASE_URL'],
     ['non-postgres DATABASE_URL', { ...valid, DATABASE_URL: 'mysql://db/lowisko' }, 'DATABASE_URL'],
+    [
+      'JWT_ACCESS_SECRET under 32 bytes',
+      { ...valid, JWT_ACCESS_SECRET: 'a'.repeat(31) },
+      'JWT_ACCESS_SECRET',
+    ],
+    ['missing JWT_ACCESS_SECRET', { ...valid, JWT_ACCESS_SECRET: undefined }, 'JWT_ACCESS_SECRET'],
+    ['non-smtp SMTP_URL', { ...valid, SMTP_URL: 'http://mail:1025' }, 'SMTP_URL'],
+    ['empty MAIL_FROM', { ...valid, MAIL_FROM: '' }, 'MAIL_FROM'],
     ['unknown NODE_ENV', { ...valid, NODE_ENV: 'staging' }, 'NODE_ENV'],
   ])('rejects %s and names the variable', (_name, raw, variable) => {
     expect(() => validateEnv(raw)).toThrow(variable);
