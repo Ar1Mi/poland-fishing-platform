@@ -1,0 +1,64 @@
+{
+  "page": {
+    "title": "Łowiska w Polsce",
+    "lead": "Znajdź łowisko na mapie lub po nazwie.",
+    "results": "Łowiska ({{count}})",
+    "resultsInView": "Łowiska w widoku mapy ({{count}})",
+    "empty": "Brak łowisk spełniających kryteria.",
+    "shownOf": "Pokazano {{shown}} z {{count}}. Zawęź wyszukiwanie, aby zobaczyć resztę.",
+    "truncated": "W tym widoku jest zbyt wiele łowisk. Przybliż mapę lub zawęź filtry, aby zobaczyć wszystkie.",
+    "loading": "Ładowanie łowisk…"
+  },
+  "filters": {
+    "title": "Filtry",
+    "titleActive": "Filtry ({{count}})",
+    "search": "Nazwa łowiska",
+    "searchPlaceholder": "np. Zalew Zegrzyński",
+    "submit": "Szukaj",
+    "clearSearch": "Wyczyść",
+    "region": "Województwo",
+    "type": "Rodzaj",
+    "status": "Zezwolenia",
+    "any": "Wszystkie"
+  },
+  "map": {
+    "label": "Mapa łowisk",
+    "details": "Zobacz szczegóły",
+    "cluster_one": "{{count}} łowisko — przybliż",
+    "cluster_few": "{{count}} łowiska — przybliż",
+    "cluster_many": "{{count}} łowisk — przybliż",
+    "cluster_other": "{{count}} łowiska — przybliż"
+  },
+  "waterType": {
+    "LAKE": "Jezioro",
+    "RIVER": "Rzeka",
+    "RESERVOIR": "Zbiornik zaporowy",
+    "POND": "Staw",
+    "CANAL": "Kanał"
+  },
+  "status": {
+    "CONNECTED": "Zezwolenia online",
+    "UNCLAIMED": "Tylko rejestr"
+  },
+  "water": {
+    "back": "Wróć do mapy",
+    "loading": "Ładowanie łowiska…",
+    "owner": "Użytkownik rybacki",
+    "ownerUnknown": "Brak danych o użytkowniku rybackim.",
+    "permitsTitle": "Zezwolenia",
+    "permitsConnected": "To łowisko sprzedaje zezwolenia w serwisie. Lista rodzajów zezwoleń pojawi się wkrótce.",
+    "permitsExternal": "Zezwolenie na to łowisko kupisz u użytkownika rybackiego. Połowy zapiszesz w rejestrze, dodając zezwolenie zewnętrzne.",
+    "externalLink": "Regulamin i zezwolenia u zarządcy",
+    "externalLinkHint": "(otwiera się w nowej karcie)",
+    "description": "Opis",
+    "source": "Źródło danych: {{source}}, aktualizacja {{date}}",
+    "noPosition": "Brak położenia na mapie."
+  },
+  "source": {
+    "RZGW": "RZGW Wody Polskie",
+    "PZW": "Polski Związek Wędkarski",
+    "OSM": "OpenStreetMap",
+    "USER": "zgłoszenie wędkarza",
+    "MANUAL": "redakcja serwisu"
+  }
+}
