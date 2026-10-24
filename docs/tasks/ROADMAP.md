@@ -17,7 +17,7 @@
 | T-07 | Аутентификация | Каркас | T-04 | done |
 | T-08 | Организации, членство, guards | Каркас | T-07 | done |
 | T-09 | Каталог: API и карта | Срез | T-04, T-05 | done |
-| T-10 | Импорт каталога CSV + геокодирование | Срез | T-09 | todo |
+| T-10 | Импорт каталога CSV + геокодирование | Срез | T-09 | done |
 | T-11 | Claim водоёма | Срез | T-08, T-09 | todo |
 | T-12 | Типы разрешений | Срез | T-11 | todo |
 | T-13 | Покупка разрешения + FakePaymentProvider | Срез | T-12 | todo |
@@ -123,11 +123,11 @@ FR-06, FR-23.
 
 ### T-10 Импорт каталога
 FR-22. Ссылки: `08-testing-and-infra.md` → «Данные каталога».
-- [ ] `POST /admin/waters/import` (CSV), upsert по `source + sourceRef`, отчёт `{ created, updated, failed }`.
-- [ ] Геокодер с лимитом 1 req/s, `GeocodeCache`, User-Agent из env; в тестах — фейк.
-- [ ] CLI-скрипт `pnpm --filter api import:waters data/waters/<file>.csv`.
-- [ ] `data/waters/README.md` с форматом и `mazowieckie.sample.csv` (несколько строк для проверки; полный список собирает автор).
-- [ ] Из T-09: импорт отклоняет `region` вне `REGIONS` и `externalInfoUrl` не http(s); решить об индексе для `bbox` (`lat`/`lng`) под реальный объём каталога (сейчас фильтр без индекса).
+- [x] `POST /admin/waters/import` (CSV), upsert по `source + sourceRef`, отчёт `{ created, updated, failed }` — `apps/api/test/waters-import.e2e-spec.ts`.
+- [x] Геокодер с лимитом 1 req/s, `GeocodeCache`, User-Agent из env; в тестах — фейк — `min-interval-limiter.spec.ts`, `nominatim-geocoder.spec.ts`, `FakeGeocoder`; e2e «кэширует и „не найдено“», «сбой не кэшируется».
+- [x] CLI-скрипт `pnpm --filter api import:waters data/waters/<file>.csv` — проверен на dev-БД: повторный запуск даёт `updated` вместо `created`.
+- [x] `data/waters/README.md` с форматом и `mazowieckie.sample.csv` (несколько строк для проверки; полный список собирает автор).
+- [x] Из T-09: импорт отклоняет `region` вне `REGIONS` и `externalInfoUrl` не http(s) (`water-csv.spec.ts`, e2e); индекс для `bbox` — не нужен при 10³–10⁴ строк, решение записано в `04-data-model.md`.
 
 ### T-11 Claim водоёма
 FR-24.

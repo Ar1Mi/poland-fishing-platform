@@ -34,7 +34,7 @@
 | `PAYMENTS_PROVIDER` | `fake` (dev, тесты) или `p24` |
 | `P24_MERCHANT_ID`, `P24_POS_ID`, `P24_API_KEY`, `P24_CRC`, `P24_BASE_URL` | sandbox: `https://sandbox.przelewy24.pl` |
 | `SMTP_URL`, `MAIL_FROM` | `smtp://localhost:1025` (Mailpit) |
-| `NOMINATIM_URL`, `NOMINATIM_USER_AGENT` | Публичный Nominatim требует идентифицирующий User-Agent |
+| `NOMINATIM_URL`, `NOMINATIM_USER_AGENT` | По умолчанию `https://nominatim.openstreetmap.org`; публичный Nominatim требует идентифицирующий User-Agent (`lowisko/1.0 (email)`). Без `NOMINATIM_USER_AGENT` API стартует, но строки импорта без координат отклоняются |
 | `UPLOADS_DIR` | `./uploads` |
 
 `.env` не коммитится; `.env.example` — обязателен и актуален.
@@ -70,6 +70,8 @@ source,sourceRef,name,type,region,externalOwnerName,externalInfoUrl,lat,lng,geoc
 RZGW,WA-123,Zalew Zegrzyński,RESERVOIR,mazowieckie,RZGW Warszawa,https://...,,,"Zalew Zegrzyński, mazowieckie"
 ```
 
-- Пустые `lat/lng` → геокодирование по `geocodeQuery` через Nominatim: не чаще 1 запроса в секунду, результат в `GeocodeCache`; неудачные строки попадают в отчёт импорта, а не роняют его.
+- Пустые `lat/lng` → геокодирование по `geocodeQuery` через Nominatim (`countrycodes=pl`): не чаще 1 запроса в секунду на процесс (`MinIntervalLimiter`), результат в `GeocodeCache`; неудачные строки попадают в отчёт импорта, а не роняют его. Полный формат и правила — `data/waters/README.md`.
+- Импорт: `POST /admin/waters/import` или `pnpm --filter api import:waters data/waters/<file>.csv` (CLI запускается через `tsx` и собирает сервисы вручную, без Nest DI; путь — относительно каталога вызова; код выхода 2, если есть неудачные строки).
+- В тестах геокодер — `FakeGeocoder` (`apps/api/test/geocoding`), его подставляет `createTestApp`; реальных запросов к Nominatim нет.
 - Первый регион — Mazowsze: списки łowisk RZGW Warszawa и Okręgu Mazowieckiego PZW (собираются вручную, ссылка на источник — в `externalInfoUrl`).
 - Seed (`prisma/seed.ts`): виды (~15) и общие правила; при `SEED_DEMO=true` — 2 демо-организации, подключённые водоёмы, типы разрешений, рыбаки с историей уловов, инспектор.
