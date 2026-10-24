@@ -15,7 +15,7 @@
 | T-05 | Каркас web (React, i18n, API-клиент) | Каркас | T-01 | done |
 | T-06 | CI GitHub Actions | Каркас | T-03, T-05 | done |
 | T-07 | Аутентификация | Каркас | T-04 | done |
-| T-08 | Организации, членство, guards | Каркас | T-07 | todo |
+| T-08 | Организации, членство, guards | Каркас | T-07 | done |
 | T-09 | Каталог: API и карта | Срез | T-04, T-05 | todo |
 | T-10 | Импорт каталога CSV + геокодирование | Срез | T-09 | todo |
 | T-11 | Claim водоёма | Срез | T-08, T-09 | todo |
@@ -108,9 +108,10 @@ FR-01, FR-02. Ссылки: `07-security.md`.
 
 ### T-08 Организации и guards
 FR-03.
-- [ ] `POST /orgs` (заявитель → ORG_ADMIN, статус PENDING), `/me/orgs`, `/admin/orgs` активация/блокировка.
-- [ ] `RolesGuard`, `@SuperAdmin()`, `OrgScopeGuard` (+ проверка `ORG_NOT_ACTIVE`).
-- [ ] Тестовый хелпер «запрос от админа чужой организации → 403».
+- [x] `POST /orgs` (заявитель → ORG_ADMIN, статус PENDING), `/me/orgs`, `/admin/orgs` активация/блокировка. — `modules/organizations`; `test/orgs.e2e-spec.ts` (NIP с контрольной суммой, `NIP_TAKEN` в т.ч. при одновременных заявках, закрыто для не-суперадминов).
+- [x] `RolesGuard`, `@SuperAdmin()`, `OrgScopeGuard` (+ проверка `ORG_NOT_ACTIVE`). — `test/org-guards.e2e-spec.ts` на тестовом контроллере: роли, PENDING/BLOCKED, неизвестный и не-UUID `orgId`, суперадмин без членства, снятый флаг суперадмина; `org-access.service.spec.ts` (одно чтение членства на запрос).
+- [x] Тестовый хелпер «запрос от админа чужой организации → 403». — `expectForeignOrgAdminForbidden` и `loginOrgMember` в `test/org-helpers.ts`.
+- Запись смены статуса организации в AuditLog отложена до T-26 (интерсептора ещё нет).
 
 ## Вертикальный срез
 
@@ -216,6 +217,7 @@ FR-21.
 ### T-26 RODO и AuditLog
 `07-security.md`.
 - [ ] `/me/export`, `DELETE /me` с анонимизацией; AuditInterceptor.
+- [ ] AuditLog для уже существующих действий админов: `PATCH /admin/orgs/:id/status` (T-08).
 
 ### T-27 (C) Дополнительно
 FR-14, FR-25, FR-20 — только если срез и S-задачи готовы.

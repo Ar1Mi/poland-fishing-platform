@@ -122,11 +122,17 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 | GET | `/orgs/:orgId/stats?from=&to=` | ORG_ADMIN | Статистика |
 | GET | `/orgs/:orgId/catches.csv?from=&to=` | ORG_ADMIN | Экспорт |
 
+Детали (T-08):
+
+- **Заявка:** `{ name, nip, kind, contactEmail }` → 201 с организацией в статусе `PENDING`; заявитель в той же транзакции получает `Membership` с ролью `ORG_ADMIN`. NIP принимается с пробелами и дефисами, хранится как 10 цифр, проверяется контрольная сумма (`packages/shared/src/orgs/nip.ts`). NIP уже зарегистрирован (в любом статусе) → 409 `NIP_TAKEN`.
+- **`/me/orgs`:** `[{ id, name, kind, status, roles[] }]` — организации пользователя в любом статусе, все его роли в каждой.
+- **Guards** (`modules/organizations`): `@Roles(...)` подключает `OrgScopeGuard` и `RolesGuard`. Проверки по порядку: не член `:orgId` → 403 `ORG_SCOPE_VIOLATION`; организация не `ACTIVE` → 403 `ORG_NOT_ACTIVE` (`details.status`); нет нужной роли → 403 `FORBIDDEN` (`details.requiredRoles`). Несуществующий и не-UUID `orgId` неотличимы от чужой организации. Суперадмин без членства доступа к `/orgs/:orgId/*` не имеет. `@SuperAdmin()` читает флаг из БД на каждом запросе → иначе 403 `FORBIDDEN`. Модуль с маршрутами `/orgs/:orgId/*` импортирует `OrganizationsModule`.
+
 ### Суперадмин
 
 | Метод | Путь | Назначение |
 | --- | --- | --- |
-| GET / PATCH | `/admin/orgs`, `/admin/orgs/:id/status` | Активация, блокировка |
+| GET / PATCH | `/admin/orgs?status=`, `/admin/orgs/:id/status` | Список (старые заявки первыми); `{ status: ACTIVE \| BLOCKED }` — активация, блокировка, повторная активация; тот же статус — без изменений |
 | GET / PATCH | `/admin/claims`, `/admin/claims/:id` | `{ decision: APPROVE | REJECT, comment }` |
 | POST | `/admin/waters/import` | multipart CSV → `{ created, updated, failed: [{ row, error }] }` |
 | PATCH | `/admin/waters/:id` | Правка записи каталога, публикация предложений |
@@ -143,7 +149,7 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 | 401 | `UNAUTHENTICATED`, `INVALID_CREDENTIALS`, `EMAIL_NOT_VERIFIED`, `TOKEN_EXPIRED` |
 | 403 | `FORBIDDEN`, `ORG_SCOPE_VIOLATION`, `ORG_NOT_ACTIVE` |
 | 404 | `NOT_FOUND` |
-| 409 | `EMAIL_TAKEN`, `CLAIM_ALREADY_PENDING`, `WATER_ALREADY_CONNECTED` |
+| 409 | `EMAIL_TAKEN`, `NIP_TAKEN`, `CLAIM_ALREADY_PENDING`, `WATER_ALREADY_CONNECTED` |
 | 422 | Бизнес-правила: `PERMIT_START_IN_PAST`, `DISCOUNT_NOT_ELIGIBLE`, `PERMIT_TYPE_INACTIVE`, `EDIT_WINDOW_CLOSED`, `PERMIT_NOT_REVOCABLE` |
 | 429 | `RATE_LIMITED` |
 | 500 | `INTERNAL_ERROR` — необработанное исключение; `message` не раскрывает детали, они только в логе |

@@ -10,7 +10,7 @@ import { FakeMailTransport } from './mail/fake-mail-transport';
 
 export const FIXED_NOW = new Date('2026-10-06T15:20:00.000Z');
 
-export interface TestAppOptions extends Pick<ModuleMetadata, 'controllers'> {
+export interface TestAppOptions extends Pick<ModuleMetadata, 'controllers' | 'imports'> {
   /** Test database (createTestDatabase + prismaServiceFor); without it nothing may query. */
   prisma?: PrismaService;
   /** Defaults to FIXED_NOW; a function lets a test move time forward. */
@@ -18,14 +18,18 @@ export interface TestAppOptions extends Pick<ModuleMetadata, 'controllers'> {
   mail?: FakeMailTransport;
 }
 
-/** The real application with a fixed clock and a fake mail transport; `controllers` adds test-only routes. */
+/**
+ * The real application with a fixed clock and a fake mail transport; `controllers` adds
+ * test-only routes, `imports` the modules their guards come from.
+ */
 export async function createTestApp({
   controllers,
+  imports = [],
   prisma,
   now = () => FIXED_NOW,
   mail = new FakeMailTransport(),
 }: TestAppOptions = {}): Promise<NestExpressApplication> {
-  let builder = Test.createTestingModule({ imports: [AppModule], controllers })
+  let builder = Test.createTestingModule({ imports: [AppModule, ...imports], controllers })
     .overrideProvider(ClockService)
     .useValue({ now })
     .overrideProvider(MAIL_TRANSPORT)
