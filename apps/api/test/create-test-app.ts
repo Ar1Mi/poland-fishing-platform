@@ -6,6 +6,8 @@ import { setupApp } from '../src/app.setup';
 import { ClockService } from '../src/common/clock/clock.service';
 import { PrismaService } from '../src/database/prisma.service';
 import { MAIL_TRANSPORT } from '../src/modules/notifications/mail-transport';
+import { GEOCODER } from '../src/modules/waters/import/geocoder';
+import { FakeGeocoder } from './geocoding/fake-geocoder';
 import { FakeMailTransport } from './mail/fake-mail-transport';
 
 export const FIXED_NOW = new Date('2026-10-06T15:20:00.000Z');
@@ -16,10 +18,12 @@ export interface TestAppOptions extends Pick<ModuleMetadata, 'controllers' | 'im
   /** Defaults to FIXED_NOW; a function lets a test move time forward. */
   now?: () => Date;
   mail?: FakeMailTransport;
+  /** Nominatim is never called from tests; the default fake knows no places. */
+  geocoder?: FakeGeocoder;
 }
 
 /**
- * The real application with a fixed clock and a fake mail transport; `controllers` adds
+ * The real application with a fixed clock, a fake mail transport and a fake geocoder; `controllers` adds
  * test-only routes, `imports` the modules their guards come from.
  */
 export async function createTestApp({
@@ -28,12 +32,15 @@ export async function createTestApp({
   prisma,
   now = () => FIXED_NOW,
   mail = new FakeMailTransport(),
+  geocoder = new FakeGeocoder(),
 }: TestAppOptions = {}): Promise<NestExpressApplication> {
   let builder = Test.createTestingModule({ imports: [AppModule, ...imports], controllers })
     .overrideProvider(ClockService)
     .useValue({ now })
     .overrideProvider(MAIL_TRANSPORT)
-    .useValue(mail);
+    .useValue(mail)
+    .overrideProvider(GEOCODER)
+    .useValue(geocoder);
   if (prisma) {
     builder = builder.overrideProvider(PrismaService).useValue(prisma);
   }

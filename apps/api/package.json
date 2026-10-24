@@ -10,6 +10,7 @@
     "test": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js",
     "test:watch": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --watch",
     "test:e2e": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --config test/jest-e2e.json",
+    "import:waters": "tsx src/cli/import-waters.ts",
     "postinstall": "prisma generate",
     "openapi:export": "rm -rf dist-openapi && tsc -p tsconfig.build.json --outDir dist-openapi --sourceMap false && node dist-openapi/openapi/export-openapi.js dist-openapi/openapi.json"
   },
@@ -27,6 +28,7 @@
     "class-transformer": "0.5.1",
     "class-validator": "0.15.1",
     "cookie-parser": "1.4.7",
+    "csv-parse": "7.0.3",
     "helmet": "8.3.0",
     "jose": "6.2.13",
     "nestjs-pino": "5.3.1",

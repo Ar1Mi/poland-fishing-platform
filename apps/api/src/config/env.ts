@@ -20,6 +20,12 @@ const postgresUrl = z
     message: 'must be a postgresql:// connection URL',
   });
 
+const httpUrl = z
+  .string()
+  .refine((value) => URL.canParse(value) && /^https?:$/.test(new URL(value).protocol), {
+    message: 'must be an http(s) URL',
+  });
+
 const smtpUrl = z
   .string()
   .refine((value) => URL.canParse(value) && /^smtps?:$/.test(new URL(value).protocol), {
@@ -41,6 +47,10 @@ export const envSchema = z.object({
     .refine((value) => Buffer.byteLength(value) >= 32, { message: 'must be at least 32 bytes' }),
   SMTP_URL: smtpUrl,
   MAIL_FROM: z.string().min(1),
+  // Catalogue import (T-10). Without a User-Agent the public Nominatim refuses requests,
+  // so rows that need geocoding fail; rows with coordinates still import.
+  NOMINATIM_URL: httpUrl.default('https://nominatim.openstreetmap.org'),
+  NOMINATIM_USER_AGENT: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
