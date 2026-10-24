@@ -72,6 +72,11 @@ export class OrganizationsService {
     return organizations.map(toOrganization);
   }
 
+  /** What a guest may see of an organization (the owner on a water card); null if unknown. */
+  async findPublicProfile(id: string): Promise<{ id: string; name: string } | null> {
+    return this.prisma.organization.findUnique({ where: { id }, select: { id: true, name: true } });
+  }
+
   /** Activation or blocking; setting the current status again is a no-op. */
   async setStatus(id: string, status: SettableStatus): Promise<OrganizationDto> {
     try {
