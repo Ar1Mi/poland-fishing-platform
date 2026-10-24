@@ -13,7 +13,18 @@ const valid = {
 
 describe('validateEnv', () => {
   it('parses a valid environment and coerces the port to a number', () => {
-    expect(validateEnv(valid)).toEqual({ ...valid, API_PORT: 8080 });
+    expect(validateEnv(valid)).toEqual({
+      ...valid,
+      API_PORT: 8080,
+      NOMINATIM_URL: 'https://nominatim.openstreetmap.org',
+    });
+  });
+
+  it('keeps NOMINATIM_USER_AGENT optional so the API starts without geocoding', () => {
+    const env = validateEnv({ ...valid, NOMINATIM_USER_AGENT: 'lowisko/1.0 (admin@example.test)' });
+
+    expect(env.NOMINATIM_USER_AGENT).toBe('lowisko/1.0 (admin@example.test)');
+    expect(validateEnv(valid).NOMINATIM_USER_AGENT).toBeUndefined();
   });
 
   it('applies defaults for NODE_ENV and API_PORT', () => {
@@ -51,6 +62,7 @@ describe('validateEnv', () => {
     ['missing JWT_ACCESS_SECRET', { ...valid, JWT_ACCESS_SECRET: undefined }, 'JWT_ACCESS_SECRET'],
     ['non-smtp SMTP_URL', { ...valid, SMTP_URL: 'http://mail:1025' }, 'SMTP_URL'],
     ['empty MAIL_FROM', { ...valid, MAIL_FROM: '' }, 'MAIL_FROM'],
+    ['non-http NOMINATIM_URL', { ...valid, NOMINATIM_URL: 'nominatim' }, 'NOMINATIM_URL'],
     ['unknown NODE_ENV', { ...valid, NODE_ENV: 'staging' }, 'NODE_ENV'],
   ])('rejects %s and names the variable', (_name, raw, variable) => {
     expect(() => validateEnv(raw)).toThrow(variable);

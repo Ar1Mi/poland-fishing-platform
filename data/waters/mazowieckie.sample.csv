@@ -1,0 +1,6 @@
+source,sourceRef,name,type,region,externalOwnerName,externalInfoUrl,lat,lng,geocodeQuery
+RZGW,SAMPLE-WA-1,Zalew Zegrzyński,RESERVOIR,mazowieckie,PGW Wody Polskie RZGW Warszawa,https://www.gov.pl/web/wody-polskie,52.47,21.03,
+RZGW,SAMPLE-WA-2,Wisła (odcinek warszawski),RIVER,mazowieckie,PGW Wody Polskie RZGW Warszawa,https://www.gov.pl/web/wody-polskie,,,"Wisła, Warszawa"
+PZW,SAMPLE-MAZ-1,Jezioro Zegrzyńskie Małe,LAKE,mazowieckie,Okręg Mazowiecki PZW,https://www.pzw.org.pl/,,,"Nieporęt, mazowieckie"
+PZW,SAMPLE-MAZ-2,Zalew Sulejowski (część mazowiecka),RESERVOIR,mazowieckie,Okręg Mazowiecki PZW,https://www.pzw.org.pl/,,,"Zalew Sulejowski"
+PZW,SAMPLE-MAZ-3,Kanał Żerański,CANAL,mazowieckie,Okręg Mazowiecki PZW,https://www.pzw.org.pl/,,,"Kanał Żerański, Warszawa"

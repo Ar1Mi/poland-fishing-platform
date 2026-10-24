@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatBbox, isRegion, parseBbox, REGIONS } from './catalog.js';
+import { formatBbox, isInBbox, isRegion, parseBbox, POLAND_BOUNDS, REGIONS } from './catalog.js';
 
 describe('REGIONS', () => {
   it('lists the 16 voivodeships', () => {
@@ -71,5 +71,18 @@ describe('formatBbox', () => {
     const box = { minLng: 14.1, minLat: 49, maxLng: 24.15, maxLat: 54.84 };
 
     expect(parseBbox(formatBbox(box))).toEqual(box);
+  });
+});
+
+describe('isInBbox', () => {
+  it('accepts points inside Poland, edges included', () => {
+    expect(isInBbox(52.23, 21.01, POLAND_BOUNDS)).toBe(true);
+    expect(isInBbox(49.0, 14.07, POLAND_BOUNDS)).toBe(true);
+    expect(isInBbox(54.84, 24.15, POLAND_BOUNDS)).toBe(true);
+  });
+
+  it('rejects swapped coordinates and points abroad', () => {
+    expect(isInBbox(21.01, 52.23, POLAND_BOUNDS)).toBe(false);
+    expect(isInBbox(52.52, 13.4, POLAND_BOUNDS)).toBe(false);
   });
 });
