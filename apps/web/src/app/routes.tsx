@@ -11,6 +11,7 @@ import { AdminClaimsPage } from '../features/claims/pages/AdminClaimsPage';
 import { OrgClaimsPage } from '../features/claims/pages/OrgClaimsPage';
 import { PrivacyPolicyPage } from '../features/legal/pages/PrivacyPolicyPage';
 import { MyOrganizationsPage } from '../features/orgs/pages/MyOrganizationsPage';
+import { OrgPermitTypesPage } from '../features/permits/pages/OrgPermitTypesPage';
 import { NotFoundPage } from '../shared/pages/NotFoundPage';
 import { RouteErrorPage } from '../shared/pages/RouteErrorPage';
 import { AppLayout } from './AppLayout';
@@ -57,6 +58,14 @@ export const routes: RouteObject[] = [
         element: (
           <RequireAuth>
             <OrgClaimsPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'org/:orgId/permit-types',
+        element: (
+          <RequireAuth>
+            <OrgPermitTypesPage />
           </RequireAuth>
         ),
       },

@@ -6,6 +6,7 @@ import { useSearchParams } from 'react-router';
 import { Alert, AlertDescription } from '../../../shared/ui/alert';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Badge } from '../../../shared/ui/badge';
+import { useLowestPrices } from '../../permits/api/usePermitTypes';
 import { useWaters } from '../api/useWaters';
 import { CatalogFilters, type CatalogFilterValues } from '../components/CatalogFilters';
 import { WaterCard } from '../components/WaterCard';
@@ -50,6 +51,10 @@ export function CatalogPage() {
     { enabled: searching || bbox !== null },
   );
   const items = waters.data?.items ?? [];
+  const listed = items.slice(0, LIST_LIMIT);
+  const prices = useLowestPrices(
+    listed.filter((water) => water.status === 'CONNECTED').map((water) => water.id),
+  );
 
   return (
     <>
@@ -92,9 +97,9 @@ export function CatalogPage() {
         )}
         {items.length > 0 && (
           <ul className="flex flex-col gap-3">
-            {items.slice(0, LIST_LIMIT).map((water) => (
+            {listed.map((water) => (
               <li key={water.id}>
-                <WaterCard water={water} />
+                <WaterCard water={water} lowestPriceGrosze={prices.data?.get(water.id)} />
               </li>
             ))}
           </ul>

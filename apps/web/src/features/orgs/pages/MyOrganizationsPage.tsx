@@ -6,6 +6,8 @@ import { Badge } from '../../../shared/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/ui/card';
 import { type MyOrganization, useMyOrgs } from '../api/useMyOrgs';
 
+const sectionLink = 'flex min-h-11 w-fit items-center font-semibold text-primary underline';
+
 /** Entry to the organization sections: one card per organization with what the user may do. */
 export function MyOrganizationsPage() {
   const { t } = useTranslation();
@@ -45,12 +47,14 @@ function OrganizationCard({ organization }: { organization: MyOrganization }) {
       <CardContent>
         {organization.status === 'ACTIVE' ? (
           isAdmin && (
-            <Link
-              to={`/org/${organization.id}/claims`}
-              className="flex min-h-11 w-fit items-center font-semibold text-primary underline"
-            >
-              {t('orgs.mine.claims')}
-            </Link>
+            <nav aria-label={organization.name} className="flex flex-col">
+              <Link to={`/org/${organization.id}/claims`} className={sectionLink}>
+                {t('orgs.mine.claims')}
+              </Link>
+              <Link to={`/org/${organization.id}/permit-types`} className={sectionLink}>
+                {t('orgs.mine.permitTypes')}
+              </Link>
+            </nav>
           )
         ) : (
           <p className="text-body">{t(`orgs.mine.status.${organization.status}`)}</p>

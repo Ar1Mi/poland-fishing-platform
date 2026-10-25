@@ -1,0 +1,73 @@
+{
+  "org": {
+    "title": "Rodzaje zezwoleń",
+    "loading": "Ładowanie rodzajów zezwoleń…",
+    "add": "Dodaj rodzaj zezwolenia",
+    "listTitle": "Rodzaje zezwoleń organizacji",
+    "empty": "Organizacja nie ma jeszcze rodzajów zezwoleń.",
+    "noWaters": "Rodzaj zezwolenia obejmuje łowiska podłączone do organizacji. Organizacja nie ma jeszcze żadnego.",
+    "noWatersLink": "Złóż wniosek o łowisko",
+    "active": "W sprzedaży",
+    "inactive": "Sprzedaż wstrzymana",
+    "inUse": "Sprzedane — ważność, ulga i łowiska są zablokowane",
+    "waters": "Łowiska ({{count}})",
+    "edit": "Edytuj",
+    "stopSale": "Wstrzymaj sprzedaż",
+    "resumeSale": "Wznów sprzedaż",
+    "delete": "Usuń",
+    "deleteConfirm": "Usunąć rodzaj „{{name}}”? Tej operacji nie można cofnąć.",
+    "deleteConfirmYes": "Tak, usuń",
+    "deleteConfirmNo": "Anuluj",
+    "deleted": "Rodzaj „{{name}}” został usunięty.",
+    "saved": "Zapisano rodzaj „{{name}}”."
+  },
+  "form": {
+    "titleNew": "Nowy rodzaj zezwolenia",
+    "titleEdit": "Edycja: {{name}}",
+    "name": {
+      "label": "Nazwa",
+      "placeholder": "np. Dzienne",
+      "error": "Podaj nazwę (do 100 znaków)."
+    },
+    "durationDays": {
+      "label": "Ważność (dni)",
+      "hint": "Liczba kolejnych dni, od 1 do 366.",
+      "error": "Podaj liczbę dni od 1 do 366."
+    },
+    "price": {
+      "label": "Cena (zł)",
+      "hint": "Np. 25 lub 25,50. Cena 0 oznacza zezwolenie bezpłatne.",
+      "error": "Podaj cenę w złotych, np. 25,50 (najwyżej 10 000 zł)."
+    },
+    "discountKind": {
+      "label": "Ulga"
+    },
+    "waters": {
+      "legend": "Łowiska",
+      "hint": "Zezwolenie obejmuje zaznaczone łowiska organizacji.",
+      "error": "Zaznacz co najmniej jedno łowisko.",
+      "all": "Zaznacz wszystkie",
+      "none": "Odznacz wszystkie"
+    },
+    "locked": "Zezwolenia tego rodzaju zostały już sprzedane, dlatego ważność, ulga i łowiska się nie zmienią. Możesz zmienić nazwę i cenę kolejnych zakupów albo utworzyć nowy rodzaj.",
+    "submitNew": "Dodaj",
+    "submitEdit": "Zapisz zmiany",
+    "cancel": "Anuluj"
+  },
+  "terms": {
+    "duration_one": "{{count}} dzień",
+    "duration_few": "{{count}} dni",
+    "duration_many": "{{count}} dni",
+    "duration_other": "{{count}} dni"
+  },
+  "discount": {
+    "NONE": "Normalne",
+    "JUNIOR": "Ulgowe — młodzież",
+    "SENIOR": "Ulgowe — senior"
+  },
+  "offer": {
+    "loading": "Ładowanie zezwoleń…",
+    "empty": "To łowisko nie ma jeszcze zezwoleń w sprzedaży.",
+    "listLabel": "Rodzaje zezwoleń"
+  }
+}
