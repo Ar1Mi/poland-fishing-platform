@@ -72,13 +72,24 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 | GET | `/permit-types/lowest-prices?waterIds=` | public | Цена «od» для карточек списка каталога |
 | POST | `/permits` | auth | `{ permitTypeId, validFrom }` → Permit `PENDING_PAYMENT` + `{ paymentUrl }` |
 | GET | `/me/permits` | auth | Мои разрешения с вычисленным статусом |
-| GET | `/me/permits/:id` | auth | Детали + `qrToken` (только для PAID) |
+| GET | `/me/permits/:id` | auth | Детали с вычисленным статусом (T-13); `qrToken` для PAID — T-15 |
 | GET | `/me/permits/:id/pdf` | auth | PDF с QR |
 | GET | `/me/permits/:id/offline-bundle` | auth | Разрешение + QR + эффективные правила для IndexedDB |
 | POST | `/payments/p24/notification` | public (подпись) | Уведомление P24 (`urlStatus`) |
-| POST | `/payments/fake/:sessionId/complete` | public, только `PAYMENTS_PROVIDER=fake` | Симуляция оплаты |
+| POST | `/payments/fake/:sessionId/complete` | public, только `PAYMENTS_PROVIDER=fake` | Симуляция оплаты: `{ outcome: PAID \| REJECTED, amountGrosze? }` |
 | CRUD | `/me/external-permits` | auth | Внешние разрешения |
 | GET | `/me/external-permits/:id/register.pdf?season=` | auth | PDF-реестр для владельца водоёма |
+
+Детали (T-13, FR-08):
+
+- **Покупка:** `POST /permits` `{ permitTypeId, validFrom }` → 201 `{ permit, paymentUrl }`. Проверки по порядку: `validFrom` — дата `YYYY-MM-DD` (иначе 400); раньше сегодняшней варшавской даты → 422 `PERMIT_START_IN_PAST` (`details.today`); позже чем через 365 дней → 400 `VALIDATION_FAILED` (`details.fields.validFrom`); тип не найден → 404 `NOT_FOUND`; тип снят с продажи или организация не `ACTIVE` → 422 `PERMIT_TYPE_INACTIVE`; возраст на `validFrom` не подходит к льготе → 422 `DISCOUNT_NOT_ELIGIBLE` (`details.discountKind`). Правила дат и возраста — `02-business-rules.md` → «Уточнения».
+- `permit` — тот же объект, что `GET /me/permits/:id`; `validTo = validFrom + durationDays − 1`, `pricePaidGrosze` — цена типа на момент покупки. Разрешение (`PENDING_PAYMENT`) и `Payment` (`PENDING`, `sessionId` — случайный UUID) пишутся в одной короткой транзакции, транзакция регистрируется у провайдера после неё; `paymentUrl` — страница оплаты провайдера. Провайдер отказал в регистрации → платёж `FAILED`, разрешение `CANCELLED`, ответ 500.
+- **Бесплатный тип** (цена 0): разрешение сразу `PAID`, `Payment` не создаётся, `paymentUrl` ведёт прямо на `${WEB_URL}/payment/return?permitId=…`.
+- **Возврат браузера:** провайдер возвращает покупателя на `${WEB_URL}/payment/return?permitId=…`; возврат ничего не меняет, страница опрашивает `GET /me/permits/:id`.
+- **`GET /me/permits/:id`:** `{ id, number, status, validFrom, validTo, pricePaidGrosze, permitType: { id, name, durationDays, discountKind }, organization: { id, name }, createdAt }`; `status` — вычисленный (`PENDING_PAYMENT`, `CANCELLED`, `REVOKED` как есть; `PAID` → `SCHEDULED` / `ACTIVE` / `EXPIRED`, ADR-0005). Чужое разрешение неотличимо от несуществующего → 404 `NOT_FOUND`.
+- **Уведомление** (общий путь для P24 в T-14 и фейка): провайдер разбирает тело и проверяет подпись → строка `Payment` блокируется (`FOR UPDATE`) → платёж не `PENDING` (повторное уведомление, отказ, таймаут) — ответ с текущим статусом, ничего не меняется и провайдер не подтверждается (неподтверждённую транзакцию P24 возвращает плательщику); сумма не совпадает с `amountGrosze` → 400 `PAYMENT_AMOUNT_MISMATCH`, ошибка в логе, платёж остаётся `PENDING` до таймаута; иначе `confirm` у провайдера (P24 `transaction/verify`) под той же блокировкой → `Payment.SUCCEEDED` (`providerOrderId`, `rawNotification`) и `Permit.PAID` в одной транзакции.
+- **Фейковая оплата:** `POST /payments/fake/:sessionId/complete` — то, что делают кнопки «Zapłać» / «Odrzuć» страницы `FakePaymentProvider`. `PAID` проходит путь уведомления выше (сумма по умолчанию — сохранённая, `amountGrosze` позволяет тесту прислать неверную); `REJECTED` → платёж `FAILED`, разрешение `CANCELLED`. Ответ 200 `{ status }` — статус платежа после вызова. Неизвестный `sessionId` или провайдер не `fake` → 404, не UUID → 400.
+- **Таймаут:** платёж, оставшийся `PENDING` 30 минут (`PAYMENT_TIMEOUT_MINUTES`, отсчёт от `Payment.createdAt` по `ClockService`), раз в минуту переводится в `FAILED`, его разрешение — в `CANCELLED`. Платёж, который в этот момент подтверждается (строка заблокирована), пропускается (`SKIP LOCKED`).
 
 ### Реестр уловов
 
@@ -182,7 +193,7 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 
 | HTTP | Код |
 | --- | --- |
-| 400 | `VALIDATION_FAILED`, `INVALID_TOKEN` |
+| 400 | `VALIDATION_FAILED`, `INVALID_TOKEN`, `PAYMENT_AMOUNT_MISMATCH` |
 | 401 | `UNAUTHENTICATED`, `INVALID_CREDENTIALS`, `EMAIL_NOT_VERIFIED`, `TOKEN_EXPIRED` |
 | 403 | `FORBIDDEN`, `ORG_SCOPE_VIOLATION`, `ORG_NOT_ACTIVE` |
 | 404 | `NOT_FOUND` |

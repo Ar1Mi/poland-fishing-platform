@@ -11,7 +11,9 @@
 | Подделка QR | JWS Ed25519 (`jose`), payload `{ sub: permitId, exp }`; приватный ключ только на сервере (env); проверка подписи **и** текущего статуса в БД | PermitsModule, InspectionsModule |
 | Скриншот чужого QR | Инспектор видит имя и год рождения, сверяет с документом | InspectionsModule |
 | Утечка данных через публичную проверку | Публично — только действительность, тип, срок, инициалы | InspectionsModule |
-| Подделка оплаты | Статус `PAID` только по уведомлению P24 с верной подписью **и** успешным `transaction/verify`; сумма сверяется с `Payment.amountGrosze`; идемпотентность по `sessionId` | PaymentsModule |
+| Подделка оплаты | Статус `PAID` только по уведомлению P24 с верной подписью **и** успешным `transaction/verify`; сумма сверяется с `Payment.amountGrosze` (иначе 400 `PAYMENT_AMOUNT_MISMATCH`, платёж остаётся `PENDING`); идемпотентность по `sessionId`: уведомление для платежа не в `PENDING` ничего не меняет и не подтверждается. Возврат браузера на `/payment/return` статус не меняет — страница только опрашивает API | PaymentsModule |
+| Оплата «фейком» в рабочей среде | `POST /payments/fake/:sessionId/complete` отвечает 404, если `PAYMENTS_PROVIDER` не `fake`. Открытый риск до T-14: в T-13 других провайдеров нет, поэтому `fake` разрешён и при `NODE_ENV=production` — запрет вместе с `p24` | PaymentsModule |
+| Открытый редирект со страницы фейковой оплаты | `returnUrl` из адреса страницы выполняется только как путь этого же приложения (`safeReturnPath`), иначе — на главную | web |
 | Доступ к чужой организации (IDOR) | `OrgScopeGuard` на всех `/orgs/:orgId/*`; сервисы фильтруют по `organizationId`; тест на каждый маршрут | OrganizationsModule |
 | Доступ к чужим уловам/разрешениям | Запросы `/me/*` всегда фильтруют по `userId` из токена, не из параметров | все |
 | XSS | React-экранирование; запрет `dangerouslySetInnerHTML`; CSP через `helmet` | web, api |
