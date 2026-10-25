@@ -29,6 +29,7 @@ describe('error codes', () => {
         'CLAIM_ALREADY_PENDING',
         'WATER_ALREADY_CONNECTED',
         'CLAIM_NOT_PENDING',
+        'PERMIT_TYPE_IN_USE',
       ],
       422: [
         'PERMIT_START_IN_PAST',
