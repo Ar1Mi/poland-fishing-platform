@@ -26,7 +26,7 @@ export function IsDateOnly(): PropertyDecorator {
 }
 
 /** Required-when-present: `undefined` skips the field, `null` fails validation. */
-const IfPresent = (): PropertyDecorator => ValidateIf((_, value) => value !== undefined);
+export const IfPresent = (): PropertyDecorator => ValidateIf((_, value) => value !== undefined);
 
 export class ProfileDto {
   @ApiProperty({ format: 'uuid' })

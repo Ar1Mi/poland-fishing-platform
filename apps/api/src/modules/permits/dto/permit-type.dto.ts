@@ -6,7 +6,8 @@ import {
   PERMIT_TYPE_MAX_WATERS,
   PERMIT_TYPE_NAME_MAX_LENGTH,
 } from '@lowisko/shared';
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { applyDecorators } from '@nestjs/common';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -17,69 +18,120 @@ import {
   IsEnum,
   IsInt,
   IsNotEmpty,
-  IsOptional,
   IsString,
   IsUUID,
   Max,
   MaxLength,
   Min,
 } from 'class-validator';
-import { trim } from '../../users/dto/profile.dto';
+import { IfPresent, trim } from '../../users/dto/profile.dto';
 
 const discountKind = { enum: Object.values(DiscountKind), enumName: 'DiscountKind' };
 
+// Each field's rules once, for the create body and the partial update.
+const field = {
+  name: {
+    api: { maxLength: PERMIT_TYPE_NAME_MAX_LENGTH, example: 'Dzienne' },
+    rules: () =>
+      applyDecorators(
+        Transform(trim),
+        IsString(),
+        IsNotEmpty(),
+        MaxLength(PERMIT_TYPE_NAME_MAX_LENGTH),
+      ),
+  },
+  durationDays: {
+    api: { minimum: 1, maximum: PERMIT_DURATION_MAX_DAYS, example: 1 },
+    rules: () => applyDecorators(IsInt(), Min(1), Max(PERMIT_DURATION_MAX_DAYS)),
+  },
+  priceGrosze: {
+    api: {
+      minimum: 0,
+      maximum: PERMIT_PRICE_MAX_GROSZE,
+      example: 2500,
+      description: 'Whole grosze; 0 is a free permit',
+    },
+    rules: () => applyDecorators(IsInt(), Min(0), Max(PERMIT_PRICE_MAX_GROSZE)),
+  },
+  discountKind: {
+    api: discountKind,
+    rules: () => IsEnum(DiscountKind),
+  },
+  waterIds: {
+    api: {
+      type: String,
+      format: 'uuid',
+      isArray: true,
+      minItems: 1,
+      maxItems: PERMIT_TYPE_MAX_WATERS,
+      description: 'Waters connected to the organization that the permit covers',
+    },
+    rules: () =>
+      applyDecorators(
+        IsArray(),
+        ArrayMinSize(1),
+        ArrayMaxSize(PERMIT_TYPE_MAX_WATERS),
+        ArrayUnique(),
+        IsUUID('all', { each: true }),
+      ),
+  },
+};
+
 export class CreatePermitTypeDto {
-  @ApiProperty({ maxLength: PERMIT_TYPE_NAME_MAX_LENGTH, example: 'Dzienne' })
-  @Transform(trim)
-  @IsString()
-  @IsNotEmpty()
-  @MaxLength(PERMIT_TYPE_NAME_MAX_LENGTH)
+  @ApiProperty(field.name.api)
+  @field.name.rules()
   name!: string;
 
-  @ApiProperty({ minimum: 1, maximum: PERMIT_DURATION_MAX_DAYS, example: 1 })
-  @IsInt()
-  @Min(1)
-  @Max(PERMIT_DURATION_MAX_DAYS)
+  @ApiProperty(field.durationDays.api)
+  @field.durationDays.rules()
   durationDays!: number;
 
-  @ApiProperty({
-    minimum: 0,
-    maximum: PERMIT_PRICE_MAX_GROSZE,
-    example: 2500,
-    description: 'Whole grosze; 0 is a free permit',
-  })
-  @IsInt()
-  @Min(0)
-  @Max(PERMIT_PRICE_MAX_GROSZE)
+  @ApiProperty(field.priceGrosze.api)
+  @field.priceGrosze.rules()
   priceGrosze!: number;
 
-  @ApiProperty(discountKind)
-  @IsEnum(DiscountKind)
+  @ApiProperty(field.discountKind.api)
+  @field.discountKind.rules()
   discountKind!: DiscountKind;
 
-  @ApiProperty({
-    type: String,
-    format: 'uuid',
-    isArray: true,
-    minItems: 1,
-    maxItems: PERMIT_TYPE_MAX_WATERS,
-    description: 'Waters connected to the organization that the permit covers',
-  })
-  @IsArray()
-  @ArrayMinSize(1)
-  @ArrayMaxSize(PERMIT_TYPE_MAX_WATERS)
-  @ArrayUnique()
-  @IsUUID('all', { each: true })
+  @ApiProperty(field.waterIds.api)
+  @field.waterIds.rules()
   waterIds!: string[];
 }
 
 /**
- * Any subset of the fields. Once the type has permits, `durationDays`, `discountKind` and
- * `waterIds` may only be sent unchanged (PERMIT_TYPE_LOCKED_FIELDS).
+ * Any subset of the fields; a field sent as `null` is invalid (not «leave it»). Once the type
+ * has permits, `durationDays`, `discountKind` and `waterIds` may only be sent unchanged
+ * (PERMIT_TYPE_LOCKED_FIELDS).
  */
-export class UpdatePermitTypeDto extends PartialType(CreatePermitTypeDto) {
+export class UpdatePermitTypeDto {
+  @ApiPropertyOptional(field.name.api)
+  @IfPresent()
+  @field.name.rules()
+  name?: string;
+
+  @ApiPropertyOptional(field.durationDays.api)
+  @IfPresent()
+  @field.durationDays.rules()
+  durationDays?: number;
+
+  @ApiPropertyOptional(field.priceGrosze.api)
+  @IfPresent()
+  @field.priceGrosze.rules()
+  priceGrosze?: number;
+
+  @ApiPropertyOptional(field.discountKind.api)
+  @IfPresent()
+  @field.discountKind.rules()
+  discountKind?: DiscountKind;
+
+  @ApiPropertyOptional(field.waterIds.api)
+  @IfPresent()
+  @field.waterIds.rules()
+  waterIds?: string[];
+
   @ApiPropertyOptional({ description: 'false stops the sale; the type stays on sold permits' })
-  @IsOptional()
+  @IfPresent()
   @IsBoolean()
   isActive?: boolean;
 }
@@ -102,6 +154,7 @@ export class LowestPricesQueryDto {
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(LOWEST_PRICES_MAX_WATERS)
+  @ArrayUnique()
   @IsUUID('all', { each: true })
   waterIds!: string[];
 }

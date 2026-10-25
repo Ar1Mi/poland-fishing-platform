@@ -73,6 +73,17 @@ export class WatersService {
     return new Set(waters.map((water) => water.id));
   }
 
+  /** The organization each of `ids` is connected to, for the connected ones. */
+  async findOwners(ids: string[]): Promise<Map<string, string>> {
+    const waters = await this.prisma.fishingWater.findMany({
+      where: { id: { in: ids }, status: WaterStatus.CONNECTED },
+      select: { id: true, organizationId: true },
+    });
+    return new Map(
+      waters.flatMap((water) => (water.organizationId ? [[water.id, water.organizationId]] : [])),
+    );
+  }
+
   /** Names of waters for lists of other modules (permit types), keyed by id. */
   async findNames(ids: string[]): Promise<Map<string, string>> {
     const waters = await this.prisma.fishingWater.findMany({

@@ -224,14 +224,6 @@ describe('permit types', () => {
       expect(await prisma.permitType.count()).toBe(0);
     });
 
-    it('is closed to an inspector of the organization', async () => {
-      const inspector = await loginOrgMember(app, prisma, 'INSPECTOR');
-
-      const response = await create({}, inspector).expect(403);
-
-      expect(response.body).toMatchObject({ code: 'FORBIDDEN' });
-    });
-
     it('is closed to the admin of another organization', async () => {
       await expectForeignOrgAdminForbidden(app, prisma, (orgId, token) =>
         request(server())
@@ -317,6 +309,9 @@ describe('permit types', () => {
     it('changes any field of a type nobody has bought and records what changed', async () => {
       const type = await createType();
       const other = await connectedWater(admin.organizationId, { name: 'Jezioro Czarne' });
+      const third = await connectedWater(admin.organizationId, { name: 'Jezioro Długie' });
+      // The journal lists waters in one order, whatever order the request used.
+      const newWaters = [other.id, third.id].sort();
       await prisma.auditLog.deleteMany();
 
       const response = await patch(type.id, {
@@ -324,7 +319,7 @@ describe('permit types', () => {
         durationDays: 2,
         priceGrosze: 1500,
         discountKind: 'SENIOR',
-        waterIds: [other.id],
+        waterIds: [...newWaters].reverse(),
         isActive: false,
       }).expect(200);
 
@@ -334,7 +329,10 @@ describe('permit types', () => {
         priceGrosze: 1500,
         discountKind: 'SENIOR',
         isActive: false,
-        waters: [{ id: other.id, name: 'Jezioro Czarne' }],
+        waters: [
+          { id: other.id, name: 'Jezioro Czarne' },
+          { id: third.id, name: 'Jezioro Długie' },
+        ],
       });
       expect(await prisma.auditLog.findMany()).toEqual([
         expect.objectContaining({
@@ -346,7 +344,7 @@ describe('permit types', () => {
             durationDays: { from: 1, to: 2 },
             priceGrosze: { from: 2500, to: 1500 },
             discountKind: { from: 'NONE', to: 'SENIOR' },
-            waterIds: { from: [waterId], to: [other.id] },
+            waterIds: { from: [waterId], to: newWaters },
             isActive: { from: true, to: false },
           },
         }),
@@ -415,6 +413,34 @@ describe('permit types', () => {
 
       expect(await prisma.auditLog.count()).toBe(0);
     });
+
+    it.each(['name', 'durationDays', 'priceGrosze', 'discountKind', 'waterIds', 'isActive'])(
+      'rejects null as %s and changes nothing',
+      async (field) => {
+        const type = await createType();
+        const sold = await createType({ name: 'Sprzedane' });
+        await createPermit(prisma, { permitTypeId: sold.id });
+        await prisma.auditLog.deleteMany();
+
+        for (const target of [type, sold]) {
+          const response = await patch(target.id, { [field]: null }).expect(400);
+
+          expect(response.body).toMatchObject({
+            code: 'VALIDATION_FAILED',
+            details: { fields: { [field]: expect.any(Array) as unknown } },
+          });
+        }
+        expect(
+          (await prisma.permitType.findMany({ orderBy: { name: 'asc' } })).map(
+            ({ name, isActive }) => ({ name, isActive }),
+          ),
+        ).toEqual([
+          { name: 'Dzienne', isActive: true },
+          { name: 'Sprzedane', isActive: true },
+        ]);
+        expect(await prisma.auditLog.count()).toBe(0);
+      },
+    );
 
     it('rejects a water that is not connected to the organization', async () => {
       const type = await createType();
@@ -530,6 +556,44 @@ describe('permit types', () => {
     });
   });
 
+  describe('an inspector of the organization', () => {
+    it.each([
+      ['POST', ''],
+      ['GET', ''],
+      ['GET', '/TYPE'],
+      ['PATCH', '/TYPE'],
+      ['DELETE', '/TYPE'],
+    ])('is refused %s /orgs/:orgId/permit-types%s', async (method, suffix) => {
+      const inspector = await loginOrgMember(app, prisma, 'INSPECTOR');
+      const type = await createPermitType(prisma, { organizationId: inspector.organizationId });
+      const url = path(suffix.replace('TYPE', type.id), inspector);
+      const call = {
+        POST: () => request(server()).post(url).send(body()),
+        GET: () => request(server()).get(url),
+        PATCH: () => request(server()).patch(url).send({ priceGrosze: 1 }),
+        DELETE: () => request(server()).delete(url),
+      }[method]!;
+
+      const response = await call().set(bearer(inspector.accessToken)).expect(403);
+
+      expect(response.body).toMatchObject({ code: 'FORBIDDEN' });
+      expect(
+        (await prisma.permitType.findUniqueOrThrow({ where: { id: type.id } })).priceGrosze,
+      ).toBe(2500);
+    });
+
+    it('is refused the waters of the organization', async () => {
+      const inspector = await loginOrgMember(app, prisma, 'INSPECTOR');
+
+      const response = await request(server())
+        .get(`/api/v1/orgs/${inspector.organizationId}/waters`)
+        .set(bearer(inspector.accessToken))
+        .expect(403);
+
+      expect(response.body).toMatchObject({ code: 'FORBIDDEN' });
+    });
+  });
+
   describe('GET /permit-types?waterId=', () => {
     const offer = (id: string) =>
       request(server()).get('/api/v1/permit-types').query({ waterId: id });
@@ -626,8 +690,23 @@ describe('permit types', () => {
       await lowest(water.id).expect(200, []);
     });
 
+    it('counts a water only for the organization it is connected to', async () => {
+      // A type that still lists a water now held by another organization (no disconnection
+      // exists yet, so the stored state is built directly).
+      const holder = await createOrganization(prisma, { status: 'ACTIVE' });
+      const water = await connectedWater(holder.id);
+      await createPermitType(prisma, {
+        organizationId: admin.organizationId,
+        priceGrosze: 100,
+        waters: { connect: [{ id: water.id }] },
+      });
+
+      await lowest(water.id).expect(200, []);
+    });
+
     it.each([
       ['no ids', ''],
+      ['an id twice', `${UNKNOWN_ID},${UNKNOWN_ID}`],
       ['an id that is not a UUID', `${UNKNOWN_ID},jezioro`],
       [
         `more than ${LOWEST_PRICES_MAX_WATERS} ids`,

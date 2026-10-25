@@ -231,7 +231,13 @@ function PermitTypeItem({
               type="button"
               variant="destructive"
               disabled={busy}
-              onClick={() => remove.mutate(type.id, { onSuccess: onDeleted })}
+              onClick={() =>
+                remove.mutate(type.id, {
+                  onSuccess: onDeleted,
+                  // The error stays shown; the buttons come back with the reloaded type.
+                  onError: () => setConfirming(false),
+                })
+              }
             >
               {t('permits.org.deleteConfirmYes')}
             </Button>

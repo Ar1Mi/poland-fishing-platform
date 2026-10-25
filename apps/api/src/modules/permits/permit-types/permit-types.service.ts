@@ -128,8 +128,13 @@ export class PermitTypesService {
         diff: Object.fromEntries(
           changed.map((field) => [
             field,
-            // A changed field is one the DTO sets.
-            { from: valueOf(current, field), to: dto[field] as Prisma.InputJsonValue },
+            {
+              from: valueOf(current, field),
+              // A changed field is one the DTO sets; waters in the same order as `from`.
+              to: (field === 'waterIds'
+                ? [...dto.waterIds!].sort()
+                : dto[field]) as Prisma.InputJsonValue,
+            },
           ]),
         ),
       });
@@ -189,7 +194,7 @@ export class PermitTypesService {
 
   /**
    * The «od» price of catalogue cards: per water, the lowest price of an active regular type
-   * of an ACTIVE organization. Waters without one are left out.
+   * of an ACTIVE organization the water is connected to now. Waters without one are left out.
    */
   async lowestPrices(waterIds: string[]): Promise<LowestPriceDto[]> {
     const types = await this.prisma.permitType.findMany({
@@ -204,15 +209,17 @@ export class PermitTypesService {
         waters: { where: { id: { in: waterIds } }, select: { id: true } },
       },
     });
-    const organizations = await this.organizations.findSummaries([
-      ...new Set(types.map((type) => type.organizationId)),
+    const [organizations, owners] = await Promise.all([
+      this.organizations.findSummaries([...new Set(types.map((type) => type.organizationId))]),
+      this.waters.findOwners(waterIds),
     ]);
     const lowest = new Map<string, number>();
     for (const type of types) {
       if (organizations.get(type.organizationId)?.status !== OrganizationStatus.ACTIVE) {
         continue;
       }
-      for (const { id } of type.waters) {
+      // As on the water card: only the organization that holds the water sells for it.
+      for (const { id } of type.waters.filter(({ id }) => owners.get(id) === type.organizationId)) {
         lowest.set(id, Math.min(lowest.get(id) ?? Infinity, type.priceGrosze));
       }
     }
@@ -252,7 +259,8 @@ export class PermitTypesService {
     if (locked.length === 0) {
       throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'Permit type not found');
     }
-    // A new statement after the lock: it sees permits committed while this one waited.
+    // A new statement after the lock sees permits committed while this one waited. That holds
+    // under READ COMMITTED (the default); REPEATABLE READ would count from the old snapshot.
     return tx.permitType.findUniqueOrThrow({ where: { id }, include: withWatersAndPermits });
   }
 

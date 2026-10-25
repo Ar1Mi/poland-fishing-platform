@@ -1,4 +1,4 @@
-import type { PermitTypeInput } from '@lowisko/shared';
+import { LOWEST_PRICES_MAX_WATERS, type PermitTypeInput } from '@lowisko/shared';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, request } from '../../../shared/api/client';
 import type { components } from '../../../shared/api/schema';
@@ -63,7 +63,8 @@ export function useUpdatePermitType(orgId: string) {
           body,
         }),
       ),
-    onSuccess: refresh,
+    // Also after a failure: PERMIT_TYPE_IN_USE means the list on screen is out of date.
+    onSettled: refresh,
   });
 }
 
@@ -76,7 +77,7 @@ export function useDeletePermitType(orgId: string) {
           params: { path: { orgId, id } },
         }),
       ),
-    onSuccess: refresh,
+    onSettled: refresh,
   });
 }
 
@@ -95,7 +96,8 @@ export function useWaterPermitTypes(
 
 /** «od» prices of the listed waters, by water id; the previous ones stay while the map moves. */
 export function useLowestPrices(waterIds: string[]) {
-  const ids = [...waterIds].sort();
+  // The API takes one list page; more ids would turn the whole request into a 400.
+  const ids = waterIds.slice(0, LOWEST_PRICES_MAX_WATERS).sort();
   return useQuery({
     enabled: ids.length > 0,
     queryKey: [...publicPermitTypesKey, 'lowest-prices', ids],

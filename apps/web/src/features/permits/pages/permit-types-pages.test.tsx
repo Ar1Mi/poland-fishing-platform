@@ -311,9 +311,15 @@ describe('organization permit types page', () => {
     expect(await screen.findByText('Organizacja nie ma jeszcze rodzajów zezwoleń.')).toBeVisible();
   });
 
-  it('shows why a type sold meanwhile cannot be deleted', async () => {
-    showPage([weekly], [biale], {
-      [`DELETE ${TYPES}/${weekly.id}`]: () => apiError('PERMIT_TYPE_IN_USE', 409),
+  it('shows why a type sold meanwhile cannot be deleted and reloads the list', async () => {
+    let types = [weekly];
+    showPage(types, [biale], {
+      [`GET ${TYPES}`]: () => jsonResponse(types),
+      [`DELETE ${TYPES}/${weekly.id}`]: () => {
+        // Sold while the page was open.
+        types = [{ ...weekly, inUse: true }];
+        return apiError('PERMIT_TYPE_IN_USE', 409);
+      },
     });
     const item = await listItem('Tygodniowe junior');
 
@@ -323,6 +329,9 @@ describe('organization permit types page', () => {
     const alert = await within(item).findByRole('alert');
     expect(within(alert).getByText(/zostały już sprzedane/)).toBeVisible();
     expect(within(alert).getByText('PERMIT_TYPE_IN_USE')).toBeVisible();
+    expect(await within(item).findByText(/Sprzedane — ważność, ulga i łowiska/)).toBeVisible();
+    expect(within(item).queryByRole('button', { name: 'Usuń' })).toBeNull();
+    expect(within(item).queryByRole('button', { name: 'Tak, usuń' })).toBeNull();
   });
 
   it('points to the claims while the organization has no connected water', async () => {
