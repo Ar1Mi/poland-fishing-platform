@@ -5,6 +5,7 @@ import {
   ageOn,
   isDiscountEligible,
   latestPermitStart,
+  permitStartFormSchema,
   permitValidTo,
   purchasePermitSchema,
 } from './purchase.js';
@@ -109,5 +110,25 @@ describe('purchasePermitSchema', () => {
     expect(
       purchasePermitSchema.safeParse({ permitTypeId: 'x', validFrom: '2026-10-06' }).success,
     ).toBe(false);
+  });
+});
+
+describe('permitStartFormSchema', () => {
+  const schema = permitStartFormSchema('2026-10-06');
+  const issue = (validFrom: string) =>
+    schema.safeParse({ validFrom }).error?.issues.map((found) => found.message);
+
+  it('accepts today and the last allowed day', () => {
+    expect(issue('2026-10-06')).toBeUndefined();
+    expect(issue('2027-10-06')).toBeUndefined();
+  });
+
+  it.each([
+    ['2026-10-05', 'IN_PAST'],
+    ['2027-10-07', 'TOO_LATE'],
+    ['2026-02-30', 'INVALID'],
+    ['', 'INVALID'],
+  ])('reports %j as %s first', (validFrom, expected) => {
+    expect(issue(validFrom)?.[0]).toBe(expected);
   });
 });

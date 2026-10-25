@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { formatDate, formatPrice } from '../../../shared/lib/format';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Badge } from '../../../shared/ui/badge';
+import { Button } from '../../../shared/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/ui/card';
 import { activeAdminOrgs, useMyOrgs } from '../../orgs/api/useMyOrgs';
 import { useWaterPermitTypes } from '../../permits/api/usePermitTypes';
@@ -130,7 +131,7 @@ function WaterDetails({ water }: { water: WaterDetail }) {
   );
 }
 
-/** Permit types on sale for the water (FR-07); buying them comes with T-13. */
+/** Permit types on sale for the water (FR-07), each with its way to the purchase (FR-08). */
 function PermitOffer({ waterId }: { waterId: string }) {
   const { t, i18n } = useTranslation();
   const types = useWaterPermitTypes(waterId);
@@ -159,9 +160,19 @@ function PermitOffer({ waterId }: { waterId: string }) {
               <PermitTypeTerms type={type} />
             </span>
           </div>
-          <span className="font-mono text-body font-semibold whitespace-nowrap">
-            {formatPrice(type.priceGrosze, locale)}
-          </span>
+          <div className="flex shrink-0 flex-col items-end gap-2">
+            <span className="font-mono text-body font-semibold whitespace-nowrap">
+              {formatPrice(type.priceGrosze, locale)}
+            </span>
+            <Button asChild>
+              <Link
+                to={`/buy/${type.id}?waterId=${waterId}`}
+                aria-label={t('permits.offer.buyLabel', { name: type.name })}
+              >
+                {t('permits.offer.buy')}
+              </Link>
+            </Button>
+          </div>
         </li>
       ))}
     </ul>

@@ -62,3 +62,22 @@ export const purchasePermitSchema = z.object({
   validFrom: z.iso.date(),
 });
 export type PurchasePermitInput = z.infer<typeof purchasePermitSchema>;
+
+/** Issue messages of `permitStartFormSchema`, which the form translates. */
+export const PermitStartIssue = {
+  INVALID: 'INVALID',
+  IN_PAST: 'IN_PAST',
+  TOO_LATE: 'TOO_LATE',
+} as const;
+export type PermitStartIssue = (typeof PermitStartIssue)[keyof typeof PermitStartIssue];
+
+/** The purchase form: a calendar date from `today` (Warsaw) to `latestPermitStart(today)`. */
+export function permitStartFormSchema(today: DateOnly) {
+  const latest = latestPermitStart(today);
+  return z.object({
+    validFrom: z.iso
+      .date({ message: PermitStartIssue.INVALID })
+      .refine((date) => date >= today, { message: PermitStartIssue.IN_PAST, abort: true })
+      .refine((date) => date <= latest, { message: PermitStartIssue.TOO_LATE }),
+  });
+}
