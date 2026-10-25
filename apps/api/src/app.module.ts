@@ -5,6 +5,7 @@ import { ClockModule } from './common/clock/clock.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingModule } from './common/logging/logging.module';
 import { createValidationPipe } from './common/pipes/validation.pipe';
+import { StorageModule } from './common/storage/storage.module';
 import { validateEnv } from './config/env';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -28,6 +29,7 @@ import { WatersModule } from './modules/waters/waters.module';
     LoggingModule,
     ClockModule,
     DatabaseModule,
+    StorageModule,
     HealthModule,
     AuthModule,
     UsersModule,

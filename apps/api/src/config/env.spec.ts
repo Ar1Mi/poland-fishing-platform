@@ -17,7 +17,14 @@ describe('validateEnv', () => {
       ...valid,
       API_PORT: 8080,
       NOMINATIM_URL: 'https://nominatim.openstreetmap.org',
+      UPLOADS_DIR: './uploads',
     });
+  });
+
+  it('takes UPLOADS_DIR from the environment when set', () => {
+    expect(validateEnv({ ...valid, UPLOADS_DIR: '/data/uploads' }).UPLOADS_DIR).toBe(
+      '/data/uploads',
+    );
   });
 
   it('keeps NOMINATIM_USER_AGENT optional so the API starts without geocoding', () => {
@@ -64,6 +71,7 @@ describe('validateEnv', () => {
     ['empty MAIL_FROM', { ...valid, MAIL_FROM: '' }, 'MAIL_FROM'],
     ['non-http NOMINATIM_URL', { ...valid, NOMINATIM_URL: 'nominatim' }, 'NOMINATIM_URL'],
     ['unknown NODE_ENV', { ...valid, NODE_ENV: 'staging' }, 'NODE_ENV'],
+    ['empty UPLOADS_DIR', { ...valid, UPLOADS_DIR: '' }, 'UPLOADS_DIR'],
   ])('rejects %s and names the variable', (_name, raw, variable) => {
     expect(() => validateEnv(raw)).toThrow(variable);
   });

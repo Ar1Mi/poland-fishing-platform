@@ -1,3 +1,7 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 // Fixed environment for integration tests; the real .env is never read under NODE_ENV=test.
 process.env.NODE_ENV = 'test';
 process.env.API_PORT = '3000';
@@ -8,3 +12,5 @@ process.env.JWT_ACCESS_SECRET = 'test-access-secret-at-least-32-bytes!';
 process.env.SMTP_URL = 'smtp://localhost:1025';
 process.env.MAIL_FROM = 'Łowisko <no-reply@lowisko.test>';
 // DATABASE_URL and TEST_DATABASE_ADMIN_URL come from the PostgreSQL container (db/global-setup.ts).
+// Uploaded files of this test file go to its own temporary directory.
+process.env.UPLOADS_DIR = mkdtempSync(join(tmpdir(), 'lowisko-test-uploads-'));
