@@ -147,3 +147,18 @@ export class WaterDetailDto extends WaterSummaryDto {
   @ApiProperty({ format: 'date-time', description: 'Last change of the catalogue entry' })
   updatedAt!: string;
 }
+
+/** A water of the organization admin's own list (`GET /orgs/:orgId/waters`). */
+export class OrgWaterDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ example: 'Zalew Zegrzyński' })
+  name!: string;
+
+  @ApiProperty(type)
+  type!: WaterType;
+
+  @ApiProperty({ example: 'mazowieckie' })
+  region!: string;
+}

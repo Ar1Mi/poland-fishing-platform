@@ -9,15 +9,19 @@ import { GEOCODER } from './import/geocoder';
 import { GeocodingService } from './import/geocoding.service';
 import { NominatimGeocoder } from './import/nominatim-geocoder';
 import { WaterImportService } from './import/water-import.service';
-import { AdminWatersController, WatersController } from './waters.controller';
+import { AdminWatersController, OrgWatersController, WatersController } from './waters.controller';
 import { WatersService } from './waters.service';
 
-/** Catalogue (T-09), its CSV import with geocoding (T-10) and water claims (T-11). */
+/**
+ * Catalogue (T-09), its CSV import with geocoding (T-10), water claims (T-11) and the
+ * organization's own connected waters (T-12).
+ */
 @Module({
   imports: [OrganizationsModule, AuditModule],
   controllers: [
     WatersController,
     AdminWatersController,
+    OrgWatersController,
     OrgClaimsController,
     AdminClaimsController,
   ],
