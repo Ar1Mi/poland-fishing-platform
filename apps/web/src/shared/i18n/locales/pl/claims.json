@@ -36,7 +36,8 @@
     "empty": "Organizacja nie złożyła jeszcze żadnego wniosku.",
     "submittedAt": "Złożony {{date}}",
     "reviewedAt": "rozpatrzony {{date}}",
-    "comment": "Komentarz administratora:"
+    "comment": "Komentarz administratora:",
+    "lostToOther": "Łowisko zostało podłączone na podstawie innego wniosku."
   },
   "admin": {
     "title": "Wnioski o łowiska",
@@ -52,8 +53,11 @@
     "commentField": "Komentarz dla organizacji",
     "commentHint": "Opcjonalnie. Przy odrzuceniu napisz, czego brakuje.",
     "commentTooLong": "Komentarz może mieć najwyżej 1000 znaków.",
-    "approveHint": "Zatwierdzenie podłączy łowisko do organizacji i odrzuci pozostałe wnioski o to łowisko.",
     "approve": "Zatwierdź",
-    "reject": "Odrzuć"
+    "reject": "Odrzuć",
+    "approveConfirm": "Zatwierdzić wniosek? Łowisko zostanie podłączone do tej organizacji, a pozostałe wnioski o nie — odrzucone. Tego nie można cofnąć w serwisie.",
+    "approveConfirmYes": "Tak, zatwierdź",
+    "approveConfirmNo": "Anuluj",
+    "reload": "Odśwież listę"
   }
 }

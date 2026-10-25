@@ -49,13 +49,21 @@ export function useAdminClaims(status: ClaimStatus | undefined) {
   });
 }
 
+/** A decision; `reloadQueue` refreshes the list after someone else decided first (409). */
 export function useReviewClaim() {
   const queryClient = useQueryClient();
-  return useMutation({
+  const reloadQueue = () => queryClient.invalidateQueries({ queryKey: adminClaimsKey });
+  const mutation = useMutation({
     mutationFn: ({ id, ...body }: ReviewClaimInput & { id: string }) =>
       request(() => api.PATCH('/api/v1/admin/claims/{id}', { params: { path: { id } }, body })),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: adminClaimsKey }),
+    onSuccess: () =>
+      Promise.all([
+        reloadQueue(),
+        // An approval changes the status of the water on its card and on the map.
+        queryClient.invalidateQueries({ queryKey: ['waters'] }),
+      ]),
   });
+  return { ...mutation, reloadQueue };
 }
 
 /** The document comes with the access token, so it is fetched here and saved from memory. */

@@ -15,7 +15,8 @@ export function OrgClaimsPage() {
   const { t } = useTranslation();
   const { orgId = '' } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
-  const waterId = searchParams.get('waterId') ?? undefined;
+  // An empty `?waterId=` is no water (and must not turn the lookup into a catalogue list).
+  const waterId = searchParams.get('waterId') || undefined;
   const organization = useMyOrgs().data?.find((org) => org.id === orgId);
   const claims = useOrgClaims(orgId);
   return (
@@ -74,10 +75,16 @@ function ClaimList({ claims }: { claims: Claim[] }) {
                   {claim.reviewedAt &&
                     ` · ${t('claims.org.reviewedAt', { date: formatDate(claim.reviewedAt, locale) })}`}
                 </p>
-                {claim.comment && (
+                {claim.comment ? (
                   <p className="text-body">
                     {t('claims.org.comment')} {claim.comment}
                   </p>
+                ) : (
+                  // Closed by the approval of another claim of the same water (no comment then).
+                  claim.status === 'REJECTED' &&
+                  claim.water.status === 'CONNECTED' && (
+                    <p className="text-body">{t('claims.org.lostToOther')}</p>
+                  )
                 )}
               </li>
             ))}

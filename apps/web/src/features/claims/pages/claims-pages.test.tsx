@@ -57,6 +57,15 @@ const rejected: Claim = {
   createdAt: '2026-10-01T10:00:00.000Z',
   reviewedAt: '2026-10-03T10:00:00.000Z',
 };
+/** Rejected without a comment because another organization's claim of the water was approved. */
+const lost: Claim = {
+  id: 'c3000000-0000-4000-8000-000000000003',
+  status: 'REJECTED',
+  water: { id: WATER_ID, name: 'Zalew Zegrzyński', region: 'mazowieckie', status: 'CONNECTED' },
+  comment: null,
+  createdAt: '2026-10-02T10:00:00.000Z',
+  reviewedAt: '2026-10-03T10:00:00.000Z',
+};
 const pendingAdminClaim: AdminClaim = {
   id: 'c2000000-0000-4000-8000-000000000002',
   status: 'PENDING',
@@ -89,22 +98,30 @@ describe('organization claims page', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Logowanie' })).toBeVisible();
   });
 
-  it('lists the claims with their status and the admin comment', async () => {
+  it('lists the claims with their status and why they were rejected', async () => {
     mockApi({
       'GET /api/v1/me': () => jsonResponse(profile),
       'GET /api/v1/me/orgs': () => jsonResponse([myOrg]),
-      [`GET ${ORG_CLAIMS}`]: () => jsonResponse([rejected]),
+      [`GET ${ORG_CLAIMS}`]: () => jsonResponse([rejected, lost]),
     });
 
     renderRoute(`/org/${ORG_ID}/claims`, { accessToken: 'access-1' });
 
     const list = await screen.findByRole('region', { name: 'Złożone wnioski' });
-    expect(within(list).getByRole('link', { name: 'Jezioro Białe' })).toHaveAttribute(
+    const [withComment, lostItem] = within(list).getAllByRole('listitem');
+    expect(within(withComment!).getByRole('link', { name: 'Jezioro Białe' })).toHaveAttribute(
       'href',
       `/waters/${rejected.water.id}`,
     );
-    expect(within(list).getByText('Odrzucony')).toBeVisible();
-    expect(within(list).getByText('Komentarz administratora: Brak umowy dzierżawy')).toBeVisible();
+    expect(within(withComment!).getByText('Odrzucony')).toBeVisible();
+    expect(
+      within(withComment!).getByText('Komentarz administratora: Brak umowy dzierżawy'),
+    ).toBeVisible();
+    // No comment on a claim closed by the approval of another one: the page says why.
+    expect(within(lostItem!).getByText('Odrzucony')).toBeVisible();
+    expect(
+      within(lostItem!).getByText('Łowisko zostało podłączone na podstawie innego wniosku.'),
+    ).toBeVisible();
     expect(await screen.findByText('Koło PZW nr 12')).toBeVisible();
   });
 
@@ -199,6 +216,15 @@ describe('organization claims page', () => {
     await userEvent.click(submit);
     expect(await screen.findByText('Plik jest większy niż 5 MB.')).toBeVisible();
 
+    await userEvent.upload(
+      screen.getByLabelText('Dokument'),
+      new File(['GIF89a'], 'skan.gif', { type: 'image/gif' }),
+      // The picker's `accept` would hide it; a drag and drop or another browser may not.
+      { applyAccept: false },
+    );
+    await userEvent.click(submit);
+    expect(await screen.findByText('Dozwolone są pliki PDF, JPG, PNG i WebP.')).toBeVisible();
+
     expect(fetch.mock.calls.some(([request]) => request.method === 'POST')).toBe(false);
   });
 
@@ -279,7 +305,7 @@ describe('admin claims page', () => {
     );
   });
 
-  it('approves a claim and reloads the queue', async () => {
+  it('approves a claim after confirming and reloads the queue', async () => {
     let claims = [pendingAdminClaim];
     const fetch = mockApi({
       'GET /api/v1/me': () => jsonResponse(admin),
@@ -293,11 +319,28 @@ describe('admin claims page', () => {
 
     const card = await screen.findByRole('region', { name: 'Zalew Zegrzyński' });
     await userEvent.click(within(card).getByRole('button', { name: 'Zatwierdź' }));
+    await userEvent.click(within(card).getByRole('button', { name: 'Tak, zatwierdź' }));
 
     expect(await screen.findByText('Brak wniosków o tym statusie.')).toBeVisible();
     expect(await sentBodies(fetch, `PATCH /api/v1/admin/claims/${pendingAdminClaim.id}`)).toEqual([
       { decision: 'APPROVE' },
     ]);
+  });
+
+  it('sends nothing until the approval is confirmed, and can be cancelled', async () => {
+    const fetch = mockApi({
+      'GET /api/v1/me': () => jsonResponse(admin),
+      'GET /api/v1/admin/claims': queue([pendingAdminClaim]),
+    });
+    renderRoute('/admin/claims', { accessToken: 'access-1' });
+
+    const card = await screen.findByRole('region', { name: 'Zalew Zegrzyński' });
+    await userEvent.click(within(card).getByRole('button', { name: 'Zatwierdź' }));
+
+    expect(within(card).getByText(/pozostałe wnioski o nie — odrzucone/)).toBeVisible();
+    await userEvent.click(within(card).getByRole('button', { name: 'Anuluj' }));
+    expect(within(card).getByRole('button', { name: 'Zatwierdź' })).toBeVisible();
+    expect(fetch.mock.calls.some(([request]) => request.method === 'PATCH')).toBe(false);
   });
 
   it('rejects with a comment', async () => {
@@ -320,8 +363,8 @@ describe('admin claims page', () => {
     );
   });
 
-  it('shows why a decision failed', async () => {
-    mockApi({
+  it('shows why a decision failed and offers to reload the queue', async () => {
+    const fetch = mockApi({
       'GET /api/v1/me': () => jsonResponse(admin),
       'GET /api/v1/admin/claims': queue([pendingAdminClaim]),
       [`PATCH /api/v1/admin/claims/${pendingAdminClaim.id}`]: () =>
@@ -335,6 +378,10 @@ describe('admin claims page', () => {
     expect(await within(card).findByRole('alert')).toHaveTextContent(
       'Ten wniosek został już rozpatrzony.',
     );
+    // The decision buttons are gone: only reloading the queue makes sense now.
+    expect(within(card).queryByRole('button', { name: 'Odrzuć' })).toBeNull();
+    await userEvent.click(within(card).getByRole('button', { name: 'Odśwież listę' }));
+    await waitFor(() => expect(claimStatusQuery(fetch)).toEqual(['PENDING', 'PENDING']));
   });
 
   it('downloads the document with the access token', async () => {

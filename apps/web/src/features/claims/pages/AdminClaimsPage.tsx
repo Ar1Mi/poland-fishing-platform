@@ -1,10 +1,18 @@
-import { type ClaimDecision, ClaimStatus, reviewClaimSchema } from '@lowisko/shared';
+import {
+  CLAIM_PROOF_EXTENSIONS,
+  type ClaimDecision,
+  ClaimStatus,
+  isClaimProofMimeType,
+  reviewClaimSchema,
+} from '@lowisko/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Download, LoaderCircle } from 'lucide-react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router';
 import { formatDate } from '../../../shared/lib/format';
+import { ApiError } from '../../../shared/api/errors';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Badge } from '../../../shared/ui/badge';
 import { Button } from '../../../shared/ui/button';
@@ -23,12 +31,13 @@ import { saveFile } from '../lib/save-file';
 const STATUSES = Object.values(ClaimStatus);
 const ALL = 'ALL';
 
-const EXTENSION_BY_TYPE: Readonly<Record<string, string>> = {
-  'application/pdf': 'pdf',
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-};
+function documentFileName(claim: AdminClaim): string {
+  const { documentType } = claim;
+  const extension = isClaimProofMimeType(documentType)
+    ? CLAIM_PROOF_EXTENSIONS[documentType]
+    : 'bin';
+  return `claim-${claim.id}.${extension}`;
+}
 
 /** Super admin queue of water claims (FR-24); PENDING by default, filter kept in the URL. */
 export function AdminClaimsPage() {
@@ -79,7 +88,10 @@ function AdminClaimCard({ claim }: { claim: AdminClaim }) {
     <Card aria-labelledby={titleId}>
       <CardHeader>
         <CardTitle id={titleId}>
-          <Link to={`/waters/${claim.water.id}`} className="text-primary underline">
+          <Link
+            to={`/waters/${claim.water.id}`}
+            className="inline-flex min-h-11 items-center text-primary underline"
+          >
             {claim.water.name}
           </Link>
         </CardTitle>
@@ -118,11 +130,7 @@ function AdminClaimCard({ claim }: { claim: AdminClaim }) {
           disabled={download.isPending}
           onClick={() =>
             download.mutate(claim.id, {
-              onSuccess: (blob) =>
-                saveFile(
-                  blob,
-                  `claim-${claim.id}.${EXTENSION_BY_TYPE[claim.documentType] ?? 'bin'}`,
-                ),
+              onSuccess: (blob) => saveFile(blob, documentFileName(claim)),
             })
           }
         >
@@ -145,6 +153,8 @@ const commentSchema = reviewClaimSchema.pick({ comment: true });
 function ReviewForm({ claimId }: { claimId: string }) {
   const { t } = useTranslation();
   const review = useReviewClaim();
+  // Approval rejects the other claims of the water for good: it takes a second click.
+  const [confirming, setConfirming] = useState(false);
   const {
     register,
     handleSubmit,
@@ -154,33 +164,65 @@ function ReviewForm({ claimId }: { claimId: string }) {
     handleSubmit(({ comment }) =>
       review.mutate({ id: claimId, decision, comment: comment || undefined }),
     );
+  // 409: someone else decided first. The card stays (with the reason) until the list is reloaded.
+  const outdated = review.error instanceof ApiError && review.error.status === 409;
   return (
     <form noValidate className="flex flex-col gap-3" onSubmit={(event) => event.preventDefault()}>
       <TextAreaField
         label={t('claims.admin.commentField')}
         hint={t('claims.admin.commentHint')}
         error={errors.comment && t('claims.admin.commentTooLong')}
+        disabled={outdated}
         {...register('comment')}
       />
-      <p className="text-small text-muted-foreground">{t('claims.admin.approveHint')}</p>
       {review.isError && <ApiErrorAlert error={review.error} />}
-      <div className="flex flex-wrap gap-2">
+      {outdated ? (
         <Button
           type="button"
-          disabled={review.isPending}
-          onClick={(event) => void decide('APPROVE')(event)}
+          variant="secondary"
+          className="w-fit"
+          onClick={() => void review.reloadQueue()}
         >
-          {t('claims.admin.approve')}
+          {t('claims.admin.reload')}
         </Button>
-        <Button
-          type="button"
-          variant="destructive"
-          disabled={review.isPending}
-          onClick={(event) => void decide('REJECT')(event)}
-        >
-          {t('claims.admin.reject')}
-        </Button>
-      </div>
+      ) : confirming ? (
+        <div className="flex flex-col gap-2" role="group" aria-labelledby={`${claimId}-confirm`}>
+          <p id={`${claimId}-confirm`} className="text-body font-semibold">
+            {t('claims.admin.approveConfirm')}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              disabled={review.isPending}
+              onClick={(event) => void decide('APPROVE')(event)}
+            >
+              {t('claims.admin.approveConfirmYes')}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={review.isPending}
+              onClick={() => setConfirming(false)}
+            >
+              {t('claims.admin.approveConfirmNo')}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" onClick={() => setConfirming(true)}>
+            {t('claims.admin.approve')}
+          </Button>
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={review.isPending}
+            onClick={(event) => void decide('REJECT')(event)}
+          >
+            {t('claims.admin.reject')}
+          </Button>
+        </div>
+      )}
     </form>
   );
 }
