@@ -43,7 +43,7 @@ docs/
 | `OrganizationsModule` | Организации, членство, приглашения, `OrgScopeGuard` | Users |
 | `WatersModule` | Каталог, импорт CSV, геокодирование, claim | Organizations |
 | `RulesModule` | Виды, `SpeciesRule`, слияние уровней | Waters |
-| `PermitsModule` | Типы разрешений, выдача, статусы, PDF, QR-токен; внешние разрешения | Waters, Payments |
+| `PermitsModule` | Типы разрешений (T-12), выдача, статусы, PDF, QR-токен; внешние разрешения | Waters, Organizations, Payments |
 | `PaymentsModule` | `PaymentProvider` (P24, Fake), уведомления | — |
 | `CatchesModule` | Реестр, `/catches/sync`, вызов CatchValidator, PDF-реестр | Permits, Rules |
 | `InspectionsModule` | Проверка QR-токена, протоколы | Permits, Catches |
