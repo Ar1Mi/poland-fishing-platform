@@ -112,3 +112,20 @@ export async function createExternalPermit(
     },
   });
 }
+
+export async function createClaim(
+  prisma: PrismaClient,
+  data: Partial<Prisma.WaterClaimUncheckedCreateInput> = {},
+) {
+  const fishingWaterId = data.fishingWaterId ?? (await createWater(prisma)).id;
+  const organizationId =
+    data.organizationId ?? (await createOrganization(prisma, { status: 'ACTIVE' })).id;
+  return prisma.waterClaim.create({
+    data: {
+      proofFileKey: `claims/${randomUUID()}.pdf`,
+      ...data,
+      fishingWaterId,
+      organizationId,
+    },
+  });
+}

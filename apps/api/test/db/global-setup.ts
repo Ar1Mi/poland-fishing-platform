@@ -1,4 +1,6 @@
 import { execFileSync } from 'node:child_process';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { POSTGRES_IMAGE, TEMPLATE_DATABASE } from './constants';
@@ -40,6 +42,8 @@ export default async function globalSetup(): Promise<void> {
     unusable.pathname = '/use_createTestDatabase';
     process.env.DATABASE_URL = unusable.toString();
     process.env.TEST_DATABASE_ADMIN_URL = url;
+    // Uploaded files of the run; each test file gets its own folder in it (setup-env.ts).
+    process.env.TEST_UPLOADS_ROOT = mkdtempSync(path.join(tmpdir(), 'lowisko-e2e-uploads-'));
   } catch (error) {
     await container.stop();
     throw error;

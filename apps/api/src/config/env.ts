@@ -51,6 +51,8 @@ export const envSchema = z.object({
   // so rows that need geocoding fail; rows with coordinates still import.
   NOMINATIM_URL: httpUrl.default('https://nominatim.openstreetmap.org'),
   NOMINATIM_USER_AGENT: z.string().min(1).optional(),
+  // Uploaded files (T-11, StorageService); relative to the working directory of the API.
+  UPLOADS_DIR: z.string().min(1).default('./uploads'),
 });
 
 export type Env = z.infer<typeof envSchema>;

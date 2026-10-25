@@ -55,7 +55,11 @@
     "source": "Źródło danych: {{source}}, aktualizacja {{date}}",
     "noPosition": "Brak położenia na mapie.",
     "suspendedBadge": "Sprzedaż online wstrzymana",
-    "permitsSuspended": "Sprzedaż zezwoleń w serwisie jest obecnie wstrzymana."
+    "permitsSuspended": "Sprzedaż zezwoleń w serwisie jest obecnie wstrzymana.",
+    "claimTitle": "Zarządzasz tym łowiskiem?",
+    "claimLead": "Złóż wniosek z dokumentem, a po jego zatwierdzeniu sprzedasz tu zezwolenia online.",
+    "claim": "Złóż wniosek o łowisko",
+    "claimAs": "Złóż wniosek jako {{name}}"
   },
   "source": {
     "RZGW": "RZGW Wody Polskie",

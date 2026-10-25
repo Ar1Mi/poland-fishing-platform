@@ -92,6 +92,17 @@ export class OrganizationsService {
       : null;
   }
 
+  /** Identification of organizations for admin lists (claim queue), keyed by id. */
+  async findSummaries(
+    ids: string[],
+  ): Promise<Map<string, Pick<Organization, 'id' | 'name' | 'nip' | 'status'>>> {
+    const organizations = await this.prisma.organization.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true, nip: true, status: true },
+    });
+    return new Map(organizations.map((organization) => [organization.id, organization]));
+  }
+
   /** Activation or blocking; setting the current status again is a no-op. */
   async setStatus(id: string, status: SettableStatus): Promise<OrganizationDto> {
     try {

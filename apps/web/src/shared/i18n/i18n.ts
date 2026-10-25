@@ -3,19 +3,25 @@ import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import enAuth from './locales/en/auth.json';
 import enCatalog from './locales/en/catalog.json';
+import enClaims from './locales/en/claims.json';
 import enCommon from './locales/en/common.json';
 import enErrors from './locales/en/errors.json';
 import enLegal from './locales/en/legal.json';
+import enOrgs from './locales/en/orgs.json';
 import plAuth from './locales/pl/auth.json';
 import plCatalog from './locales/pl/catalog.json';
+import plClaims from './locales/pl/claims.json';
 import plCommon from './locales/pl/common.json';
 import plErrors from './locales/pl/errors.json';
 import plLegal from './locales/pl/legal.json';
+import plOrgs from './locales/pl/orgs.json';
 import ruAuth from './locales/ru/auth.json';
 import ruCatalog from './locales/ru/catalog.json';
+import ruClaims from './locales/ru/claims.json';
 import ruCommon from './locales/ru/common.json';
 import ruErrors from './locales/ru/errors.json';
 import ruLegal from './locales/ru/legal.json';
+import ruOrgs from './locales/ru/orgs.json';
 
 /*
  * One file per feature (`locales/{lng}/{feature}.json`), merged under the feature name into
@@ -28,6 +34,8 @@ export const resources = {
       common: plCommon,
       auth: plAuth,
       catalog: plCatalog,
+      claims: plClaims,
+      orgs: plOrgs,
       legal: plLegal,
       errors: plErrors,
     },
@@ -37,6 +45,8 @@ export const resources = {
       common: enCommon,
       auth: enAuth,
       catalog: enCatalog,
+      claims: enClaims,
+      orgs: enOrgs,
       legal: enLegal,
       errors: enErrors,
     },
@@ -46,6 +56,8 @@ export const resources = {
       common: ruCommon,
       auth: ruAuth,
       catalog: ruCatalog,
+      claims: ruClaims,
+      orgs: ruOrgs,
       legal: ruLegal,
       errors: ruErrors,
     },

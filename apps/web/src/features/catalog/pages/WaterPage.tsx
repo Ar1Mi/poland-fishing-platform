@@ -5,6 +5,7 @@ import { formatDate } from '../../../shared/lib/format';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Badge } from '../../../shared/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/ui/card';
+import { activeAdminOrgs, useMyOrgs } from '../../orgs/api/useMyOrgs';
 import { useWater, type WaterDetail } from '../api/useWaters';
 import { WaterStatusBadge } from '../components/WaterStatusBadge';
 import { safeExternalUrl } from '../lib/external-url';
@@ -105,6 +106,7 @@ function WaterDetails({ water }: { water: WaterDetail }) {
           )}
         </CardContent>
       </Card>
+      {water.status === 'UNCLAIMED' && <ClaimOffer waterId={water.id} />}
       {water.description && (
         <Card>
           <CardHeader>
@@ -122,5 +124,35 @@ function WaterDetails({ water }: { water: WaterDetail }) {
         })}
       </p>
     </>
+  );
+}
+
+/** An admin of an active organization may ask for this water (FR-24); nobody else sees it. */
+function ClaimOffer({ waterId }: { waterId: string }) {
+  const { t } = useTranslation();
+  const organizations = activeAdminOrgs(useMyOrgs().data);
+  if (organizations.length === 0) {
+    return null;
+  }
+  return (
+    <Card aria-labelledby="claim-offer-title">
+      <CardHeader>
+        <CardTitle id="claim-offer-title">{t('catalog.water.claimTitle')}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <p>{t('catalog.water.claimLead')}</p>
+        {organizations.map((organization) => (
+          <Link
+            key={organization.id}
+            to={`/org/${organization.id}/claims?waterId=${waterId}`}
+            className="flex min-h-11 w-fit items-center font-semibold text-primary underline"
+          >
+            {organizations.length === 1
+              ? t('catalog.water.claim')
+              : t('catalog.water.claimAs', { name: organization.name })}
+          </Link>
+        ))}
+      </CardContent>
+    </Card>
   );
 }

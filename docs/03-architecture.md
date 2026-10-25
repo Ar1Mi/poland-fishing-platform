@@ -49,7 +49,7 @@ docs/
 | `InspectionsModule` | Проверка QR-токена, протоколы | Permits, Catches |
 | `ReportsModule` | Статистика, CSV | Permits, Catches |
 | `NotificationsModule` | Email-шаблоны (pl/en/ru), планировщик напоминаний | — |
-| `AuditModule` | Интерсептор, пишущий действия админов в `AuditLog` | — |
+| `AuditModule` | `AuditLog`: `AuditService.record(tx, …)` пишет запись в транзакции самого действия (T-11); интерсептор для действий без своей транзакции — T-26 | — |
 
 Правило зависимостей: модуль обращается к чужим данным только через экспортированный сервис чужого модуля, не через Prisma напрямую.
 
@@ -64,7 +64,7 @@ docs/
 - **Статусы разрешения:** хранятся только `PENDING_PAYMENT / PAID / CANCELLED / REVOKED`; `SCHEDULED / ACTIVE / EXPIRED` вычисляются из дат (ADR-0005).
 - **QR:** токен JWS (Ed25519, библиотека `jose`) с `permitId` и `exp = validTo`; QR кодирует `${WEB_URL}/verify/${token}` (ADR-0006).
 - **Платежи:** только уведомление провайдера с проверенной подписью меняет статус на `PAID`; идемпотентность по `sessionId` (ADR-0004).
-- **Файлы** (фото, документы claim): локальный том Docker `uploads/` за абстракцией `StorageService`; лимит 5 МБ, только image/* и application/pdf.
+- **Файлы** (фото, документы claim): локальный том Docker `uploads/` за абстракцией `StorageService` (`common/storage`, каталог — `UPLOADS_DIR`). Сервис хранит файл под случайным ключом `<папка>/<uuid>.<расширение>` и отдаёт только такие ключи (путь вне корня не собрать); вызывающий модуль хранит ключ в своей записи. Лимит 5 МБ; тип определяется по содержимому (`file-type`), не по имени и не по заявленному `Content-Type`. Документ claim — PDF, JPEG, PNG или WebP (`CLAIM_PROOF_MIME_TYPES`).
 - **Логи:** `pino` (nestjs-pino), JSON в prod, request-id (заголовок `X-Request-Id`); заголовки `Authorization`, `Cookie`, `Set-Cookie` в лог не попадают.
 
 ## Жизненный цикл разрешения
