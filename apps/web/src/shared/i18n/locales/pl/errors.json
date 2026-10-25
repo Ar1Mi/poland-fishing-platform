@@ -13,6 +13,7 @@
   "NIP_TAKEN": "Organizacja z tym numerem NIP jest już zarejestrowana.",
   "CLAIM_ALREADY_PENDING": "Wniosek o przejęcie tego łowiska jest już rozpatrywany.",
   "WATER_ALREADY_CONNECTED": "To łowisko jest już podłączone przez inną organizację.",
+  "CLAIM_NOT_PENDING": "Ten wniosek został już rozpatrzony.",
   "PERMIT_START_IN_PAST": "Data rozpoczęcia zezwolenia nie może być w przeszłości.",
   "DISCOUNT_NOT_ELIGIBLE": "Ta zniżka Ci nie przysługuje.",
   "PERMIT_TYPE_INACTIVE": "Ten rodzaj zezwolenia nie jest już sprzedawany.",
