@@ -25,8 +25,9 @@ export function useWaters(query: WaterQuery, { enabled = true }: { enabled?: boo
   });
 }
 
-export function useWater(id: string) {
+export function useWater(id: string, { enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
+    enabled,
     queryKey: ['waters', id],
     queryFn: ({ signal }) =>
       request(() => api.GET('/api/v1/waters/{id}', { params: { path: { id } }, signal })),

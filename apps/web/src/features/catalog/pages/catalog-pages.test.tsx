@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useEffect } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -275,5 +275,88 @@ describe('water page', () => {
     const alert = await screen.findByRole('alert');
     expect(within(alert).getByText('NOT_FOUND')).toBeVisible();
     expect(screen.getByRole('link', { name: 'Wróć do mapy' })).toHaveAttribute('href', '/');
+  });
+
+  describe('claim offer', () => {
+    const profile = {
+      id: '6f1c2c9e-0000-4000-8000-000000000001',
+      email: 'jan@example.test',
+      firstName: 'Jan',
+      lastName: 'Kowalski',
+      birthDate: '1990-05-01',
+      anglerCardNo: null,
+      locale: 'pl',
+      isSuperAdmin: false,
+    };
+    const org = (id: string, name: string, status = 'ACTIVE', roles = ['ORG_ADMIN']) => ({
+      id,
+      name,
+      kind: 'PZW',
+      status,
+      roles,
+    });
+    const showLoggedIn = (water: WaterDetail, orgs: unknown[]) => {
+      const fetch = mockApi({
+        [`GET /api/v1/waters/${water.id}`]: () => jsonResponse(water),
+        'GET /api/v1/me': () => jsonResponse(profile),
+        'GET /api/v1/me/orgs': () => jsonResponse(orgs),
+      });
+      renderRoute(`/waters/${water.id}`, { accessToken: 'access-1' });
+      return fetch;
+    };
+    /** Absence of the offer means something only once /me/orgs has answered and rendered. */
+    const orgsAnswered = async (fetch: ReturnType<typeof mockApi>) => {
+      await waitFor(() =>
+        expect(
+          fetch.mock.calls.some(([request]) => new URL(request.url).pathname === '/api/v1/me/orgs'),
+        ).toBe(true),
+      );
+      await act(() => Promise.resolve());
+    };
+    const ORG_A = '7a1c2c9e-0000-4000-8000-0000000000aa';
+    const ORG_B = '7a1c2c9e-0000-4000-8000-0000000000bb';
+
+    it('lets the admin of an active organization claim an unclaimed water', async () => {
+      showLoggedIn(detail({}), [org(ORG_A, 'Koło 12')]);
+
+      expect(await screen.findByRole('link', { name: 'Złóż wniosek o łowisko' })).toHaveAttribute(
+        'href',
+        `/org/${ORG_A}/claims?waterId=${zegrze.id}`,
+      );
+    });
+
+    it('names the organization when the admin has several', async () => {
+      showLoggedIn(detail({}), [org(ORG_A, 'Koło 12'), org(ORG_B, 'Gospodarstwo Rybackie')]);
+
+      expect(await screen.findByRole('link', { name: 'Złóż wniosek jako Koło 12' })).toBeVisible();
+      expect(
+        screen.getByRole('link', { name: 'Złóż wniosek jako Gospodarstwo Rybackie' }),
+      ).toBeVisible();
+    });
+
+    it('offers nothing to an inspector or to an organization that is not active', async () => {
+      const fetch = showLoggedIn(detail({}), [
+        org(ORG_A, 'Koło 12', 'PENDING'),
+        org(ORG_B, 'Gospodarstwo Rybackie', 'ACTIVE', ['INSPECTOR']),
+      ]);
+
+      await screen.findByRole('heading', { level: 1, name: zegrze.name });
+      await orgsAnswered(fetch);
+      expect(screen.queryByText('Zarządzasz tym łowiskiem?')).toBeNull();
+    });
+
+    it('offers nothing on a connected water', async () => {
+      showLoggedIn(
+        detail({
+          status: 'CONNECTED',
+          organization: { id: ORG_B, name: 'Koło 7', isActive: true },
+        }),
+        [org(ORG_A, 'Koło 12')],
+      );
+
+      // Rendered together with the owner: the offer is not even mounted for a connected water.
+      expect(await screen.findByText('Koło 7')).toBeVisible();
+      expect(screen.queryByText('Zarządzasz tym łowiskiem?')).toBeNull();
+    });
   });
 });

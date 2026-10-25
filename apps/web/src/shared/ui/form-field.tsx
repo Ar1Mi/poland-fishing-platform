@@ -77,3 +77,73 @@ export function CheckboxField({ label, error, id, className, ...props }: Checkbo
     </div>
   );
 }
+
+type TextAreaFieldProps = ComponentProps<'textarea'> & {
+  label: string;
+  hint?: string;
+  error?: string;
+};
+
+/** Multi-line text with the label above; same states as TextField. */
+export function TextAreaField({ label, hint, error, id, className, ...props }: TextAreaFieldProps) {
+  const autoId = useId();
+  const fieldId = id ?? autoId;
+  const hintId = `${fieldId}-hint`;
+  const errorId = `${fieldId}-error`;
+  return (
+    <div className={cn('flex flex-col gap-1', className)}>
+      <label htmlFor={fieldId} className="text-body font-semibold">
+        {label}
+      </label>
+      <textarea
+        id={fieldId}
+        rows={3}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy(hint && hintId, error && errorId)}
+        className="min-h-24 w-full min-w-0 rounded-md border border-input bg-card px-3 py-2 text-body text-foreground placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-2 aria-invalid:border-destructive"
+        {...props}
+      />
+      {hint && (
+        <p id={hintId} className="text-small text-muted-foreground">
+          {hint}
+        </p>
+      )}
+      {error && <FieldError id={errorId}>{error}</FieldError>}
+    </div>
+  );
+}
+
+type FileFieldProps = Omit<ComponentProps<'input'>, 'type'> & {
+  label: string;
+  hint?: string;
+  error?: string;
+};
+
+/** Native file picker: the browser's own button is keyboard and screen reader friendly. */
+export function FileField({ label, hint, error, id, className, ...props }: FileFieldProps) {
+  const autoId = useId();
+  const fieldId = id ?? autoId;
+  const hintId = `${fieldId}-hint`;
+  const errorId = `${fieldId}-error`;
+  return (
+    <div className={cn('flex flex-col gap-1', className)}>
+      <label htmlFor={fieldId} className="text-body font-semibold">
+        {label}
+      </label>
+      <input
+        id={fieldId}
+        type="file"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy(hint && hintId, error && errorId)}
+        className="min-h-12 w-full min-w-0 rounded-md border border-input bg-card p-2 text-body text-foreground file:mr-3 file:h-10 file:rounded-md file:border file:border-primary file:bg-card file:px-4 file:font-semibold file:text-primary aria-invalid:border-2 aria-invalid:border-destructive"
+        {...props}
+      />
+      {hint && (
+        <p id={hintId} className="text-small text-muted-foreground">
+          {hint}
+        </p>
+      )}
+      {error && <FieldError id={errorId}>{error}</FieldError>}
+    </div>
+  );
+}

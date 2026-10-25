@@ -1,0 +1,59 @@
+{
+  "status": {
+    "PENDING": "Oczekuje na decyzję",
+    "APPROVED": "Zatwierdzony",
+    "REJECTED": "Odrzucony"
+  },
+  "orgStatus": {
+    "PENDING": "organizacja nieaktywowana",
+    "ACTIVE": "aktywna",
+    "BLOCKED": "organizacja zablokowana"
+  },
+  "form": {
+    "title": "Nowy wniosek o łowisko",
+    "lead": "Wybierz łowisko z katalogu i dołącz dokument potwierdzający prawo do niego, np. umowę użytkowania obwodu rybackiego.",
+    "water": "Łowisko",
+    "changeWater": "Zmień łowisko",
+    "search": "Nazwa łowiska",
+    "searchPlaceholder": "np. Zalew Zegrzyński",
+    "searchSubmit": "Szukaj",
+    "results": "Łowiska do wyboru",
+    "noResults": "Nie znaleziono łowiska bez zarządcy w serwisie o tej nazwie.",
+    "narrow": "Pokazano pierwsze wyniki. Wpisz dokładniejszą nazwę.",
+    "chooseFirst": "Najpierw wybierz łowisko.",
+    "file": "Dokument",
+    "fileHint": "PDF, JPG, PNG lub WebP, do 5 MB.",
+    "fileRequired": "Dołącz dokument.",
+    "fileType": "Dozwolone są pliki PDF, JPG, PNG i WebP.",
+    "fileTooBig": "Plik jest większy niż 5 MB.",
+    "submit": "Wyślij wniosek",
+    "submitted": "Wniosek o łowisko {{name}} został wysłany. Administrator serwisu rozpatrzy go wkrótce."
+  },
+  "org": {
+    "title": "Wnioski o łowiska",
+    "loading": "Ładowanie wniosków…",
+    "listTitle": "Złożone wnioski",
+    "empty": "Organizacja nie złożyła jeszcze żadnego wniosku.",
+    "submittedAt": "Złożony {{date}}",
+    "reviewedAt": "rozpatrzony {{date}}",
+    "comment": "Komentarz administratora:"
+  },
+  "admin": {
+    "title": "Wnioski o łowiska",
+    "filter": "Status",
+    "all": "Wszystkie",
+    "loading": "Ładowanie wniosków…",
+    "empty": "Brak wniosków o tym statusie.",
+    "organization": "Organizacja",
+    "nip": "NIP",
+    "submittedAt": "Złożony",
+    "comment": "Komentarz",
+    "document": "Pobierz dokument",
+    "commentField": "Komentarz dla organizacji",
+    "commentHint": "Opcjonalnie. Przy odrzuceniu napisz, czego brakuje.",
+    "commentTooLong": "Komentarz może mieć najwyżej 1000 znaków.",
+    "approveHint": "Zatwierdzenie podłączy łowisko do organizacji i odrzuci pozostałe wnioski o to łowisko.",
+    "approve": "Zatwierdź",
+    "reject": "Odrzuć"
+  }
+}

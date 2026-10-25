@@ -1,0 +1,16 @@
+{
+  "mine": {
+    "title": "Moje organizacje",
+    "loading": "Ładowanie organizacji…",
+    "empty": "Nie należysz do żadnej organizacji.",
+    "claims": "Wnioski o łowiska",
+    "status": {
+      "PENDING": "Organizacja czeka na aktywację przez administratora serwisu.",
+      "BLOCKED": "Organizacja jest zablokowana. Skontaktuj się z administratorem serwisu."
+    }
+  },
+  "role": {
+    "ORG_ADMIN": "Administrator",
+    "INSPECTOR": "Strażnik"
+  }
+}
