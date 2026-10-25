@@ -18,6 +18,7 @@ describe('validateEnv', () => {
       API_PORT: 8080,
       NOMINATIM_URL: 'https://nominatim.openstreetmap.org',
       UPLOADS_DIR: './uploads',
+      PAYMENTS_PROVIDER: 'fake',
     });
   });
 
@@ -58,6 +59,7 @@ describe('validateEnv', () => {
     ['WEB_URL with a query', { ...valid, WEB_URL: 'https://lowisko.example?x=1' }, 'WEB_URL'],
     ['non-http API_URL', { ...valid, API_URL: 'ftp://api.lowisko.example' }, 'API_URL'],
     ['non-numeric API_PORT', { ...valid, API_PORT: 'abc' }, 'API_PORT'],
+    ['unknown PAYMENTS_PROVIDER', { ...valid, PAYMENTS_PROVIDER: 'stripe' }, 'PAYMENTS_PROVIDER'],
     ['API_PORT out of range', { ...valid, API_PORT: '70000' }, 'API_PORT'],
     ['missing DATABASE_URL', { ...valid, DATABASE_URL: undefined }, 'DATABASE_URL'],
     ['non-postgres DATABASE_URL', { ...valid, DATABASE_URL: 'mysql://db/lowisko' }, 'DATABASE_URL'],

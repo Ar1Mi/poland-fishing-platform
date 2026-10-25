@@ -75,11 +75,13 @@ export class OrganizationsService {
   /**
    * What a guest may see of an organization (the owner on a water card); null if unknown.
    * `isActive`: only an ACTIVE organization sells permits (a blocked one is suspended).
+   * A purchase passes its transaction client as `db`.
    */
   async findPublicProfile(
     id: string,
+    db: Prisma.TransactionClient = this.prisma,
   ): Promise<{ id: string; name: string; isActive: boolean } | null> {
-    const organization = await this.prisma.organization.findUnique({
+    const organization = await db.organization.findUnique({
       where: { id },
       select: { id: true, name: true, status: true },
     });
