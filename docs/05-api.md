@@ -121,7 +121,7 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 | GET | `/me/orgs` | auth | Мои организации и роли |
 | CRUD | `/orgs/:orgId/members`, `/orgs/:orgId/invitations` | ORG_ADMIN | Члены, приглашения |
 | POST | `/invitations/accept` | auth | `{ token }` |
-| CRUD | `/orgs/:orgId/claims` | ORG_ADMIN | Заявки на водоёмы (multipart: документ) |
+| POST / GET | `/orgs/:orgId/claims` | ORG_ADMIN | Заявка на водоём (multipart: документ), список заявок организации |
 | PATCH | `/orgs/:orgId/waters/:id` | ORG_ADMIN | Описание, сезон, фото подключённого водоёма |
 | CRUD | `/orgs/:orgId/permit-types` | ORG_ADMIN | Типы разрешений |
 | CRUD | `/orgs/:orgId/rules` | ORG_ADMIN | Правила организации и водоёмов |
@@ -141,7 +141,8 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 | Метод | Путь | Назначение |
 | --- | --- | --- |
 | GET / PATCH | `/admin/orgs?status=`, `/admin/orgs/:id/status` | Список (старые заявки первыми); `{ status: ACTIVE \| BLOCKED }` — активация, блокировка, повторная активация; тот же статус — без изменений |
-| GET / PATCH | `/admin/claims`, `/admin/claims/:id` | `{ decision: APPROVE | REJECT, comment }` |
+| GET / PATCH | `/admin/claims?status=`, `/admin/claims/:id` | Очередь (старые первыми); `{ decision: APPROVE \| REJECT, comment? }` |
+| GET | `/admin/claims/:id/document` | Документ заявки (вложение) |
 | POST | `/admin/waters/import` | multipart CSV → `{ created, updated, failed: [{ row, error }] }` |
 | PATCH | `/admin/waters/:id` | Правка записи каталога, публикация предложений |
 | CRUD | `/admin/rules` | Общие правила |
@@ -151,6 +152,14 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 
 - **Импорт каталога:** multipart, поле `file` (UTF-8 CSV, до 1 МБ и 5000 строк; формат — `data/waters/README.md`) → 200 `{ created, updated, failed: [{ row, error }] }`. `row` — номер строки файла, с которой начинается запись (заголовок = 1; пустые строки и переносы внутри полей в кавычках учитываются — как в редакторе), `error` — текст на английском с именем поля (`region: must be ...`), для диагностики администратором, не для перевода. Upsert по `source + sourceRef`: повторный импорт перезаписывает только поля CSV (`name`, `type`, `region`, `externalOwnerName`, `externalInfoUrl`, `lat`, `lng`), статус, организацию, описание и `isPublished` не трогает. Источник истины для полей CSV — файл: ручная правка этих полей (будущий `PATCH /admin/waters/:id`) откатывается следующим импортом того же источника. Строки только из запятых пропускаются. Строка отклоняется (в `failed`, остальные импортируются): неверное поле, `region` вне `REGIONS`, `externalInfoUrl` не `http(s)`, `source = USER`, координаты вне Польши (`POLAND_BOUNDS`) или только одна из них, повтор `source + sourceRef` в файле, геокодер не нашёл место или недоступен. Файл целиком (нет файла, не CSV, неверный заголовок, больше 5000 строк) → 400 `VALIDATION_FAILED`, больше 1 МБ → 413 `VALIDATION_FAILED`; ничего не импортируется.
 - Запрос синхронный: каждая строка без координат и без записи в `GeocodeCache` — около 1 с (лимит Nominatim). После 3 сбоев геокодера подряд импорт перестаёт к нему обращаться до конца файла: остальные строки берут координаты только из кэша, иначе попадают в `failed` («skipped»). Первый импорт большого файла — через CLI `pnpm --filter api import:waters <file>` (тот же сервис, без таймаута HTTP).
+
+Детали (T-11, FR-24):
+
+- **Заявка:** `POST /orgs/:orgId/claims`, multipart: поле `fishingWaterId` (UUID) и файл `file` — PDF, JPEG, PNG или WebP до 5 МБ; тип проверяется по содержимому → 201 `ClaimDto` (`PENDING`). Нет файла, другой тип, неверный `fishingWaterId` → 400 `VALIDATION_FAILED` (`details.file`); больше 5 МБ → 413 `VALIDATION_FAILED`. Водоём не найден или не опубликован → 404 `NOT_FOUND`; уже `CONNECTED` → 409 `WATER_ALREADY_CONNECTED`; у этой организации уже есть `PENDING`-заявка на него → 409 `CLAIM_ALREADY_PENDING` (одновременные заявки решает частичный индекс `claim_one_pending`, файл проигравшей удаляется). Заявки разных организаций на один водоём допустимы — выбирает суперадмин.
+- **`GET /orgs/:orgId/claims`:** заявки организации, новые первыми: `{ id, status, water: { id, name, region, status }, comment, createdAt, reviewedAt }`.
+- **Очередь суперадмина:** `GET /admin/claims?status=` — то же плюс `organization: { id, name, nip, status }` и `documentType` (MIME документа).
+- **Решение:** `PATCH /admin/claims/:id` `{ decision, comment? }` (комментарий до 1000 символов, видит организация). `APPROVE` в одной транзакции: водоём → `CONNECTED` с `organizationId` заявки, заявка → `APPROVED`, остальные `PENDING`-заявки на водоём → `REJECTED` (без комментария), запись `CLAIM_APPROVED` в `AuditLog` (`diff`: переход статуса, водоём, организация, комментарий, `rejectedClaimIds`). `REJECT` закрывает только эту заявку (`CLAIM_REJECTED`). Заявка уже рассмотрена → 409 `CLAIM_NOT_PENDING` (`details.status`); водоём тем временем подключён → 409 `WATER_ALREADY_CONNECTED`, ничего не меняется. Из двух одновременных одобрений заявок одного водоёма проходит одно.
+- **Документ:** `GET /admin/claims/:id/document` — только суперадмин, `Content-Disposition: attachment` (никогда не открывается в окне сервиса), `X-Content-Type-Options: nosniff`.
 
 ## Коды ошибок
 
@@ -162,7 +171,7 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 | 401 | `UNAUTHENTICATED`, `INVALID_CREDENTIALS`, `EMAIL_NOT_VERIFIED`, `TOKEN_EXPIRED` |
 | 403 | `FORBIDDEN`, `ORG_SCOPE_VIOLATION`, `ORG_NOT_ACTIVE` |
 | 404 | `NOT_FOUND` |
-| 409 | `EMAIL_TAKEN`, `NIP_TAKEN`, `CLAIM_ALREADY_PENDING`, `WATER_ALREADY_CONNECTED` |
+| 409 | `EMAIL_TAKEN`, `NIP_TAKEN`, `CLAIM_ALREADY_PENDING`, `WATER_ALREADY_CONNECTED`, `CLAIM_NOT_PENDING` |
 | 422 | Бизнес-правила: `PERMIT_START_IN_PAST`, `DISCOUNT_NOT_ELIGIBLE`, `PERMIT_TYPE_INACTIVE`, `EDIT_WINDOW_CLOSED`, `PERMIT_NOT_REVOCABLE` |
 | 429 | `RATE_LIMITED` |
 | 500 | `INTERNAL_ERROR` — необработанное исключение; `message` не раскрывает детали, они только в логе |

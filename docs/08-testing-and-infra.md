@@ -20,6 +20,7 @@
 - Интеграционные тесты поднимают свой PostgreSQL в контейнере и применяют миграции; данные создаются фабриками (`test/factories`), не общим seed. Контейнер один на прогон (`test/db/global-setup.ts`: `prisma migrate deploy`, затем копия в шаблонную БД `lowisko_template`); тест-файл, которому нужна БД, создаёт свою копию шаблона через `createTestDatabase()` — файлы идут параллельно и не видят данных друг друга. Нужен запущенный Docker.
 - Тест IDOR: для каждого маршрута `/orgs/:orgId/*` — запрос от админа другой организации → 403.
 - Внешние сервисы (P24, Nominatim, SMTP) в тестах заменены фейками; реальный P24 sandbox проверяется вручную по чек-листу.
+- Загруженные файлы: каждый файл интеграционных тестов пишет в свой временный `UPLOADS_DIR` (`test/setup-env.ts`). В `apps/web` jsdom-`File` внутри `FormData` доходит до `fetch` (undici) пустой частью — тест проверяет только наличие и тип части, содержимое multipart проверено в браузере.
 
 ## Окружение
 
@@ -35,7 +36,7 @@
 | `P24_MERCHANT_ID`, `P24_POS_ID`, `P24_API_KEY`, `P24_CRC`, `P24_BASE_URL` | sandbox: `https://sandbox.przelewy24.pl` |
 | `SMTP_URL`, `MAIL_FROM` | `smtp://localhost:1025` (Mailpit) |
 | `NOMINATIM_URL`, `NOMINATIM_USER_AGENT` | По умолчанию `https://nominatim.openstreetmap.org`; публичный Nominatim требует идентифицирующий User-Agent (`lowisko/1.0 (email)`). Без `NOMINATIM_USER_AGENT` API стартует, но строки импорта без координат отклоняются |
-| `UPLOADS_DIR` | `./uploads` |
+| `UPLOADS_DIR` | `./uploads` — каталог `StorageService` относительно рабочего каталога API (`apps/api` при `pnpm dev`); в `.gitignore` |
 
 `.env` не коммитится; `.env.example` — обязателен и актуален.
 
