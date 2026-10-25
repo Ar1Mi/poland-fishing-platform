@@ -109,6 +109,18 @@ export class PermitPurchaseService implements OnModuleInit, PaymentOutcomeHandle
     return { permit: await this.myPermits.get(userId, permitId), paymentUrl };
   }
 
+  /**
+   * A permit whose last day has passed (Warsaw) is not worth paying for any more: bought on
+   * the last evening, its payment came after midnight.
+   */
+  async isStillPayable(tx: Prisma.TransactionClient, permitId: string): Promise<boolean> {
+    const { validTo } = await tx.permit.findUniqueOrThrow({
+      where: { id: permitId },
+      select: { validTo: true },
+    });
+    return fromDbDate(validTo) >= warsawDate(this.clock.now());
+  }
+
   /** The permit is paid only while it waits: the payment row lock orders this call. */
   async onPaymentSucceeded(tx: Prisma.TransactionClient, permitId: string): Promise<void> {
     const { count } = await tx.permit.updateMany({

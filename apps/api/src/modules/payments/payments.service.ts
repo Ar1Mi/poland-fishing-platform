@@ -24,13 +24,15 @@ import {
 type Db = Prisma.TransactionClient;
 
 /**
- * What a payment pays for. PaymentsModule depends on no other module, so the permit side
- * registers itself (PermitsModule); both calls run in the transaction that changes the
- * payment, which holds the payment row lock.
+ * What a payment pays for (ADR-0012). PaymentsModule depends on no other module, so the
+ * permit side registers itself (PermitsModule); every call runs in the transaction that
+ * changes the payment, which holds the payment row lock.
  */
 export interface PaymentOutcomeHandler {
+  /** Whether it is still worth paying for: false fails the payment, unconfirmed. */
+  isStillPayable(tx: Db, permitId: string): Promise<boolean>;
   onPaymentSucceeded(tx: Db, permitId: string): Promise<void>;
-  /** Refused, abandoned (PAYMENT_TIMEOUT_MINUTES) or never registered with the provider. */
+  /** Refused, abandoned, expired before it was paid, or never registered with the provider. */
   onPaymentsFailed(tx: Db, permitIds: string[]): Promise<void>;
 }
 
@@ -38,8 +40,8 @@ export interface PaymentOutcomeHandler {
 const EXPIRE_BATCH = 500;
 
 /**
- * Confirmation calls the provider while the payment row is locked (see `processNotification`);
- * Prisma's default of 5 s for an interactive transaction is too short for a slow gateway.
+ * Confirmation calls the provider inside the transaction (see `processNotification`); Prisma's
+ * default of 5 s for an interactive transaction is too short for a slow gateway.
  */
 const CONFIRM_TRANSACTION_TIMEOUT_MS = 20_000;
 
@@ -103,7 +105,15 @@ export class PaymentsService {
       });
       return redirectUrl;
     } catch (err) {
-      await this.fail(transaction.sessionId);
+      try {
+        await this.fail(transaction.sessionId);
+      } catch (failure) {
+        // The provider's error is the one to answer with; the timeout cancels the permit later.
+        this.logger.error(
+          { err: failure, sessionId: transaction.sessionId },
+          'Failing a payment the provider did not register failed',
+        );
+      }
       throw err;
     }
   }
@@ -112,10 +122,14 @@ export class PaymentsService {
    * The provider's notification: the only way to SUCCEEDED. A repeated notification (P24
    * retries until it gets 200) or one for a payment that already failed changes nothing and
    * is not confirmed: P24 returns an unverified payment to the payer. A wrong amount →
-   * PAYMENT_AMOUNT_MISMATCH, the payment stays PENDING until the timeout.
+   * PAYMENT_AMOUNT_MISMATCH, the payment stays PENDING until the timeout. A permit that
+   * expired while its payment was pending (bought at 23:50 for today, paid after midnight)
+   * fails the payment, unconfirmed.
    *
-   * The provider is confirmed while the payment row is locked: the timeout cannot cancel a
-   * payment whose money is being taken (the sweep skips locked rows).
+   * The payment and the permit are written first and the provider is confirmed last, still
+   * inside the transaction: if anything fails, nothing is confirmed and nothing is stored,
+   * and P24 notifies again. The payment row stays locked meanwhile, so the timeout cannot
+   * cancel a payment whose money is being taken (the sweep skips locked rows).
    */
   async processNotification(body: unknown): Promise<PaymentStatus> {
     const notification = await this.provider.handleNotification(body);
@@ -144,18 +158,29 @@ export class PaymentsService {
             'The notified amount differs from the payment',
           );
         }
-        await this.provider.confirm(notification);
+        const handler = this.outcomeHandler();
+        const payable = await handler.isStillPayable(tx, payment.permitId);
+        const status = payable ? PaymentStatus.SUCCEEDED : PaymentStatus.FAILED;
         await tx.payment.update({
           where: { id: payment.id },
           data: {
-            status: PaymentStatus.SUCCEEDED,
+            status,
             providerOrderId: notification.providerOrderId,
             rawNotification: toJson(notification),
           },
         });
-        await this.outcomeHandler().onPaymentSucceeded(tx, payment.permitId);
+        if (!payable) {
+          await handler.onPaymentsFailed(tx, [payment.permitId]);
+          this.logger.warn(
+            { paymentId: payment.id },
+            'Payment notified after its permit expired: not confirmed',
+          );
+          return status;
+        }
+        await handler.onPaymentSucceeded(tx, payment.permitId);
+        await this.provider.confirm(notification);
         this.logger.info({ paymentId: payment.id }, 'Payment succeeded');
-        return PaymentStatus.SUCCEEDED;
+        return status;
       },
       { timeout: CONFIRM_TRANSACTION_TIMEOUT_MS },
     );

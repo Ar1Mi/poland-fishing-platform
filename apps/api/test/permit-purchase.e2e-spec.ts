@@ -1,6 +1,8 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import type { PrismaService } from '../src/database/prisma.service';
+import { FakePaymentProvider } from '../src/modules/payments/fake/fake-payment.provider';
+import type { NewTransaction } from '../src/modules/payments/payment-provider';
 import { PaymentsService } from '../src/modules/payments/payments.service';
 import { createVerifiedUser, login } from './auth-helpers';
 import { createTestApp, FIXED_NOW } from './create-test-app';
@@ -11,6 +13,27 @@ import { createOrganization, createPermit, createPermitType, createWater } from 
 const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000';
 const WEB_URL = 'http://localhost:5173';
 const minutesAfterNow = (minutes: number) => new Date(FIXED_NOW.getTime() + minutes * 60_000);
+
+/** The fake provider with its confirmations counted and failures on demand. */
+class TestPaymentProvider extends FakePaymentProvider {
+  confirmed = 0;
+  failRegistration = false;
+  failConfirmation = false;
+
+  override createTransaction(input: NewTransaction): Promise<{ redirectUrl: string }> {
+    return this.failRegistration
+      ? Promise.reject(new Error('Gateway unavailable'))
+      : super.createTransaction(input);
+  }
+
+  override confirm(): Promise<void> {
+    if (this.failConfirmation) {
+      return Promise.reject(new Error('Verification failed'));
+    }
+    this.confirmed += 1;
+    return Promise.resolve();
+  }
+}
 
 interface MyPermit {
   id: string;
@@ -35,6 +58,7 @@ describe('permit purchase', () => {
   let app: NestExpressApplication;
   let now: Date;
   let payments: PaymentsService;
+  let provider: TestPaymentProvider;
   let organizationId: string;
   let angler: { id: string; email: string; accessToken: string };
 
@@ -128,7 +152,8 @@ describe('permit purchase', () => {
     db = await createTestDatabase();
     prisma = prismaServiceFor(db.url);
     now = FIXED_NOW;
-    app = await createTestApp({ prisma, now: () => now });
+    provider = new TestPaymentProvider(WEB_URL);
+    app = await createTestApp({ prisma, now: () => now, paymentProvider: provider });
     payments = app.get(PaymentsService);
     organizationId = (await createOrganization(prisma, { status: 'ACTIVE', name: 'Koło PZW 7' }))
       .id;
@@ -370,6 +395,20 @@ describe('permit purchase', () => {
       expect((response.body as Purchase).permit.pricePaidGrosze).toBe(3000);
     });
 
+    it('cancels the permit when the provider does not register the payment', async () => {
+      const type = await typeOnSale();
+      provider.failRegistration = true;
+
+      const response = await purchase({ permitTypeId: type.id, validFrom: '2026-10-10' }).expect(
+        500,
+      );
+
+      expect(response.body).toMatchObject({ code: 'INTERNAL_ERROR' });
+      const permit = await prisma.permit.findFirstOrThrow();
+      expect(permit.status).toBe('CANCELLED');
+      expect(await paymentOf(permit.id)).toMatchObject({ status: 'FAILED' });
+    });
+
     it('needs a logged-in user', async () => {
       const type = await typeOnSale();
 
@@ -388,6 +427,7 @@ describe('permit purchase', () => {
       const response = await complete(sessionIdOf(paymentUrl), 'PAID').expect(200);
 
       expect(response.body).toEqual({ status: 'SUCCEEDED' });
+      expect(provider.confirmed).toBe(1);
       expect(await myPermit(permit.id)).toMatchObject({ status: 'SCHEDULED' });
       const payment = await paymentOf(permit.id);
       expect(payment).toMatchObject({
@@ -435,6 +475,78 @@ describe('permit purchase', () => {
       expect(refused.body).toEqual({ status: 'SUCCEEDED' });
       expect(await paymentOf(permit.id)).toEqual(paid);
       expect(await myPermit(permit.id)).toMatchObject({ status: 'SCHEDULED' });
+      expect(provider.confirmed).toBe(1);
+    });
+
+    it('confirms once when two notifications arrive together', async () => {
+      const type = await typeOnSale();
+      const { permit, paymentUrl } = await buy(type.id);
+      const sessionId = sessionIdOf(paymentUrl);
+
+      const responses = await Promise.all([
+        complete(sessionId, 'PAID').expect(200),
+        complete(sessionId, 'PAID').expect(200),
+      ]);
+
+      expect(responses.map((response) => response.body as unknown)).toEqual([
+        { status: 'SUCCEEDED' },
+        { status: 'SUCCEEDED' },
+      ]);
+      expect(provider.confirmed).toBe(1);
+      expect(await myPermit(permit.id)).toMatchObject({ status: 'SCHEDULED' });
+    });
+
+    it('stores nothing when the provider does not confirm, so the next notification can', async () => {
+      const type = await typeOnSale();
+      const { permit, paymentUrl } = await buy(type.id);
+      const sessionId = sessionIdOf(paymentUrl);
+      provider.failConfirmation = true;
+
+      await complete(sessionId, 'PAID').expect(500);
+
+      // Written before the confirmation and rolled back with it.
+      expect(await paymentOf(permit.id)).toMatchObject({
+        status: 'PENDING',
+        providerOrderId: null,
+      });
+      expect(await myPermit(permit.id)).toMatchObject({ status: 'PENDING_PAYMENT' });
+      provider.failConfirmation = false;
+      await complete(sessionId, 'PAID').expect(200);
+      expect(await myPermit(permit.id)).toMatchObject({ status: 'SCHEDULED' });
+    });
+
+    it('confirms with the provider only after the payment and the permit are written', async () => {
+      const type = await typeOnSale();
+      const { permit, paymentUrl } = await buy(type.id);
+      // Breaks the invariant «a pending payment has a waiting permit»: writing the permit fails.
+      await prisma.permit.update({ where: { id: permit.id }, data: { status: 'REVOKED' } });
+
+      await complete(sessionIdOf(paymentUrl), 'PAID').expect(500);
+
+      expect(provider.confirmed).toBe(0);
+      expect(await paymentOf(permit.id)).toMatchObject({ status: 'PENDING' });
+    });
+
+    it('does not take the money for a permit that expired before the payment came', async () => {
+      // 23:50 in Warsaw: a one-day permit for today and a week one from today.
+      await travelTo(new Date('2026-10-06T21:50:00.000Z'));
+      const daily = await buy((await typeOnSale({ durationDays: 1 })).id, '2026-10-06');
+      const weekly = await buy((await typeOnSale({ durationDays: 7 })).id, '2026-10-06');
+      // Paid at 00:05: the one-day permit is over, the week one still has six days.
+      await travelTo(new Date('2026-10-06T22:05:00.000Z'));
+
+      const late = await complete(sessionIdOf(daily.paymentUrl), 'PAID').expect(200);
+      await complete(sessionIdOf(weekly.paymentUrl), 'PAID').expect(200);
+
+      expect(late.body).toEqual({ status: 'FAILED' });
+      expect(await myPermit(daily.permit.id)).toMatchObject({ status: 'CANCELLED' });
+      // The notification is kept: the transaction P24 returns to the payer is traceable.
+      expect(await paymentOf(daily.permit.id)).toMatchObject({
+        status: 'FAILED',
+        providerOrderId: expect.stringMatching(/^FAKE-/) as unknown,
+      });
+      expect(await myPermit(weekly.permit.id)).toMatchObject({ status: 'ACTIVE' });
+      expect(provider.confirmed).toBe(1);
     });
 
     it('rejects a notification with a wrong amount and keeps the payment pending', async () => {
@@ -450,6 +562,7 @@ describe('permit purchase', () => {
         providerOrderId: null,
       });
       expect(await myPermit(permit.id)).toMatchObject({ status: 'PENDING_PAYMENT' });
+      expect(provider.confirmed).toBe(0);
       // The genuine notification still goes through.
       await complete(sessionId, 'PAID', 2500).expect(200);
       expect(await myPermit(permit.id)).toMatchObject({ status: 'SCHEDULED' });
@@ -504,6 +617,29 @@ describe('permit purchase', () => {
 
       expect(await payments.expireAbandoned()).toBe(0);
       expect(await myPermit(paid.permit.id)).toMatchObject({ status: 'SCHEDULED' });
+    });
+
+    it('lets a notification that waited for the timeout see the payment failed', async () => {
+      const type = await typeOnSale();
+      const { permit, paymentUrl } = await buy(type.id);
+      const sessionId = sessionIdOf(paymentUrl);
+      await travelTo(minutesAfterNow(31));
+
+      // The sweep has locked and failed the payment, and has not committed yet.
+      const sweep = await holdLock(async (tx) => {
+        await tx.$queryRaw`SELECT "id" FROM "Payment" WHERE "sessionId" = ${sessionId} FOR UPDATE`;
+        await tx.payment.update({ where: { sessionId }, data: { status: 'FAILED' } });
+        await tx.permit.update({ where: { id: permit.id }, data: { status: 'CANCELLED' } });
+      });
+      const notification = complete(sessionId, 'PAID').then((result) => result);
+      await untilSomeQueryWaitsForLock();
+      await sweep.release();
+      const response = await notification;
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ status: 'FAILED' });
+      expect(provider.confirmed).toBe(0);
+      expect(await myPermit(permit.id)).toMatchObject({ status: 'CANCELLED' });
     });
 
     it('skips a payment that is being confirmed right now', async () => {
@@ -565,6 +701,15 @@ describe('permit purchase', () => {
         .get(`/api/v1/me/permits/${UNKNOWN_ID}`)
         .set(bearer(angler.accessToken))
         .expect(404);
+    });
+
+    it('rejects an id that is not a UUID', async () => {
+      const response = await request(server())
+        .get('/api/v1/me/permits/not-a-permit')
+        .set(bearer(angler.accessToken))
+        .expect(400);
+
+      expect(response.body).toMatchObject({ code: 'VALIDATION_FAILED' });
     });
   });
 });
