@@ -17,7 +17,7 @@
 | XSS | React-экранирование; запрет `dangerouslySetInnerHTML`; CSP через `helmet` | web, api |
 | CSRF | Refresh-cookie `SameSite=Strict`; остальное — Bearer-токен | AuthModule |
 | SQL-инъекции | Prisma; `$queryRaw` только с tagged template | все |
-| Загрузка вредных файлов | Лимит 5 МБ, проверка типа по сигнатуре (`file-type`) и белый список (документ claim — PDF/JPEG/PNG/WebP), случайные имена, ключ вне корня хранилища отклоняется, отдача с `Content-Disposition: attachment` и `nosniff`; документы claim скачивает только суперадмин | StorageService |
+| Загрузка вредных файлов | Лимит 5 МБ, проверка типа по сигнатуре (`file-type`) и белый список (документ claim — PDF/JPEG/PNG/WebP), случайные имена, ключ вне корня хранилища отклоняется, отдача с `Content-Disposition: attachment`, `nosniff` и `Cache-Control: no-store`; документы claim скачивает только суперадмин; срок хранения документов — решение T-26 (RODO) | StorageService |
 | Секреты | Только env; `.env` в `.gitignore`; `.env.example` без значений | — |
 | Цепочка поставок | `pnpm install --frozen-lockfile`; скрипты установки только для разрешённых пакетов (`allowBuilds`); свежие релизы задерживает политика минимального возраста pnpm; CI — триггер `pull_request` (не `pull_request_target`), токен `contents: read`, без сохранения в `.git` | `pnpm-workspace.yaml`, `.github/workflows/ci.yml` |
 
