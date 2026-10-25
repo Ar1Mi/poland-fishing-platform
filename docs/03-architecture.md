@@ -43,7 +43,7 @@ docs/
 | `OrganizationsModule` | Организации, членство, приглашения, `OrgScopeGuard` | Users |
 | `WatersModule` | Каталог, импорт CSV, геокодирование, claim | Organizations |
 | `RulesModule` | Виды, `SpeciesRule`, слияние уровней | Waters |
-| `PermitsModule` | Типы разрешений (T-12), выдача, статусы, PDF, QR-токен; внешние разрешения | Waters, Organizations, Payments |
+| `PermitsModule` | Типы разрешений (T-12), покупка (T-13), статусы, PDF, QR-токен; внешние разрешения | Waters, Organizations, Users, Payments, Audit |
 | `PaymentsModule` | `PaymentProvider` (P24, Fake), таблица `Payment`, уведомления, отмена брошенных оплат; об исходе сообщает зарегистрированному `PaymentOutcomeHandler` (T-13) | — |
 | `CatchesModule` | Реестр, `/catches/sync`, вызов CatchValidator, PDF-реестр | Permits, Rules |
 | `InspectionsModule` | Проверка QR-токена, протоколы | Permits, Catches |
@@ -63,7 +63,7 @@ docs/
 - **Время:** сервер в UTC; бизнес-«сутки» — календарный день `Europe/Warsaw` через `warsawDate()` из `packages/shared` (встроенный `Intl.DateTimeFormat`, без библиотеки часовых поясов — одна реализация для сервера и PWA); `now` инжектируется через `ClockService` (подменяется в тестах).
 - **Статусы разрешения:** хранятся только `PENDING_PAYMENT / PAID / CANCELLED / REVOKED`; `SCHEDULED / ACTIVE / EXPIRED` вычисляются из дат (ADR-0005).
 - **QR:** токен JWS (Ed25519, библиотека `jose`) с `permitId` и `exp = validTo`; QR кодирует `${WEB_URL}/verify/${token}` (ADR-0006).
-- **Платежи:** только уведомление провайдера с проверенной подписью меняет статус на `PAID`; идемпотентность по `sessionId` (ADR-0004). `PaymentsModule` ни от кого не зависит, поэтому о результате оплаты он сообщает через интерфейс `PaymentOutcomeHandler`, который `PermitPurchaseService` регистрирует при старте (`setOutcomeHandler`, паттерн Observer); обработчик вызывается в транзакции, изменившей `Payment`, и меняет `Permit` в ней же. Порядок блокировок везде один — строка `Payment` (`FOR UPDATE`), затем `Permit`. Брошенные оплаты отменяет `PaymentExpiryJob` — `setInterval` раз в минуту (без библиотеки планировщика; при `NODE_ENV=test` не запускается — тесты вызывают `expireAbandoned()` сами).
+- **Платежи:** только уведомление провайдера с проверенной подписью меняет статус на `PAID`; идемпотентность по `sessionId` (ADR-0004). `PaymentsModule` ни от кого не зависит, поэтому о результате оплаты он сообщает через интерфейс `PaymentOutcomeHandler`, который `PermitPurchaseService` регистрирует при старте (`setOutcomeHandler`, паттерн Observer, ADR-0012); обработчик вызывается в транзакции, изменившей `Payment`, и меняет `Permit` в ней же. Порядок блокировок везде один — строка `Payment` (`FOR UPDATE`), затем `Permit`. Провайдер подтверждается последним, после записи `Payment` и `Permit`, внутри той же транзакции: сбой на любом шаге не оставляет списанных денег без оплаченного разрешения. Брошенные оплаты отменяет `PaymentExpiryJob` — `setInterval` раз в минуту (при `NODE_ENV=test` не запускается — тесты вызывают `expireAbandoned()` сами); с T-25, где появляется `@nestjs/schedule`, задача переходит на него.
 - **Файлы** (фото, документы claim): локальный том Docker `uploads/` за абстракцией `StorageService` (`common/storage`, каталог — `UPLOADS_DIR`). Сервис хранит файл под случайным ключом `<папка>/<uuid>.<расширение>` и отдаёт только такие ключи (путь вне корня не собрать); вызывающий модуль хранит ключ в своей записи. Лимит 5 МБ; тип определяется по содержимому (`file-type`), не по имени и не по заявленному `Content-Type`. Документ claim — PDF, JPEG, PNG или WebP (`CLAIM_PROOF_MIME_TYPES`).
 - **Логи:** `pino` (nestjs-pino), JSON в prod, request-id (заголовок `X-Request-Id`); заголовки `Authorization`, `Cookie`, `Set-Cookie` в лог не попадают.
 
@@ -71,7 +71,7 @@ docs/
 
 ```
 PENDING_PAYMENT --оплата подтверждена--> PAID
-PENDING_PAYMENT --таймаут 30 мин / отказ / провайдер не принял транзакцию--> CANCELLED
+PENDING_PAYMENT --таймаут 30 мин / отказ / провайдер не принял транзакцию / оплата после validTo--> CANCELLED
 (бесплатный тип: сразу PAID, без Payment)
 PAID --админ орг.--> REVOKED
 

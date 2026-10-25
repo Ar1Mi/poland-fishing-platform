@@ -17,3 +17,4 @@ ADR — готовый материал для глав «Projekt systemu» и �
 | [0009](0009-offline-pwa-sync.md) | Офлайн-PWA для рыбака, синхронизация без Background Sync | Принято |
 | [0010](0010-prisma-orm.md) | Prisma как ORM | Принято |
 | [0011](0011-design-system.md) | Дизайн-система: собственные токены поверх shadcn/ui, шрифты в бандле | Принято |
+| [0012](0012-payment-outcome-observer.md) | Результат оплаты между модулями — `PaymentOutcomeHandler` (Observer) | Предложено |
