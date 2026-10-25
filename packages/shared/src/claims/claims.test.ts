@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { isClaimProofMimeType, reviewClaimSchema } from './claims.js';
+import {
+  CLAIM_PROOF_EXTENSIONS,
+  CLAIM_PROOF_MIME_TYPES,
+  claimProofTypeOf,
+  isClaimProofMimeType,
+  reviewClaimSchema,
+} from './claims.js';
 
 describe('isClaimProofMimeType', () => {
   it.each(['application/pdf', 'image/jpeg', 'image/png', 'image/webp'])('accepts %s', (type) => {
@@ -12,6 +18,20 @@ describe('isClaimProofMimeType', () => {
       expect(isClaimProofMimeType(type)).toBe(false);
     },
   );
+});
+
+describe('claimProofTypeOf', () => {
+  it('maps every proof type to its extension and back', () => {
+    for (const type of CLAIM_PROOF_MIME_TYPES) {
+      expect(claimProofTypeOf(`claims/x.${CLAIM_PROOF_EXTENSIONS[type]}`)).toBe(type);
+    }
+  });
+
+  it('knows nothing of other extensions or names without one', () => {
+    expect(claimProofTypeOf('claims/x.gif')).toBeUndefined();
+    expect(claimProofTypeOf('claims/x.jpeg')).toBeUndefined();
+    expect(claimProofTypeOf('claims')).toBeUndefined();
+  });
 });
 
 describe('reviewClaimSchema', () => {

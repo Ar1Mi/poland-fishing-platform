@@ -18,6 +18,20 @@ export function isClaimProofMimeType(value: string): value is ClaimProofMimeType
   return (CLAIM_PROOF_MIME_TYPES as readonly string[]).includes(value);
 }
 
+/** File extension of each proof type: the stored file and the downloaded copy are named by it. */
+export const CLAIM_PROOF_EXTENSIONS: Readonly<Record<ClaimProofMimeType, string>> = {
+  'application/pdf': 'pdf',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
+
+/** Proof type of a stored file name (`claims/<uuid>.pdf`); undefined for anything else. */
+export function claimProofTypeOf(fileName: string): ClaimProofMimeType | undefined {
+  const extension = fileName.slice(fileName.lastIndexOf('.') + 1);
+  return CLAIM_PROOF_MIME_TYPES.find((type) => CLAIM_PROOF_EXTENSIONS[type] === extension);
+}
+
 export const CLAIM_COMMENT_MAX_LENGTH = 1000;
 
 export const ClaimDecision = { APPROVE: 'APPROVE', REJECT: 'REJECT' } as const;

@@ -12,5 +12,5 @@ process.env.JWT_ACCESS_SECRET = 'test-access-secret-at-least-32-bytes!';
 process.env.SMTP_URL = 'smtp://localhost:1025';
 process.env.MAIL_FROM = 'Łowisko <no-reply@lowisko.test>';
 // DATABASE_URL and TEST_DATABASE_ADMIN_URL come from the PostgreSQL container (db/global-setup.ts).
-// Uploaded files of this test file go to its own temporary directory.
-process.env.UPLOADS_DIR = mkdtempSync(join(tmpdir(), 'lowisko-test-uploads-'));
+// Uploaded files of this test file go to its own folder of the run (removed by global teardown).
+process.env.UPLOADS_DIR = mkdtempSync(join(process.env.TEST_UPLOADS_ROOT ?? tmpdir(), 'file-'));

@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -89,7 +90,7 @@ export class OrgClaimsController {
     if (!file) {
       throw new DomainError(
         ErrorCode.VALIDATION_FAILED,
-        { file: 'is required' },
+        { fields: { file: ['file is required'] } },
         'Proof document is required',
       );
     }
@@ -129,6 +130,11 @@ export class AdminClaimsController {
   @ApiOkResponse({ type: AdminClaimDto })
   @ApiBadRequestResponse({ ...error, description: 'VALIDATION_FAILED' })
   @ApiNotFoundResponse({ ...error, description: 'NOT_FOUND' })
+  @ApiForbiddenResponse({
+    ...error,
+    description:
+      'FORBIDDEN (not a super admin), ORG_NOT_ACTIVE (approving for an inactive organization)',
+  })
   @ApiConflictResponse({ ...error, description: 'CLAIM_NOT_PENDING, WATER_ALREADY_CONNECTED' })
   review(
     @Param('id', ParseUUIDPipe) id: string,
@@ -139,11 +145,13 @@ export class AdminClaimsController {
   }
 
   @Get(':id/document')
+  // A personal document fetched with a token: no copy in browser or proxy caches.
+  @Header('Cache-Control', 'no-store')
   @ApiOperation({ summary: 'Proof document of the claim, as an attachment' })
   @ApiProduces('application/pdf', 'image/jpeg', 'image/png', 'image/webp')
   @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
   @ApiBadRequestResponse({ ...error, description: 'VALIDATION_FAILED (id is not a UUID)' })
-  @ApiNotFoundResponse({ ...error, description: 'NOT_FOUND' })
+  @ApiNotFoundResponse({ ...error, description: 'NOT_FOUND (claim or its stored file)' })
   async document(@Param('id', ParseUUIDPipe) id: string): Promise<StreamableFile> {
     const { content, type, fileName } = await this.claims.readDocument(id);
     // Never rendered inline: an uploaded file is not trusted content of our origin.

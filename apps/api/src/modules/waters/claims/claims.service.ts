@@ -1,8 +1,11 @@
 import {
+  CLAIM_PROOF_EXTENSIONS,
   ClaimDecision,
   ClaimStatus,
+  claimProofTypeOf,
   ErrorCode,
   isClaimProofMimeType,
+  OrganizationStatus,
   WaterStatus,
 } from '@lowisko/shared';
 import { Injectable } from '@nestjs/common';
@@ -19,13 +22,6 @@ import type { AdminClaimDto, ClaimDto, ReviewClaimDto } from '../dto/claim.dto';
 
 /** Folder of claim documents in StorageService. */
 const PROOF_FOLDER = 'claims';
-
-const PROOF_TYPE_BY_EXTENSION: Readonly<Record<string, string>> = {
-  pdf: 'application/pdf',
-  jpg: 'image/jpeg',
-  png: 'image/png',
-  webp: 'image/webp',
-};
 
 type ClaimWithWater = WaterClaim & { water: FishingWater };
 
@@ -46,40 +42,52 @@ export class ClaimsService {
 
   /** A new PENDING claim of `organizationId` with its proof document. */
   async submit(organizationId: string, fishingWaterId: string, proof: Buffer): Promise<ClaimDto> {
-    const water = await this.prisma.fishingWater.findFirst({
-      where: { id: fishingWaterId, isPublished: true },
-    });
-    if (!water) {
-      throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'Water not found');
-    }
-    if (water.status !== WaterStatus.UNCLAIMED) {
-      throw new DomainError(ErrorCode.WATER_ALREADY_CONNECTED);
-    }
-    const pending = await this.prisma.waterClaim.count({
-      where: { fishingWaterId, organizationId, status: ClaimStatus.PENDING },
-    });
-    if (pending > 0) {
-      throw new DomainError(ErrorCode.CLAIM_ALREADY_PENDING);
-    }
     // The declared type and the file name are the client's word; the content decides.
-    const type = await detectFileType(proof);
-    if (!type || !isClaimProofMimeType(type.mime)) {
+    const mime = (await detectFileType(proof))?.mime;
+    if (!mime || !isClaimProofMimeType(mime)) {
       throw new DomainError(
         ErrorCode.VALIDATION_FAILED,
-        { file: 'must be a PDF, JPEG, PNG or WebP file' },
+        { fields: { file: ['file must be a PDF, JPEG, PNG or WebP document'] } },
         'Unsupported document type',
       );
     }
 
-    const proofFileKey = await this.storage.save(PROOF_FOLDER, type.ext, proof);
+    const extension = CLAIM_PROOF_EXTENSIONS[mime];
+    let proofFileKey: string | undefined;
     try {
-      const claim = await this.prisma.waterClaim.create({
-        data: { fishingWaterId, organizationId, proofFileKey },
-        include: { water: true },
+      const claim = await this.prisma.$transaction(async (tx) => {
+        // FOR SHARE conflicts with the UPDATE that approves another claim of this water:
+        // either the approval waits and then rejects this claim with the other pending ones,
+        // or this submission waits and then sees CONNECTED. A plain read would let the claim
+        // in after the approval and leave it PENDING on a connected water.
+        const [water] = await tx.$queryRaw<{ status: WaterStatus; isPublished: boolean }[]>`
+          SELECT "status", "isPublished" FROM "FishingWater"
+          WHERE "id" = ${fishingWaterId}::uuid FOR SHARE`;
+        if (!water?.isPublished) {
+          throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'Water not found');
+        }
+        if (water.status !== WaterStatus.UNCLAIMED) {
+          throw new DomainError(ErrorCode.WATER_ALREADY_CONNECTED);
+        }
+        const pending = await tx.waterClaim.count({
+          where: { fishingWaterId, organizationId, status: ClaimStatus.PENDING },
+        });
+        if (pending > 0) {
+          throw new DomainError(ErrorCode.CLAIM_ALREADY_PENDING);
+        }
+        proofFileKey = await this.storage.save(PROOF_FOLDER, extension, proof);
+        return tx.waterClaim.create({
+          data: { fishingWaterId, organizationId, proofFileKey },
+          include: { water: true },
+        });
       });
       return toClaim(claim);
     } catch (error) {
-      await this.storage.delete(proofFileKey);
+      // The file system is not part of the transaction: the document of a claim that was
+      // not inserted is removed here.
+      if (proofFileKey) {
+        await this.storage.delete(proofFileKey);
+      }
       // Two submissions at once: the partial unique index claim_one_pending decides.
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
         throw new DomainError(ErrorCode.CLAIM_ALREADY_PENDING);
@@ -120,12 +128,22 @@ export class ClaimsService {
     if (claim.status !== ClaimStatus.PENDING) {
       throw new DomainError(ErrorCode.CLAIM_NOT_PENDING, { status: claim.status });
     }
+    const approve = dto.decision === ClaimDecision.APPROVE;
+    if (approve) {
+      // Approval rejects the rivals for good: it must not hand the water to an organization
+      // that may not sell (blocked, or never activated). Rejection stays possible.
+      const organization = (await this.organizations.findSummaries([claim.organizationId])).get(
+        claim.organizationId,
+      );
+      if (organization?.status !== OrganizationStatus.ACTIVE) {
+        throw new DomainError(ErrorCode.ORG_NOT_ACTIVE, { status: organization?.status });
+      }
+    }
     const reviewed = {
       reviewedById: actorId,
       reviewedAt: this.clock.now(),
     };
     const comment = dto.comment || null;
-    const approve = dto.decision === ClaimDecision.APPROVE;
     const status = approve ? ClaimStatus.APPROVED : ClaimStatus.REJECTED;
 
     await this.prisma.$transaction(async (tx) => {
@@ -138,7 +156,13 @@ export class ClaimsService {
           data: { status: WaterStatus.CONNECTED, organizationId: claim.organizationId },
         });
         if (connected.count === 0) {
-          throw new DomainError(ErrorCode.WATER_ALREADY_CONNECTED);
+          // Connected meanwhile by this very claim (approved in another tab) is not "another
+          // organization". A claim rejected as the rival of the winner keeps WATER_ALREADY_CONNECTED:
+          // that is what happened to it.
+          const current = await tx.waterClaim.findUniqueOrThrow({ where: { id } });
+          throw current.status === ClaimStatus.APPROVED
+            ? new DomainError(ErrorCode.CLAIM_NOT_PENDING, { status: current.status })
+            : new DomainError(ErrorCode.WATER_ALREADY_CONNECTED);
         }
       }
       await this.closePending(tx, id, { status, comment, ...reviewed });
@@ -184,12 +208,20 @@ export class ClaimsService {
     if (!claim) {
       throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'Claim not found');
     }
-    const extension = extensionOf(claim.proofFileKey);
-    return {
-      content: await this.storage.read(claim.proofFileKey),
-      type: documentTypeOf(claim.proofFileKey),
-      fileName: `claim-${claim.id}.${extension}`,
-    };
+    let content: Buffer;
+    try {
+      content = await this.storage.read(claim.proofFileKey);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+        throw error;
+      }
+      // The row outlived its file (volume restored from an older backup, manual cleanup).
+      this.logger.error({ claimId: id, key: claim.proofFileKey }, 'Claim document is missing');
+      throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'Claim document not found');
+    }
+    const type = documentTypeOf(claim.proofFileKey);
+    const extension = claim.proofFileKey.slice(claim.proofFileKey.lastIndexOf('.') + 1);
+    return { content, type, fileName: `claim-${claim.id}.${extension}` };
   }
 
   /** Concurrently reviewed (the other decision won) → CLAIM_NOT_PENDING, rolling back. */
@@ -239,10 +271,6 @@ function toClaim(claim: ClaimWithWater): ClaimDto {
   };
 }
 
-function extensionOf(key: string): string {
-  return key.slice(key.lastIndexOf('.') + 1);
-}
-
 function documentTypeOf(key: string): string {
-  return PROOF_TYPE_BY_EXTENSION[extensionOf(key)] ?? 'application/octet-stream';
+  return claimProofTypeOf(key) ?? 'application/octet-stream';
 }

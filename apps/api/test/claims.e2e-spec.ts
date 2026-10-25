@@ -60,6 +60,15 @@ describe('water claims', () => {
 
   const storedFiles = async () => readdir(join(UPLOADS_DIR, 'claims')).catch(() => []);
 
+  /** Code (and `details.status`, if any) of the 409 among two concurrent answers. */
+  const loserOutcome = (responses: request.Response[]) => {
+    const body = responses.find((response) => response.status === 409)?.body as
+      { code: string; details?: { status?: string } } | undefined;
+    return body?.details?.status
+      ? { code: body.code, status: body.details.status }
+      : { code: body?.code };
+  };
+
   beforeEach(async () => {
     db = await createTestDatabase();
     prisma = prismaServiceFor(db.url);
@@ -117,7 +126,7 @@ describe('water claims', () => {
 
       expect(response.body).toMatchObject({
         code: 'VALIDATION_FAILED',
-        details: { file: anyString },
+        details: { fields: { file: [anyString] } },
       });
       expect(await storedFiles()).toEqual(before);
       expect(await prisma.waterClaim.count()).toBe(0);
@@ -130,7 +139,7 @@ describe('water claims', () => {
 
       expect(response.body).toMatchObject({
         code: 'VALIDATION_FAILED',
-        details: { file: 'is required' },
+        details: { fields: { file: ['file is required'] } },
       });
     });
 
@@ -146,7 +155,10 @@ describe('water claims', () => {
     it('validates fishingWaterId', async () => {
       const response = await submit('not-a-uuid').expect(400);
 
-      expect(response.body).toMatchObject({ code: 'VALIDATION_FAILED' });
+      expect(response.body).toMatchObject({
+        code: 'VALIDATION_FAILED',
+        details: { fields: { fishingWaterId: [anyString] } },
+      });
     });
 
     it.each([
@@ -188,8 +200,37 @@ describe('water claims', () => {
       const responses = await Promise.all([submit(water.id), submit(water.id)]);
 
       expect(responses.map((response) => response.status).sort()).toEqual([201, 409]);
+      expect(responses.find((response) => response.status === 409)?.body).toMatchObject({
+        code: 'CLAIM_ALREADY_PENDING',
+      });
       expect(await prisma.waterClaim.count()).toBe(1);
       expect((await storedFiles()).length).toBe(before + 1);
+    });
+
+    it('never leaves a claim pending on a water approved for another organization at the same time', async () => {
+      const rival = await loginOrgMember(app, prisma, 'ORG_ADMIN');
+      // A race: repeated so both orders (submission first, approval first) are likely to occur.
+      for (let round = 0; round < 5; round++) {
+        const water = await createWater(prisma);
+        const approved = await createClaim(prisma, { fishingWaterId: water.id });
+
+        const [submitted, approval] = await Promise.all([
+          submit(water.id, PDF, rival),
+          review(approved.id, { decision: 'APPROVE' }),
+        ]);
+
+        expect(approval.status).toBe(200);
+        if (submitted.status === 201) {
+          const claim = await prisma.waterClaim.findUniqueOrThrow({
+            where: { id: (submitted.body as Claim).id },
+          });
+          expect(claim.status).toBe('REJECTED');
+        } else {
+          expect(submitted.status).toBe(409);
+          expect(submitted.body).toMatchObject({ code: 'WATER_ALREADY_CONNECTED' });
+        }
+      }
+      expect(await prisma.waterClaim.count({ where: { status: 'PENDING' } })).toBe(0);
     });
 
     it('lets another organization claim the same water', async () => {
@@ -381,7 +422,7 @@ describe('water claims', () => {
       });
     });
 
-    it('rolls everything back when the water got connected meanwhile', async () => {
+    it('refuses to approve a claim of a water that is already connected and changes nothing', async () => {
       const owner = await createOrganization(prisma, { status: 'ACTIVE' });
       const water = await createWater(prisma, { status: 'CONNECTED', organizationId: owner.id });
       const claim = await createClaim(prisma, { fishingWaterId: water.id });
@@ -406,10 +447,77 @@ describe('water claims', () => {
       ]);
 
       expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
+      // The loser either waited for the water inside its transaction, or read its claim only
+      // after the winner had already rejected it as a rival: both answers are true.
+      expect([
+        { code: 'WATER_ALREADY_CONNECTED' },
+        { code: 'CLAIM_NOT_PENDING', status: 'REJECTED' },
+      ]).toContainEqual(loserOutcome(responses));
       const statuses = await prisma.waterClaim.findMany({ select: { status: true } });
       expect(statuses.map((claim) => claim.status).sort()).toEqual(['APPROVED', 'REJECTED']);
       expect(await prisma.auditLog.count()).toBe(1);
     });
+
+    it('answers CLAIM_NOT_PENDING to the second of two approvals of the same claim', async () => {
+      const claim = await createClaim(prisma);
+
+      const responses = await Promise.all([
+        review(claim.id, { decision: 'APPROVE' }),
+        review(claim.id, { decision: 'APPROVE' }),
+      ]);
+
+      expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
+      expect(responses.find((response) => response.status === 409)?.body).toMatchObject({
+        code: 'CLAIM_NOT_PENDING',
+        details: { status: 'APPROVED' },
+      });
+      expect(await prisma.auditLog.count()).toBe(1);
+    });
+
+    it('keeps the water and the claim consistent when approval and rejection race', async () => {
+      const claim = await createClaim(prisma);
+
+      const responses = await Promise.all([
+        review(claim.id, { decision: 'APPROVE' }),
+        review(claim.id, { decision: 'REJECT' }),
+      ]);
+
+      expect(responses.map((response) => response.status).sort()).toEqual([200, 409]);
+      const final = await prisma.waterClaim.findUniqueOrThrow({ where: { id: claim.id } });
+      const water = await prisma.fishingWater.findUniqueOrThrow({
+        where: { id: claim.fishingWaterId },
+      });
+      // A lost approval has already connected the water in its transaction: it must be undone.
+      expect(water.status).toBe(final.status === 'APPROVED' ? 'CONNECTED' : 'UNCLAIMED');
+      expect(await prisma.auditLog.findMany({ select: { action: true } })).toEqual([
+        { action: final.status === 'APPROVED' ? 'CLAIM_APPROVED' : 'CLAIM_REJECTED' },
+      ]);
+    });
+
+    it.each(['BLOCKED', 'PENDING'] as const)(
+      'refuses to approve for a %s organization but lets the claim be rejected',
+      async (status) => {
+        const organization = await createOrganization(prisma, { status });
+        const water = await createWater(prisma);
+        const claim = await createClaim(prisma, {
+          fishingWaterId: water.id,
+          organizationId: organization.id,
+        });
+        const rival = await createClaim(prisma, { fishingWaterId: water.id });
+
+        const response = await review(claim.id, { decision: 'APPROVE' }).expect(403);
+
+        expect(response.body).toMatchObject({ code: 'ORG_NOT_ACTIVE', details: { status } });
+        expect(
+          (await prisma.fishingWater.findUniqueOrThrow({ where: { id: water.id } })).status,
+        ).toBe('UNCLAIMED');
+        expect(
+          (await prisma.waterClaim.findUniqueOrThrow({ where: { id: rival.id } })).status,
+        ).toBe('PENDING');
+        expect(await prisma.auditLog.count()).toBe(0);
+        await review(claim.id, { decision: 'REJECT' }).expect(200);
+      },
+    );
 
     it('validates the decision and the comment length', async () => {
       const claim = await createClaim(prisma);
@@ -450,7 +558,20 @@ describe('water claims', () => {
         `attachment; filename="claim-${id}.pdf"`,
       );
       expect(response.headers['x-content-type-options']).toBe('nosniff');
+      expect(response.headers['cache-control']).toBe('no-store');
       expect(response.body).toEqual(PDF);
+    });
+
+    it('answers 404 for an unknown claim, a lost file and 400 for a non-UUID id', async () => {
+      // The factory gives the claim a key, but no file is stored under it.
+      const withoutFile = await createClaim(prisma);
+      const get = (id: string) =>
+        request(server()).get(`/api/v1/admin/claims/${id}/document`).set(bearer(superAdminToken));
+
+      await get('00000000-0000-4000-8000-000000000000').expect(404);
+      const lost = await get(withoutFile.id).expect(404);
+      expect(lost.body).toMatchObject({ code: 'NOT_FOUND' });
+      await get('not-a-uuid').expect(400);
     });
 
     it('is only for the super admin', async () => {
