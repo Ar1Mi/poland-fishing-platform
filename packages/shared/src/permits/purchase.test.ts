@@ -28,6 +28,13 @@ describe('addDays', () => {
   it('rejects a value that is not YYYY-MM-DD', () => {
     expect(() => addDays('2026-10-06T00:00:00Z', 1)).toThrow(RangeError);
   });
+
+  it.each(['2026-02-30', '2027-02-29', '2026-04-31'])(
+    'rejects %s, which is not in the calendar, instead of rolling it over',
+    (date) => {
+      expect(() => addDays(date, 1)).toThrow(RangeError);
+    },
+  );
 });
 
 describe('permitValidTo', () => {
@@ -65,6 +72,10 @@ describe('ageOn', () => {
     ['2012-02-29', '2027-03-01', 15],
   ])('born %s is %i on %s', (birthDate, on, age) => {
     expect(ageOn(birthDate, on)).toBe(age);
+  });
+
+  it('rejects a birth date that is not in the calendar', () => {
+    expect(() => ageOn('2010-02-30', '2026-10-06')).toThrow(RangeError);
   });
 });
 

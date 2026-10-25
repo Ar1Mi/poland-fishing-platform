@@ -14,9 +14,17 @@ export const PERMIT_START_MAX_DAYS_AHEAD = 365;
 /** Abandoned payments are cancelled after this many minutes (docs/03-architecture.md). */
 export const PAYMENT_TIMEOUT_MINUTES = 30;
 
+/** A `YYYY-MM-DD` that exists: Date arithmetic would silently roll `02-30` over into March. */
+function assertCalendarDate(date: string): asserts date is DateOnly {
+  assertDateOnly(date);
+  if (new Date(`${date}T00:00:00.000Z`).toISOString().slice(0, 10) !== date) {
+    throw new RangeError(`Not a calendar date: "${date}"`);
+  }
+}
+
 /** `date` moved by `days` calendar days; UTC arithmetic, so no daylight saving shift. */
 export function addDays(date: DateOnly, days: number): DateOnly {
-  assertDateOnly(date);
+  assertCalendarDate(date);
   const moved = new Date(`${date}T00:00:00.000Z`);
   moved.setUTCDate(moved.getUTCDate() + days);
   return moved.toISOString().slice(0, 10);
@@ -34,8 +42,8 @@ export function latestPermitStart(today: DateOnly): DateOnly {
 
 /** Full years of age on `on`; born on 29 February, one gets older on 1 March in common years. */
 export function ageOn(birthDate: DateOnly, on: DateOnly): number {
-  assertDateOnly(birthDate);
-  assertDateOnly(on);
+  assertCalendarDate(birthDate);
+  assertCalendarDate(on);
   const years = Number(on.slice(0, 4)) - Number(birthDate.slice(0, 4));
   return on.slice(5) >= birthDate.slice(5) ? years : years - 1;
 }

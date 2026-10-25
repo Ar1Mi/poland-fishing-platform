@@ -250,6 +250,15 @@ describe('fake payment page', () => {
     expect(await sentBodies(fetch, COMPLETE)).toEqual([{ outcome: 'REJECTED' }]);
   });
 
+  it('shows no amount rather than zero when the address has none', async () => {
+    mockApi(session);
+
+    renderRoute(`/payment/fake/${SESSION_ID}`);
+
+    expect(await screen.findByText('—')).toBeVisible();
+    expect(screen.queryByText('0,00 zł')).not.toBeInTheDocument();
+  });
+
   it('stays on the page when the API refuses', async () => {
     mockApi({ ...session, [COMPLETE]: () => apiError('NOT_FOUND', 404) });
     renderRoute(pageUrl(), { accessToken: 'access-1' });
@@ -311,7 +320,7 @@ describe('payment return page', () => {
   });
 
   it('stops after 60 seconds and lets the buyer check again', async () => {
-    const fetch = show([...Array<MyPermit['status']>(31).fill('PENDING_PAYMENT'), 'SCHEDULED']);
+    const fetch = show([...Array<MyPermit['status']>(32).fill('PENDING_PAYMENT'), 'SCHEDULED']);
 
     expect(await screen.findByText('Czekamy na potwierdzenie płatności…')).toBeVisible();
     await wait(60_000);
@@ -324,7 +333,12 @@ describe('payment return page', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Sprawdź ponownie' }));
 
+    // A new round: the 32nd answer still waits, the next one, 2 s later, is paid.
+    expect(await screen.findByText('Czekamy na potwierdzenie płatności…')).toBeVisible();
+    expect(permitRequests(fetch)).toBe(32);
+    await wait(2000);
     expect(await screen.findByText('Zezwolenie opłacone')).toBeVisible();
+    expect(permitRequests(fetch)).toBe(33);
   });
 
   it('says when the payment did not go through', async () => {

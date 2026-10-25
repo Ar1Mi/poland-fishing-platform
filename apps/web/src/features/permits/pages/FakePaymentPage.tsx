@@ -20,7 +20,9 @@ export function FakePaymentPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const complete = useCompleteFakePayment(sessionId);
-  const amount = Number(searchParams.get('amount'));
+  // Whole grosze or nothing: Number(null) and Number('') would show «0,00 zł».
+  const amountParam = searchParams.get('amount') ?? '';
+  const amount = /^\d{1,9}$/.test(amountParam) ? Number(amountParam) : null;
   const description = searchParams.get('description');
   const locale = i18n.resolvedLanguage ?? 'pl';
 
@@ -52,7 +54,7 @@ export function FakePaymentPage() {
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
             <dt className="caption text-muted-foreground">{t('permits.payment.fake.amount')}</dt>
             <dd className="font-mono text-body font-semibold">
-              {Number.isSafeInteger(amount) ? formatPrice(amount, locale) : '—'}
+              {amount === null ? '—' : formatPrice(amount, locale)}
             </dd>
           </dl>
           {complete.isError && <ApiErrorAlert error={complete.error} />}

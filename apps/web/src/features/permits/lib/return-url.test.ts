@@ -19,6 +19,8 @@ describe('safeReturnPath', () => {
   it.each([
     ['another site', 'https://evil.example/payment/return'],
     ['a protocol-relative URL', '//evil.example/payment/return'],
+    ['a double slash after this origin', `${ORIGIN}//evil.example/payment/return`],
+    ['a backslash after this origin', `${ORIGIN}/\\evil.example/payment/return`],
     ['another port', 'http://localhost:6666/payment/return'],
     ['a javascript: URL', 'javascript:alert(1)'],
     ['nothing', null],

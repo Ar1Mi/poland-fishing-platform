@@ -109,7 +109,6 @@
       "title": "Płatność testowa",
       "notice": "To symulacja bramki płatności w środowisku deweloperskim — żadne pieniądze nie są pobierane.",
       "amount": "Kwota",
-      "description": "Tytuł",
       "pay": "Zapłać",
       "reject": "Odrzuć płatność"
     },
