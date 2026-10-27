@@ -34,7 +34,7 @@
 | `QR_SIGNING_PRIVATE_KEY`, `QR_SIGNING_PUBLIC_KEY` | Ed25519 PEM (скрипт `pnpm --filter api keys:qr`) |
 | `PAYMENTS_PROVIDER` | `fake` (dev, тесты; по умолчанию) или `p24`. При `NODE_ENV=production` `fake` запрещён — API не стартует |
 | `P24_MERCHANT_ID`, `P24_POS_ID`, `P24_API_KEY`, `P24_CRC` | Обязательны при `p24`; панель P24 → «Moje dane» → «Dane API» (`P24_API_KEY` — «klucz do raportów») |
-| `P24_BASE_URL` | Origin без пути; по умолчанию sandbox `https://sandbox.przelewy24.pl`, prod — `https://secure.przelewy24.pl` |
+| `P24_BASE_URL` | Origin без пути; по умолчанию sandbox `https://sandbox.przelewy24.pl` — и в рабочей среде дипломного проекта тоже, намеренно (ADR-0004: без реальных денег); боевой P24 — `https://secure.przelewy24.pl` |
 | `SMTP_URL`, `MAIL_FROM` | `smtp://localhost:1025` (Mailpit) |
 | `NOMINATIM_URL`, `NOMINATIM_USER_AGENT` | По умолчанию `https://nominatim.openstreetmap.org`; публичный Nominatim требует идентифицирующий User-Agent (`lowisko/1.0 (email)`). Без `NOMINATIM_USER_AGENT` API стартует, но строки импорта без координат отклоняются |
 | `UPLOADS_DIR` | `./uploads` — каталог `StorageService` относительно рабочего каталога API (`apps/api` при `pnpm dev`); в `.gitignore` |

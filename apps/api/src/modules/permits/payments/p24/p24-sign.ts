@@ -4,7 +4,8 @@ import { createHash, timingSafeEqual } from 'node:crypto';
  * Checksums of Przelewy24 REST API v1 (developers.przelewy24.pl): SHA-384 (hex) of a JSON
  * object with the fields in the documented order and the CRC key last. P24 builds it with
  * PHP `json_encode(..., JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)`, which is what
- * `JSON.stringify` produces: slashes and non-ASCII characters stay as they are.
+ * `JSON.stringify` produces: slashes and non-ASCII characters stay as they are. The one
+ * difference, PHP escaping U+2028/U+2029, does not occur in our fields.
  */
 function sign(fields: Record<string, string | number>, crc: string): string {
   return createHash('sha384')

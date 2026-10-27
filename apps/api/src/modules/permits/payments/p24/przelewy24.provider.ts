@@ -66,7 +66,7 @@ export class Przelewy24Provider implements PaymentProvider {
       language: 'pl',
       urlReturn: input.returnUrl,
       urlStatus: input.statusUrl,
-      // P24 stops taking the payment when our timeout cancels the permit.
+      // Narrows payments after our timeout; one that still comes is not verified (refunded).
       timeLimit: PAYMENT_TIMEOUT_MINUTES,
       sign: registerSign(
         { sessionId: input.sessionId, merchantId, amount: input.amountGrosze, currency: CURRENCY },

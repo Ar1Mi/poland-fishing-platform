@@ -584,6 +584,20 @@ describe('permit purchase', () => {
 
       expect(response.body).toMatchObject({ code: 'VALIDATION_FAILED' });
     });
+
+    it('keeps the P24 notification route closed: the fake adapter checks no signature', async () => {
+      const type = await typeOnSale();
+      const { permit, paymentUrl } = await buy(type.id);
+
+      const response = await request(server())
+        .post('/api/v1/payments/p24/notification')
+        .send({ sessionId: sessionIdOf(paymentUrl), providerOrderId: 'X', amountGrosze: 2500 })
+        .expect(404);
+
+      expect(response.body).toMatchObject({ code: 'NOT_FOUND' });
+      expect(await myPermit(permit.id)).toMatchObject({ status: 'PENDING_PAYMENT' });
+      expect(provider.confirmed).toBe(0);
+    });
   });
 
   describe('abandoned payments', () => {

@@ -174,6 +174,21 @@ export class PaymentsService {
   }
 
   /**
+   * A notification on the route of `kind` (P24 `urlStatus`). Outside that provider's mode the
+   * route does not exist: the fake adapter checks no signature, so its notifications must
+   * only come through the fake page.
+   */
+  async processProviderNotification(
+    kind: PaymentProviderKind,
+    body: unknown,
+  ): Promise<PaymentStatus> {
+    if (this.provider.kind !== kind) {
+      throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'Payment provider not configured');
+    }
+    return this.processNotification(body);
+  }
+
+  /**
    * «Odrzuć» on the fake page, or «Zapłać» there, which goes through `processNotification`
    * like a P24 notification. P24 itself does not notify refusals: those time out.
    * `amountGrosze` lets a test notify a wrong amount; by default the stored one is paid.
