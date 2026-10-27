@@ -16,6 +16,46 @@
 
 ---
 
+## 2026-10-27 · T-14 Przelewy24 sandbox
+
+**Сделано:**
+- `Przelewy24Provider` за интерфейсом `PaymentProvider` (ADR-0004): регистрация транзакции, проверка уведомления `urlStatus` (контрольная сумма, merchant, POS, валюта) и `transaction/verify`. HTTP — встроенный `fetch` с таймаутом, новых зависимостей нет.
+- Публичный маршрут `POST /payments/p24/notification` вызывает тот же `PaymentsService.processNotification`, что и фейковая оплата (ADR-0012). Отклонённое уведомление пишется в лог только причиной, без тела.
+- Проверка окружения: `PAYMENTS_PROVIDER=p24` требует `P24_*`, а `fake` при `NODE_ENV=production` не даёт API стартовать. Так закрыт открытый риск T-13 из `07-security.md`.
+
+**Решения:**
+- Детали сверены с официальной документацией REST API v1: https://developers.przelewy24.pl/index.php?en (разделы «Authentication», «Transaction registration», «Notification», «Transaction verification», «Server IP addresses»; прочитано 2026-10-27). Порядок полей контрольных сумм: register — `sessionId, merchantId, amount, currency, crc`; уведомление — `merchantId, posId, sessionId, amount, originAmount, currency, orderId, methodId, statement, crc`; verify — `sessionId, orderId, amount, currency, crc`. SHA-384, hex.
+- P24 считает сумму от PHP `json_encode(..., JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)`. `JSON.stringify` даёт ту же строку, поэтому сериализатор не нужен. Тест закрепляет это на `statement` со `/` и польской буквой.
+- Подпись уведомления сравнивается за постоянное время (`timingSafeEqual`).
+- `timeLimit` транзакции = `PAYMENT_TIMEOUT_MINUTES` (30): P24 не примет оплату после того, как наш таймаут отменил разрешение. Если уведомление всё же опоздает, платёж уже `FAILED`, verify не вызывается, и P24 вернёт деньги плательщику.
+- Неподлинное уведомление → 400 `VALIDATION_FAILED`, без нового кода ошибки: фронтенд этот маршрут не видит.
+- Фильтр по IP-адресам P24, рекомендованный документацией, не включён — принятый риск в `07-security.md`. За туннелем или прокси адрес источника недостоверен, а без CRC-ключа подделать уведомление нельзя, и verify всё равно идёт к P24.
+- `Organization.p24MerchantId` не используется: один sandbox-аккаунт платформы (ADR-0004).
+
+**Проблемы:**
+- Документация P24 — SPA: `WebFetch` получает пустую страницу, поэтому текст читался через браузер.
+- Экспорт OpenAPI запускается с `NODE_ENV=production`, и после запрета `fake` он перестал бы стартовать. `openapi/fixed-env.ts` теперь задаёт `p24` с плейсхолдерами.
+- Тест окружения раньше опирался на `production` + `fake` по умолчанию. Базовый набор переведён на `p24`; поведение по умолчанию вне production проверяется отдельным тестом.
+
+**Подтверждение:**
+- `apps/api/src/modules/permits/payments/p24/p24-sign.spec.ts` — контрольные суммы на фиксированных данных; ожидаемые значения посчитаны вне кода (`printf '%s' '<json>' | shasum -a 384`).
+- `apps/api/src/modules/permits/payments/p24/przelewy24.provider.spec.ts` — тело и авторизация register и verify, адрес оплаты, отказ уведомлению с изменённой суммой, чужим CRC, merchant, POS, валютой, неверными типами; ошибки HTTP, таймаут, неверный JSON.
+- `apps/api/test/p24-notification.e2e-spec.ts` (Testcontainers, P24 подменён в памяти) — покупка → уведомление → `PAID` и один verify; повтор → 200 без второго verify; поддельная подпись, чужой merchant, неверная сумма → разрешение остаётся `PENDING_PAYMENT`; отказ verify откатывает запись, следующее уведомление проходит; фейковый маршрут при `p24` → 404.
+- `apps/api/src/config/env.spec.ts` — запрет `fake` в production, обязательность `P24_*`.
+- `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm --filter api test:e2e` (347 тестов) — код 0.
+
+**Ручная проверка sandbox (чек-лист, не выполнена):** требует учётных данных sandbox P24 (их выдают только после допуска к production-сервису) и туннеля.
+1. В `.env`: `PAYMENTS_PROVIDER=p24`, `P24_BASE_URL=https://sandbox.przelewy24.pl`, `P24_MERCHANT_ID`, `P24_POS_ID`, `P24_API_KEY`, `P24_CRC` из sandbox-панели; `NODE_ENV=development`.
+2. `cloudflared tunnel --url http://localhost:3000` → `API_URL` = выданный `https://…trycloudflare.com` (на него указывает `urlStatus`). Перезапустить API.
+3. (Необязательно) `curl -u <posId>:<apiKey> https://sandbox.przelewy24.pl/api/v1/testAccess` → `{"data":true}`.
+4. Купить разрешение в web → редирект на `sandbox.przelewy24.pl/trnRequest/…`.
+5. Оплатить тестовым методом sandbox → возврат на `/payment/return`, статус `PENDING_PAYMENT` → `ACTIVE`/`SCHEDULED`.
+6. Проверить: `Payment` — `SUCCEEDED` с `providerOrderId`; в логе API — «Payment succeeded»; в sandbox-панели транзакция подтверждена (verify).
+7. Купить второе разрешение и не платить → через 30 минут `CANCELLED`.
+Результат: _заполнить после проверки (дата, скриншоты)._
+
+**Для текста:** `apps/api/src/modules/permits/payments/p24/p24-sign.ts` — три контрольные суммы P24 и почему `JSON.stringify` совпадает с PHP `json_encode` с флагами; `apps/api/src/modules/permits/payments/p24/przelewy24.provider.ts:85-110` — проверка подлинности уведомления как цепочка «форма → подпись → merchant/валюта», а сумма сверяется уже в `PaymentsService` (граница адаптера, паттерн Adapter).
+
 ## 2026-10-25 · T-13 Покупка разрешения + FakePaymentProvider
 
 **Сделано:**
