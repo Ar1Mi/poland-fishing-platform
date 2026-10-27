@@ -1,4 +1,4 @@
-import { ErrorCode, parseBbox } from '@lowisko/shared';
+import { ErrorCode, OrgRole, parseBbox } from '@lowisko/shared';
 import {
   Controller,
   Get,
@@ -27,9 +27,9 @@ import {
 import { DomainError } from '../../common/errors/domain-error';
 import { ErrorResponseDto } from '../../common/errors/error-response.dto';
 import { Public } from '../auth/decorators/auth.decorators';
-import { SuperAdmin } from '../organizations/decorators/org-access.decorators';
+import { Roles, SuperAdmin } from '../organizations/decorators/org-access.decorators';
 import { WaterImportReportDto } from './dto/water-import.dto';
-import { ListWatersQueryDto, WaterDetailDto, WaterListDto } from './dto/water.dto';
+import { ListWatersQueryDto, OrgWaterDto, WaterDetailDto, WaterListDto } from './dto/water.dto';
 import { WaterImportService } from './import/water-import.service';
 import { WatersService } from './waters.service';
 
@@ -63,6 +63,23 @@ export class WatersController {
   @ApiNotFoundResponse({ ...error, description: 'NOT_FOUND' })
   get(@Param('id', ParseUUIDPipe) id: string): Promise<WaterDetailDto> {
     return this.waters.get(id);
+  }
+}
+
+@ApiTags('orgs')
+@ApiBearerAuth()
+@ApiUnauthorizedResponse({ ...error, description: 'UNAUTHENTICATED, TOKEN_EXPIRED' })
+@ApiForbiddenResponse({ ...error, description: 'ORG_SCOPE_VIOLATION, ORG_NOT_ACTIVE, FORBIDDEN' })
+@Roles(OrgRole.ORG_ADMIN)
+@Controller('orgs/:orgId/waters')
+export class OrgWatersController {
+  constructor(private readonly waters: WatersService) {}
+
+  @Get()
+  @ApiOperation({ summary: 'Waters connected to the organization, by name' })
+  @ApiOkResponse({ type: OrgWaterDto, isArray: true })
+  list(@Param('orgId') orgId: string): Promise<OrgWaterDto[]> {
+    return this.waters.listConnected(orgId);
   }
 }
 

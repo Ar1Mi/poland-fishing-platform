@@ -47,7 +47,7 @@
     "owner": "Użytkownik rybacki",
     "ownerUnknown": "Brak danych o użytkowniku rybackim.",
     "permitsTitle": "Zezwolenia",
-    "permitsConnected": "To łowisko sprzedaje zezwolenia w serwisie. Lista rodzajów zezwoleń pojawi się wkrótce.",
+    "permitsConnected": "To łowisko sprzedaje zezwolenia w serwisie.",
     "permitsExternal": "Zezwolenie na to łowisko kupisz u użytkownika rybackiego. Połowy zapiszesz w rejestrze, dodając zezwolenie zewnętrzne.",
     "externalLink": "Regulamin i zezwolenia u zarządcy",
     "externalLinkHint": "(otwiera się w nowej karcie)",
@@ -67,5 +67,8 @@
     "OSM": "OpenStreetMap",
     "USER": "zgłoszenie wędkarza",
     "MANUAL": "redakcja serwisu"
+  },
+  "card": {
+    "priceFrom": "od {{price}}"
   }
 }

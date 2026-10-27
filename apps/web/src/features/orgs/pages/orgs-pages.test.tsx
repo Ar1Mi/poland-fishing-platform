@@ -14,7 +14,7 @@ const profile = {
 };
 
 describe('my organizations page', () => {
-  it('links the claims of an active organization and explains an inactive one', async () => {
+  it('links the sections of an active organization and explains an inactive one', async () => {
     mockApi({
       'GET /api/v1/me': () => jsonResponse(profile),
       'GET /api/v1/me/orgs': () =>
@@ -37,6 +37,10 @@ describe('my organizations page', () => {
     expect(within(active).getByRole('link', { name: 'Wnioski o łowiska' })).toHaveAttribute(
       'href',
       '/org/a1/claims',
+    );
+    expect(within(active).getByRole('link', { name: 'Rodzaje zezwoleń' })).toHaveAttribute(
+      'href',
+      '/org/a1/permit-types',
     );
     expect(within(active).getByText('Administrator')).toBeVisible();
     const pending = screen.getByRole('region', { name: 'Gospodarstwo' });

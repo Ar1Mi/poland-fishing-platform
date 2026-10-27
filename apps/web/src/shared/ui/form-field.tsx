@@ -3,7 +3,8 @@ import { type ComponentProps, type ReactNode, useId } from 'react';
 import { cn } from '../lib/cn';
 import { Input } from './input';
 
-function FieldError({ id, children }: { id: string; children: ReactNode }) {
+/** Error text under a field; `id` is what the field's `aria-describedby` points to. */
+export function FieldError({ id, children }: { id: string; children: ReactNode }) {
   return (
     <p id={id} className="flex items-start gap-1 text-small text-destructive">
       <CircleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />

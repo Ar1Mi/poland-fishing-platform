@@ -1,11 +1,13 @@
 import { ArrowLeft, CirclePause, ExternalLink, LoaderCircle, MapPinOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
-import { formatDate } from '../../../shared/lib/format';
+import { formatDate, formatPrice } from '../../../shared/lib/format';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Badge } from '../../../shared/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/ui/card';
 import { activeAdminOrgs, useMyOrgs } from '../../orgs/api/useMyOrgs';
+import { useWaterPermitTypes } from '../../permits/api/usePermitTypes';
+import { PermitTypeTerms } from '../../permits/components/PermitTypeTerms';
 import { useWater, type WaterDetail } from '../api/useWaters';
 import { WaterStatusBadge } from '../components/WaterStatusBadge';
 import { safeExternalUrl } from '../lib/external-url';
@@ -92,6 +94,7 @@ function WaterDetails({ water }: { water: WaterDetail }) {
                 ? t('catalog.water.permitsConnected')
                 : t('catalog.water.permitsExternal')}
           </p>
+          {connected && !suspended && <PermitOffer waterId={water.id} />}
           {externalUrl && (
             <a
               href={externalUrl}
@@ -124,6 +127,44 @@ function WaterDetails({ water }: { water: WaterDetail }) {
         })}
       </p>
     </>
+  );
+}
+
+/** Permit types on sale for the water (FR-07); buying them comes with T-13. */
+function PermitOffer({ waterId }: { waterId: string }) {
+  const { t, i18n } = useTranslation();
+  const types = useWaterPermitTypes(waterId);
+  const locale = i18n.resolvedLanguage ?? 'pl';
+  if (types.isPending) {
+    return (
+      <Badge variant="neutral" role="status">
+        <LoaderCircle aria-hidden className="animate-spin" />
+        {t('permits.offer.loading')}
+      </Badge>
+    );
+  }
+  if (types.isError) {
+    return <ApiErrorAlert error={types.error} />;
+  }
+  if (types.data.length === 0) {
+    return <p className="text-body">{t('permits.offer.empty')}</p>;
+  }
+  return (
+    <ul aria-label={t('permits.offer.listLabel')} className="flex flex-col divide-y divide-border">
+      {types.data.map((type) => (
+        <li key={type.id} className="flex items-start justify-between gap-3 py-3 last:pb-0">
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="text-body font-semibold">{type.name}</span>
+            <span className="text-small text-muted-foreground">
+              <PermitTypeTerms type={type} />
+            </span>
+          </div>
+          <span className="font-mono text-body font-semibold whitespace-nowrap">
+            {formatPrice(type.priceGrosze, locale)}
+          </span>
+        </li>
+      ))}
+    </ul>
   );
 }
 

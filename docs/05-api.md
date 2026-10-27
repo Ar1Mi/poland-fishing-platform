@@ -69,6 +69,7 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 | Метод | Путь | Доступ | Назначение |
 | --- | --- | --- | --- |
 | GET | `/permit-types?waterId=` | public | Типы разрешений на водоём |
+| GET | `/permit-types/lowest-prices?waterIds=` | public | Цена «od» для карточек списка каталога |
 | POST | `/permits` | auth | `{ permitTypeId, validFrom }` → Permit `PENDING_PAYMENT` + `{ paymentUrl }` |
 | GET | `/me/permits` | auth | Мои разрешения с вычисленным статусом |
 | GET | `/me/permits/:id` | auth | Детали + `qrToken` (только для PAID) |
@@ -122,6 +123,7 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 | CRUD | `/orgs/:orgId/members`, `/orgs/:orgId/invitations` | ORG_ADMIN | Члены, приглашения |
 | POST | `/invitations/accept` | auth | `{ token }` |
 | POST / GET | `/orgs/:orgId/claims` | ORG_ADMIN | Заявка на водоём (multipart: документ), список заявок организации |
+| GET | `/orgs/:orgId/waters` | ORG_ADMIN | Водоёмы, подключённые к организации (выбор водоёмов типа разрешения) |
 | PATCH | `/orgs/:orgId/waters/:id` | ORG_ADMIN | Описание, сезон, фото подключённого водоёма |
 | CRUD | `/orgs/:orgId/permit-types` | ORG_ADMIN | Типы разрешений |
 | CRUD | `/orgs/:orgId/rules` | ORG_ADMIN | Правила организации и водоёмов |
@@ -162,6 +164,18 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 - **Документ:** `GET /admin/claims/:id/document` — только суперадмин, `Content-Disposition: attachment` (никогда не открывается в окне сервиса), `X-Content-Type-Options: nosniff`, `Cache-Control: no-store`. Нет заявки или её файла в хранилище → 404 `NOT_FOUND` (пропавший файл — ещё и ошибка в логе).
 - Отличие от T-10: импорт каталога отдаёт ошибку файла как `details.file` (строка), а не в общем формате `details.fields` — оставлено до правки импорта (ROADMAP T-23).
 
+Детали (T-12, FR-07):
+
+- **Тип разрешения:** `{ name, durationDays, priceGrosze, discountKind, waterIds }` — название до 100 символов, срок 1–366 дней, цена 0–1 000 000 грошей (0 — бесплатное), льгота `NONE | JUNIOR | SENIOR`, от 1 до 1000 разных водоёмов (лимиты — `packages/shared/src/permits/permit-types.ts`). Каждый водоём должен быть подключён (`CONNECTED`) к этой организации, иначе 400 `VALIDATION_FAILED` с `details.fields.waterIds`.
+- **`GET /orgs/:orgId/permit-types`:** все типы организации, сначала активные, затем по названию: поля типа + `isActive`, `inUse` (есть разрешения этого типа в любом статусе), `waters: [{ id, name }]` (по названию), `createdAt`. `GET /orgs/:orgId/permit-types/:id` — один тип; тип другой организации → 404 `NOT_FOUND`.
+- **`PATCH /orgs/:orgId/permit-types/:id`:** любое подмножество полей и `isActive` (`false` — снять с продажи); поле со значением `null` — 400 `VALIDATION_FAILED` (не «оставить как есть»). У проданного типа (`inUse`) срок, льгота и водоёмы зафиксированы (`PERMIT_TYPE_LOCKED_FIELDS`): водоёмы определяют, что покрывает уже проданное разрешение (BR-01), срок и льгота — то, что купил рыбак. Изменение любого из них → 409 `PERMIT_TYPE_IN_USE` (`details.lockedFields`), не применяется ничего из запроса. Те же значения можно прислать (форма целиком), водоёмы сравниваются как множество. Название, цена следующих покупок и `isActive` меняются всегда. Запрос без изменений ничего не пишет.
+- **`DELETE /orgs/:orgId/permit-types/:id`:** только тип без разрешений → 204; иначе 409 `PERMIT_TYPE_IN_USE` (тип снимают с продажи).
+- **Конкурентная продажа:** изменение и удаление берут строку типа `SELECT … FOR UPDATE` и только после этого считают разрешения (см. `04-data-model.md`).
+- **AuditLog:** `PERMIT_TYPE_CREATED` (значения полей), `PERMIT_TYPE_UPDATED` (`{ поле: { from, to } }` только изменённых), `PERMIT_TYPE_DELETED` (снимок типа) — в транзакции действия.
+- **`GET /permit-types?waterId=`** (публично): то, что можно купить сейчас, — активные типы водоёма при `CONNECTED` и `ACTIVE`-организации, по сроку, затем обычный перед льготными, затем по названию: `{ id, name, durationDays, priceGrosze, discountKind }`. Неподключённый водоём или заблокированная организация → `[]`; неизвестный или неопубликованный водоём → 404 `NOT_FOUND`; без `waterId` или не-UUID → 400. Без пагинации (у водоёма единицы типов).
+- **`GET /permit-types/lowest-prices?waterIds=a,b,…`** (публично): до 100 разных id через запятую (одна страница списка каталога, `LOWEST_PRICES_MAX_WATERS`; повтор → 400) → `[{ waterId, priceGrosze }]` в порядке запроса — минимальная цена активного обычного (`NONE`) типа `ACTIVE`-организации, к которой водоём подключён сейчас (как в `GET /permit-types?waterId=`); водоёмы без такой цены пропускаются. Льготные типы в «od» не входят: цена для подростка вводила бы в заблуждение взрослого. Отдельный эндпоинт, а не поле `GET /waters`: `PermitsModule` зависит от `WatersModule`, обратная зависимость дала бы цикл модулей.
+- **`GET /orgs/:orgId/waters`:** подключённые водоёмы организации по названию: `{ id, name, type, region }`.
+
 ## Коды ошибок
 
 Определены в `packages/shared/src/errors.ts`. Минимальный набор:
@@ -172,7 +186,7 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 | 401 | `UNAUTHENTICATED`, `INVALID_CREDENTIALS`, `EMAIL_NOT_VERIFIED`, `TOKEN_EXPIRED` |
 | 403 | `FORBIDDEN`, `ORG_SCOPE_VIOLATION`, `ORG_NOT_ACTIVE` |
 | 404 | `NOT_FOUND` |
-| 409 | `EMAIL_TAKEN`, `NIP_TAKEN`, `CLAIM_ALREADY_PENDING`, `WATER_ALREADY_CONNECTED`, `CLAIM_NOT_PENDING` |
+| 409 | `EMAIL_TAKEN`, `NIP_TAKEN`, `CLAIM_ALREADY_PENDING`, `WATER_ALREADY_CONNECTED`, `CLAIM_NOT_PENDING`, `PERMIT_TYPE_IN_USE` |
 | 422 | Бизнес-правила: `PERMIT_START_IN_PAST`, `DISCOUNT_NOT_ELIGIBLE`, `PERMIT_TYPE_INACTIVE`, `EDIT_WINDOW_CLOSED`, `PERMIT_NOT_REVOCABLE` |
 | 429 | `RATE_LIMITED` |
 | 500 | `INTERNAL_ERROR` — необработанное исключение; `message` не раскрывает детали, они только в логе |

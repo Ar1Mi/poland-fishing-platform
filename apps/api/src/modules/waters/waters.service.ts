@@ -1,10 +1,16 @@
-import { ErrorCode, WATERS_LIST_LIMIT } from '@lowisko/shared';
+import { ErrorCode, WATERS_LIST_LIMIT, WaterStatus } from '@lowisko/shared';
 import { Injectable } from '@nestjs/common';
 import { DomainError } from '../../common/errors/domain-error';
 import { PrismaService } from '../../database/prisma.service';
 import type { FishingWater, Prisma } from '../../generated/prisma/client';
 import { OrganizationsService } from '../organizations/organizations.service';
-import type { WaterDetailDto, WaterFilters, WaterListDto, WaterSummaryDto } from './dto/water.dto';
+import type {
+  OrgWaterDto,
+  WaterDetailDto,
+  WaterFilters,
+  WaterListDto,
+  WaterSummaryDto,
+} from './dto/water.dto';
 
 /** Owner of the water catalogue `FishingWater` (FR-06, FR-23). */
 @Injectable()
@@ -47,6 +53,44 @@ export class WatersService {
       ? await this.organizations.findPublicProfile(water.organizationId)
       : null;
     return { ...toSummary(water), ...toDetailFields(water), organization };
+  }
+
+  /** Waters connected to the organization (what its permit types may cover), by name. */
+  listConnected(organizationId: string): Promise<OrgWaterDto[]> {
+    return this.prisma.fishingWater.findMany({
+      where: { organizationId, status: WaterStatus.CONNECTED },
+      select: { id: true, name: true, type: true, region: true },
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+    });
+  }
+
+  /** Those of `ids` that are connected to the organization. */
+  async findConnectedIds(organizationId: string, ids: string[]): Promise<Set<string>> {
+    const waters = await this.prisma.fishingWater.findMany({
+      where: { id: { in: ids }, organizationId, status: WaterStatus.CONNECTED },
+      select: { id: true },
+    });
+    return new Set(waters.map((water) => water.id));
+  }
+
+  /** The organization each of `ids` is connected to, for the connected ones. */
+  async findOwners(ids: string[]): Promise<Map<string, string>> {
+    const waters = await this.prisma.fishingWater.findMany({
+      where: { id: { in: ids }, status: WaterStatus.CONNECTED },
+      select: { id: true, organizationId: true },
+    });
+    return new Map(
+      waters.flatMap((water) => (water.organizationId ? [[water.id, water.organizationId]] : [])),
+    );
+  }
+
+  /** Names of waters for lists of other modules (permit types), keyed by id. */
+  async findNames(ids: string[]): Promise<Map<string, string>> {
+    const waters = await this.prisma.fishingWater.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, name: true },
+    });
+    return new Map(waters.map((water) => [water.id, water.name]));
   }
 }
 

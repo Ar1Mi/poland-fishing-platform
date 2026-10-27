@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { useEffect } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { jsonResponse, mockApi, renderRoute } from '../../../test/render';
+import type { PermitType } from '../../permits/api/usePermitTypes';
 import type { WaterDetail, WaterSummary } from '../api/useWaters';
 import { POLAND_BBOX } from '../lib/map';
 import { LIST_LIMIT } from './CatalogPage';
@@ -58,7 +59,10 @@ const queryOf = (fetch: ReturnType<typeof mockApi>) =>
 
 describe('catalogue page', () => {
   it('lists waters in the initial map view with their type and status', async () => {
-    const fetch = mockApi({ 'GET /api/v1/waters': watersList([connected, zegrze]) });
+    const fetch = mockApi({
+      'GET /api/v1/waters': watersList([connected, zegrze]),
+      'GET /api/v1/permit-types/lowest-prices': () => jsonResponse([]),
+    });
 
     renderRoute('/');
 
@@ -75,8 +79,35 @@ describe('catalogue page', () => {
     expect(queryOf(fetch)).toEqual([{ bbox: POLAND_BBOX }]);
   });
 
+  it('shows the «od» price of connected waters on sale', async () => {
+    const other = { ...connected, id: '4f9f6c1e-1c1e-4f43-9a51-0d6c2f0d9a15', name: 'Staw Dolny' };
+    const fetch = mockApi({
+      'GET /api/v1/waters': watersList([connected, other, zegrze]),
+      'GET /api/v1/permit-types/lowest-prices': () =>
+        jsonResponse([{ waterId: connected.id, priceGrosze: 2550 }]),
+    });
+
+    renderRoute('/');
+
+    const list = await screen.findByRole('list');
+    const [withPrice, withoutTypes, unclaimed] = within(list).getAllByRole('link');
+    expect(await within(withPrice!).findByText('od 25,50 zł')).toBeVisible();
+    expect(within(withoutTypes!).queryByText(/^od /)).toBeNull();
+    expect(within(unclaimed!).queryByText(/^od /)).toBeNull();
+    // Only the connected waters of the list are asked about.
+    const [priceQuery] = fetch.mock.calls
+      .map(([request]) => new URL(request.url))
+      .filter((url) => url.pathname === '/api/v1/permit-types/lowest-prices');
+    expect(priceQuery?.searchParams.get('waterIds')?.split(',').sort()).toEqual(
+      [connected.id, other.id].sort(),
+    );
+  });
+
   it('applies the selects at once and keeps them in the URL', async () => {
-    const fetch = mockApi({ 'GET /api/v1/waters': watersList([connected]) });
+    const fetch = mockApi({
+      'GET /api/v1/waters': watersList([connected]),
+      'GET /api/v1/permit-types/lowest-prices': () => jsonResponse([]),
+    });
     renderRoute('/');
     await screen.findByRole('list');
 
@@ -181,10 +212,18 @@ const detail = (data: Partial<WaterDetail>): WaterDetail => ({
 });
 
 describe('water page', () => {
-  const show = (water: WaterDetail) => {
-    mockApi({ [`GET /api/v1/waters/${water.id}`]: () => jsonResponse(water) });
+  const show = (water: WaterDetail, permitTypes: PermitType[] = []) => {
+    const fetch = mockApi({
+      [`GET /api/v1/waters/${water.id}`]: () => jsonResponse(water),
+      'GET /api/v1/permit-types': () => jsonResponse(permitTypes),
+    });
     renderRoute(`/waters/${water.id}`);
+    return fetch;
   };
+  const permitTypeRequests = (fetch: ReturnType<typeof mockApi>) =>
+    fetch.mock.calls
+      .map(([request]) => new URL(request.url))
+      .filter((url) => url.pathname === '/api/v1/permit-types');
 
   it('shows the użytkownik rybacki of an unclaimed water and a link to its site', async () => {
     show(
@@ -212,7 +251,7 @@ describe('water page', () => {
   });
 
   it('says that online sales are suspended while the organization is blocked', async () => {
-    show(
+    const fetch = show(
       detail({
         status: 'CONNECTED',
         organization: {
@@ -227,6 +266,7 @@ describe('water page', () => {
     expect(screen.getByText('Koło PZW nr 12')).toBeVisible();
     expect(screen.getByText(/jest obecnie wstrzymana/)).toBeVisible();
     expect(screen.queryByText('Zezwolenia online')).not.toBeInTheDocument();
+    expect(permitTypeRequests(fetch)).toEqual([]);
   });
 
   it('shows the organization of a connected water and no external link', async () => {
@@ -247,6 +287,52 @@ describe('water page', () => {
     expect(screen.getByText('Zezwolenia online')).toBeVisible();
     expect(screen.getByText(/sprzedaje zezwolenia w serwisie/)).toBeVisible();
     expect(screen.queryByRole('link', { name: /u zarządcy/ })).not.toBeInTheDocument();
+  });
+
+  it('lists the permit types on sale with their terms and prices', async () => {
+    const fetch = show(
+      detail({
+        status: 'CONNECTED',
+        organization: { id: '2d9f6c1e-1c1e-4f43-9a51-0d6c2f0d9a13', name: 'Koło', isActive: true },
+      }),
+      [
+        { id: 't1', name: 'Dzienne', durationDays: 1, priceGrosze: 2500, discountKind: 'NONE' },
+        {
+          id: 't2',
+          name: 'Tygodniowe',
+          durationDays: 7,
+          priceGrosze: 4000,
+          discountKind: 'JUNIOR',
+        },
+        { id: 't3', name: 'Bezpłatne', durationDays: 2, priceGrosze: 0, discountKind: 'SENIOR' },
+      ],
+    );
+
+    const list = await screen.findByRole('list', { name: 'Rodzaje zezwoleń' });
+    const [daily, weekly, free] = within(list).getAllByRole('listitem');
+    expect(within(daily!).getByText('Dzienne')).toBeVisible();
+    expect(within(daily!).getByText('1 dzień')).toBeVisible();
+    expect(within(daily!).getByText('25,00 zł')).toBeVisible();
+    expect(within(weekly!).getByText('7 dni · Ulgowe — młodzież')).toBeVisible();
+    expect(within(weekly!).getByText('40,00 zł')).toBeVisible();
+    expect(within(free!).getByText('2 dni · Ulgowe — senior')).toBeVisible();
+    expect(within(free!).getByText('0,00 zł')).toBeVisible();
+    expect(permitTypeRequests(fetch).map((url) => url.searchParams.get('waterId'))).toEqual([
+      zegrze.id,
+    ]);
+  });
+
+  it('says when a connected water has nothing on sale yet', async () => {
+    show(
+      detail({
+        status: 'CONNECTED',
+        organization: { id: '2d9f6c1e-1c1e-4f43-9a51-0d6c2f0d9a13', name: 'Koło', isActive: true },
+      }),
+    );
+
+    expect(
+      await screen.findByText('To łowisko nie ma jeszcze zezwoleń w sprzedaży.'),
+    ).toBeVisible();
   });
 
   it('does not turn a non-http link from the catalogue into a link', async () => {
@@ -300,6 +386,7 @@ describe('water page', () => {
         [`GET /api/v1/waters/${water.id}`]: () => jsonResponse(water),
         'GET /api/v1/me': () => jsonResponse(profile),
         'GET /api/v1/me/orgs': () => jsonResponse(orgs),
+        'GET /api/v1/permit-types': () => jsonResponse([]),
       });
       renderRoute(`/waters/${water.id}`, { accessToken: 'access-1' });
       return fetch;
