@@ -45,6 +45,7 @@ interface MyPermit {
   permitType: { id: string; name: string; durationDays: number; discountKind: string };
   organization: { id: string; name: string };
   createdAt: string;
+  qrToken: string | null;
 }
 
 interface Purchase {
@@ -182,6 +183,7 @@ describe('permit purchase', () => {
         permitType: { id: type.id, name: 'Tygodniowe', durationDays: 7, discountKind: 'NONE' },
         organization: { id: organizationId, name: 'Koło PZW 7' },
         createdAt: FIXED_NOW.toISOString(),
+        qrToken: null,
       });
       const url = new URL(paymentUrl);
       const payment = await paymentOf(permit.id);

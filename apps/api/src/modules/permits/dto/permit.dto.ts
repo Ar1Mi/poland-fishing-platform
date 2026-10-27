@@ -39,7 +39,7 @@ export class PermitOrganizationDto {
   name!: string;
 }
 
-/** A permit as its owner sees it. QR token, list and PDF come with T-15. */
+/** A permit as its owner sees it, with the QR token while it is valid or scheduled (T-15). */
 export class MyPermitDto {
   @ApiProperty({ format: 'uuid' })
   id!: string;
@@ -71,6 +71,15 @@ export class MyPermitDto {
 
   @ApiProperty({ format: 'date-time' })
   createdAt!: string;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'JWS for the QR code `${WEB_URL}/verify/<qrToken>` (ADR-0006), expires at the end of ' +
+      'validTo; only while the status is SCHEDULED or ACTIVE, otherwise null',
+  })
+  qrToken!: string | null;
 }
 
 export class PurchasePermitResultDto {

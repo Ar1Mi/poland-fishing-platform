@@ -1,4 +1,14 @@
+import { generateKeyPairSync } from 'node:crypto';
+import { generateQrKeyPair } from '../modules/permits/qr/qr-keys';
 import { validateEnv } from './env';
+
+const qrKeys = generateQrKeyPair();
+const otherQrKeys = generateQrKeyPair();
+const rsaPrivateKey = generateKeyPairSync('rsa', {
+  modulusLength: 2048,
+  privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+  publicKeyEncoding: { type: 'spki', format: 'pem' },
+}).privateKey;
 
 const valid = {
   NODE_ENV: 'production',
@@ -14,6 +24,8 @@ const valid = {
   P24_POS_ID: '22222',
   P24_API_KEY: 'report-key',
   P24_CRC: '0123456789abcdef',
+  QR_SIGNING_PRIVATE_KEY: qrKeys.privateKey,
+  QR_SIGNING_PUBLIC_KEY: qrKeys.publicKey,
 };
 
 describe('validateEnv', () => {
@@ -26,6 +38,8 @@ describe('validateEnv', () => {
       P24_BASE_URL: 'https://sandbox.przelewy24.pl',
       P24_MERCHANT_ID: 11111,
       P24_POS_ID: 22222,
+      QR_SIGNING_PRIVATE_KEY: qrKeys.privateKey.trim(),
+      QR_SIGNING_PUBLIC_KEY: qrKeys.publicKey.trim(),
     });
   });
 
@@ -64,6 +78,41 @@ describe('validateEnv', () => {
       expect(() => validateEnv({ ...valid, [variable]: undefined })).toThrow(variable);
     },
   );
+
+  it('accepts QR keys written on one line with \\n escapes', () => {
+    const oneLine = (pem: string) => pem.trim().replace(/\n/g, '\\n');
+    const env = validateEnv({
+      ...valid,
+      QR_SIGNING_PRIVATE_KEY: oneLine(qrKeys.privateKey),
+      QR_SIGNING_PUBLIC_KEY: oneLine(qrKeys.publicKey),
+    });
+
+    expect(env.QR_SIGNING_PRIVATE_KEY).toBe(qrKeys.privateKey.trim());
+    expect(env.QR_SIGNING_PUBLIC_KEY).toBe(qrKeys.publicKey.trim());
+  });
+
+  it.each([
+    ['a missing private key', { QR_SIGNING_PRIVATE_KEY: undefined }, 'QR_SIGNING_PRIVATE_KEY'],
+    ['a missing public key', { QR_SIGNING_PUBLIC_KEY: undefined }, 'QR_SIGNING_PUBLIC_KEY'],
+    [
+      'a private key that is not PEM',
+      { QR_SIGNING_PRIVATE_KEY: 'secret' },
+      'QR_SIGNING_PRIVATE_KEY',
+    ],
+    ['a public key that is not PEM', { QR_SIGNING_PUBLIC_KEY: 'public' }, 'QR_SIGNING_PUBLIC_KEY'],
+    [
+      'a private key that is not Ed25519',
+      { QR_SIGNING_PRIVATE_KEY: rsaPrivateKey },
+      'QR_SIGNING_PRIVATE_KEY',
+    ],
+    [
+      'a public key of another pair',
+      { QR_SIGNING_PUBLIC_KEY: otherQrKeys.publicKey },
+      'QR_SIGNING_PUBLIC_KEY',
+    ],
+  ])('rejects %s', (_case, change, variable) => {
+    expect(() => validateEnv({ ...valid, ...change })).toThrow(variable);
+  });
 
   it('takes UPLOADS_DIR from the environment when set', () => {
     expect(validateEnv({ ...valid, UPLOADS_DIR: '/data/uploads' }).UPLOADS_DIR).toBe(
