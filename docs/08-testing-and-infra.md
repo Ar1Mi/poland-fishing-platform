@@ -31,7 +31,7 @@
 | `DATABASE_URL` | `postgresql://lowisko:lowisko@localhost:5432/lowisko` |
 | `WEB_URL`, `API_URL` | `http://localhost:5173`, `http://localhost:3000` — только origin, без пути: `WEB_URL` сравнивается с заголовком `Origin` (CORS) |
 | `JWT_ACCESS_SECRET` | случайная строка ≥ 32 байт |
-| `QR_SIGNING_PRIVATE_KEY`, `QR_SIGNING_PUBLIC_KEY` | Ed25519 PEM (скрипт `pnpm --filter api keys:qr`) |
+| `QR_SIGNING_PRIVATE_KEY`, `QR_SIGNING_PUBLIC_KEY` | Обязательны. Ed25519 PEM; `pnpm --filter api keys:qr` печатает новую пару двумя строками для `.env` (PEM в одну строку с `\n`). API не стартует, если ключ не Ed25519 или публичный не от этого приватного. Смена пары делает недействительными все показанные QR. В тестах пара генерируется на каждый файл (`test/setup-env.ts`) — ключей в репозитории нет |
 | `PAYMENTS_PROVIDER` | `fake` (dev, тесты; по умолчанию) или `p24`. При `NODE_ENV=production` `fake` запрещён — API не стартует |
 | `P24_MERCHANT_ID`, `P24_POS_ID`, `P24_API_KEY`, `P24_CRC` | Обязательны при `p24`; панель P24 → «Moje dane» → «Dane API» (`P24_API_KEY` — «klucz do raportów») |
 | `P24_BASE_URL` | Origin без пути; по умолчанию sandbox `https://sandbox.przelewy24.pl` — и в рабочей среде дипломного проекта тоже, намеренно (ADR-0004: без реальных денег); боевой P24 — `https://secure.przelewy24.pl` |
