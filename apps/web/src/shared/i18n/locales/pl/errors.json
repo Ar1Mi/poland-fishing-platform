@@ -1,6 +1,7 @@
 {
   "VALIDATION_FAILED": "Sprawdź poprawność wprowadzonych danych.",
   "INVALID_TOKEN": "Ten link jest nieprawidłowy lub został już użyty.",
+  "PAYMENT_AMOUNT_MISMATCH": "Kwota płatności nie zgadza się z ceną zezwolenia.",
   "UNAUTHENTICATED": "Zaloguj się, aby kontynuować.",
   "INVALID_CREDENTIALS": "Nieprawidłowy e-mail lub hasło.",
   "EMAIL_NOT_VERIFIED": "Potwierdź adres e-mail — link wysłaliśmy w wiadomości.",

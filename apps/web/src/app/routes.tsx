@@ -11,7 +11,10 @@ import { AdminClaimsPage } from '../features/claims/pages/AdminClaimsPage';
 import { OrgClaimsPage } from '../features/claims/pages/OrgClaimsPage';
 import { PrivacyPolicyPage } from '../features/legal/pages/PrivacyPolicyPage';
 import { MyOrganizationsPage } from '../features/orgs/pages/MyOrganizationsPage';
+import { BuyPermitPage } from '../features/permits/pages/BuyPermitPage';
+import { FakePaymentPage } from '../features/permits/pages/FakePaymentPage';
 import { OrgPermitTypesPage } from '../features/permits/pages/OrgPermitTypesPage';
+import { PaymentReturnPage } from '../features/permits/pages/PaymentReturnPage';
 import { NotFoundPage } from '../shared/pages/NotFoundPage';
 import { RouteErrorPage } from '../shared/pages/RouteErrorPage';
 import { AppLayout } from './AppLayout';
@@ -45,6 +48,24 @@ export const routes: RouteObject[] = [
       { path: 'reset-password', element: <ResetPasswordPage /> },
       { path: 'privacy', element: <PrivacyPolicyPage /> },
       // Access is decided by the API; the client only sends guests to the login page.
+      {
+        path: 'buy/:permitTypeId',
+        element: (
+          <RequireAuth>
+            <BuyPermitPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'payment/return',
+        element: (
+          <RequireAuth>
+            <PaymentReturnPage />
+          </RequireAuth>
+        ),
+      },
+      // The gateway's page in development (PAYMENTS_PROVIDER=fake); P24 needs no login either.
+      { path: 'payment/fake/:sessionId', element: <FakePaymentPage /> },
       {
         path: 'org',
         element: (

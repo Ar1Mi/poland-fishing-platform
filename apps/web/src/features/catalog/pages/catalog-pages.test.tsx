@@ -322,6 +322,20 @@ describe('water page', () => {
     ]);
   });
 
+  it('links each type on sale to its purchase from this water', async () => {
+    show(
+      detail({
+        status: 'CONNECTED',
+        organization: { id: '2d9f6c1e-1c1e-4f43-9a51-0d6c2f0d9a13', name: 'Koło', isActive: true },
+      }),
+      [{ id: 't1', name: 'Dzienne', durationDays: 1, priceGrosze: 2500, discountKind: 'NONE' }],
+    );
+
+    const buy = await screen.findByRole('link', { name: 'Kup: Dzienne' });
+    expect(buy).toHaveAttribute('href', `/buy/t1?waterId=${zegrze.id}`);
+    expect(buy).toHaveTextContent('Kup');
+  });
+
   it('says when a connected water has nothing on sale yet', async () => {
     show(
       detail({

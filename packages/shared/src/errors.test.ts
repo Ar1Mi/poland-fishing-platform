@@ -19,7 +19,7 @@ describe('error codes', () => {
 
   it('maps every ErrorCode to the status documented in docs/05-api.md', () => {
     const documented: Record<number, ErrorCode[]> = {
-      400: ['VALIDATION_FAILED', 'INVALID_TOKEN'],
+      400: ['VALIDATION_FAILED', 'INVALID_TOKEN', 'PAYMENT_AMOUNT_MISMATCH'],
       401: ['UNAUTHENTICATED', 'INVALID_CREDENTIALS', 'EMAIL_NOT_VERIFIED', 'TOKEN_EXPIRED'],
       403: ['FORBIDDEN', 'ORG_SCOPE_VIOLATION', 'ORG_NOT_ACTIVE'],
       404: ['NOT_FOUND'],

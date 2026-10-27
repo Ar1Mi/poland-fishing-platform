@@ -53,6 +53,8 @@ export const envSchema = z.object({
   NOMINATIM_USER_AGENT: z.string().min(1).optional(),
   // Uploaded files (T-11, StorageService); relative to the working directory of the API.
   UPLOADS_DIR: z.string().min(1).default('./uploads'),
+  // Payments (T-13, ADR-0004). `p24` and refusing `fake` in production come with T-14.
+  PAYMENTS_PROVIDER: z.enum(['fake']).default('fake'),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -8,10 +8,11 @@ import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 import type { HttpLogger } from 'pino-http';
 import { ErrorResponseDto } from './common/errors/error-response.dto';
+import { GLOBAL_PREFIX } from './common/http/global-prefix';
 import { HTTP_LOGGER } from './common/logging/logging.module';
 import type { Env } from './config/env';
 
-export const GLOBAL_PREFIX = 'api/v1';
+export { GLOBAL_PREFIX };
 export const SWAGGER_PATH = 'api/docs';
 
 /** HTTP-level setup shared by `main.ts` and the integration tests. */

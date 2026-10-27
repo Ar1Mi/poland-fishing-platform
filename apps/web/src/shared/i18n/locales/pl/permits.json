@@ -68,6 +68,65 @@
   "offer": {
     "loading": "Ładowanie zezwoleń…",
     "empty": "To łowisko nie ma jeszcze zezwoleń w sprzedaży.",
-    "listLabel": "Rodzaje zezwoleń"
+    "listLabel": "Rodzaje zezwoleń",
+    "buy": "Kup",
+    "buyLabel": "Kup: {{name}}"
+  },
+  "status": {
+    "PENDING_PAYMENT": "Oczekuje na płatność",
+    "SCHEDULED": "Zaplanowane",
+    "ACTIVE": "Aktywne",
+    "EXPIRED": "Wygasłe",
+    "CANCELLED": "Anulowane",
+    "REVOKED": "Unieważnione"
+  },
+  "validity": "Ważne od {{from}} do {{to}} włącznie",
+  "buy": {
+    "title": "Kup zezwolenie",
+    "loading": "Ładowanie zezwolenia…",
+    "unavailable": "Ten rodzaj zezwolenia nie jest już sprzedawany na tym łowisku.",
+    "backToWater": "Wróć do łowiska",
+    "backToCatalog": "Wróć do mapy łowisk",
+    "water": "Łowisko",
+    "price": "Cena",
+    "validFrom": {
+      "label": "Data rozpoczęcia",
+      "hint": "Od dzisiaj do {{latest}}.",
+      "errorInvalid": "Podaj datę rozpoczęcia.",
+      "errorPast": "Data rozpoczęcia nie może być wcześniejsza niż dzisiaj.",
+      "errorTooLate": "Najpóźniejsza data rozpoczęcia to {{latest}}."
+    },
+    "discount": {
+      "JUNIOR": "Zezwolenie ulgowe dla osób, które w dniu rozpoczęcia nie mają ukończonych {{age}} lat.",
+      "SENIOR": "Zezwolenie ulgowe dla osób, które w dniu rozpoczęcia mają ukończone {{age}} lat."
+    },
+    "paymentNote": "Zezwolenie będzie ważne po potwierdzeniu płatności przez operatora.",
+    "submitPaid": "Przejdź do płatności",
+    "submitFree": "Odbierz bezpłatne zezwolenie"
+  },
+  "payment": {
+    "fake": {
+      "title": "Płatność testowa",
+      "notice": "To symulacja bramki płatności w środowisku deweloperskim — żadne pieniądze nie są pobierane.",
+      "amount": "Kwota",
+      "pay": "Zapłać",
+      "reject": "Odrzuć płatność"
+    },
+    "return": {
+      "title": "Płatność za zezwolenie",
+      "missing": "Nie wiemy, którego zezwolenia dotyczy płatność.",
+      "loading": "Sprawdzamy płatność…",
+      "waiting": "Czekamy na potwierdzenie płatności…",
+      "timeout": "Płatność nie została jeszcze potwierdzona. Jeśli płatność została wykonana, zezwolenie zacznie obowiązywać, gdy operator ją potwierdzi.",
+      "checkAgain": "Sprawdź ponownie",
+      "paidTitle": "Zezwolenie opłacone",
+      "freeTitle": "Zezwolenie wydane",
+      "cancelledTitle": "Płatność nie została zrealizowana",
+      "cancelled": "Zezwolenie anulowano. Możesz kupić je ponownie na stronie łowiska.",
+      "revokedTitle": "Zezwolenie unieważnione",
+      "number": "Numer zezwolenia",
+      "organization": "Wydaje",
+      "backToCatalog": "Wróć do mapy łowisk"
+    }
   }
 }
