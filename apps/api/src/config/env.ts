@@ -53,15 +53,41 @@ export const envSchema = z.object({
   NOMINATIM_USER_AGENT: z.string().min(1).optional(),
   // Uploaded files (T-11, StorageService); relative to the working directory of the API.
   UPLOADS_DIR: z.string().min(1).default('./uploads'),
-  // Payments (T-13, ADR-0004). `p24` and refusing `fake` in production come with T-14.
-  PAYMENTS_PROVIDER: z.enum(['fake']).default('fake'),
+  // Payments (ADR-0004): `fake` in development and tests, Przelewy24 (T-14) otherwise.
+  PAYMENTS_PROVIDER: z.enum(['fake', 'p24']).default('fake'),
+  // Required with `p24` (checked below); from the P24 panel → «Moje dane» → «Dane API».
+  P24_BASE_URL: httpOrigin.default('https://sandbox.przelewy24.pl'),
+  P24_MERCHANT_ID: z.coerce.number().int().positive().optional(),
+  P24_POS_ID: z.coerce.number().int().positive().optional(),
+  P24_API_KEY: z.string().min(1).optional(),
+  P24_CRC: z.string().min(1).optional(),
+});
+
+const P24_REQUIRED = ['P24_MERCHANT_ID', 'P24_POS_ID', 'P24_API_KEY', 'P24_CRC'] as const;
+
+const envWithPayments = envSchema.superRefine((env, ctx) => {
+  // The fake page pays anything with one click (docs/07-security.md).
+  if (env.NODE_ENV === 'production' && env.PAYMENTS_PROVIDER === 'fake') {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['PAYMENTS_PROVIDER'],
+      message: 'must not be fake in production',
+    });
+  }
+  if (env.PAYMENTS_PROVIDER === 'p24') {
+    for (const variable of P24_REQUIRED) {
+      if (env[variable] === undefined) {
+        ctx.addIssue({ code: 'custom', path: [variable], message: 'required with p24' });
+      }
+    }
+  }
 });
 
 export type Env = z.infer<typeof envSchema>;
 
 /** `validate` hook of ConfigModule: the application does not start with an invalid environment. */
 export function validateEnv(raw: Record<string, unknown>): Env {
-  const result = envSchema.safeParse(raw);
+  const result = envWithPayments.safeParse(raw);
   if (!result.success) {
     throw new Error(`Invalid environment variables:\n${z.prettifyError(result.error)}`);
   }

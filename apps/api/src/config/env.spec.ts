@@ -9,6 +9,11 @@ const valid = {
   JWT_ACCESS_SECRET: 'a'.repeat(32),
   SMTP_URL: 'smtp://mail:1025',
   MAIL_FROM: 'Łowisko <no-reply@lowisko.example>',
+  PAYMENTS_PROVIDER: 'p24',
+  P24_MERCHANT_ID: '11111',
+  P24_POS_ID: '22222',
+  P24_API_KEY: 'report-key',
+  P24_CRC: '0123456789abcdef',
 };
 
 describe('validateEnv', () => {
@@ -18,9 +23,47 @@ describe('validateEnv', () => {
       API_PORT: 8080,
       NOMINATIM_URL: 'https://nominatim.openstreetmap.org',
       UPLOADS_DIR: './uploads',
-      PAYMENTS_PROVIDER: 'fake',
+      P24_BASE_URL: 'https://sandbox.przelewy24.pl',
+      P24_MERCHANT_ID: 11111,
+      P24_POS_ID: 22222,
     });
   });
+
+  it('uses the fake payment provider by default outside production', () => {
+    const env = validateEnv({ ...valid, NODE_ENV: 'development', PAYMENTS_PROVIDER: undefined });
+
+    expect(env.PAYMENTS_PROVIDER).toBe('fake');
+  });
+
+  it.each([
+    ['set explicitly', 'fake'],
+    ['left to the default', undefined],
+  ])('refuses the fake payment provider in production when %s', (_case, provider) => {
+    expect(() => validateEnv({ ...valid, PAYMENTS_PROVIDER: provider })).toThrow(
+      'must not be fake in production',
+    );
+  });
+
+  it('starts with the fake payment provider without P24 credentials in development', () => {
+    const env = validateEnv({
+      ...valid,
+      NODE_ENV: 'development',
+      PAYMENTS_PROVIDER: 'fake',
+      P24_MERCHANT_ID: undefined,
+      P24_POS_ID: undefined,
+      P24_API_KEY: undefined,
+      P24_CRC: undefined,
+    });
+
+    expect(env.PAYMENTS_PROVIDER).toBe('fake');
+  });
+
+  it.each(['P24_MERCHANT_ID', 'P24_POS_ID', 'P24_API_KEY', 'P24_CRC'])(
+    'requires %s with the p24 provider',
+    (variable) => {
+      expect(() => validateEnv({ ...valid, [variable]: undefined })).toThrow(variable);
+    },
+  );
 
   it('takes UPLOADS_DIR from the environment when set', () => {
     expect(validateEnv({ ...valid, UPLOADS_DIR: '/data/uploads' }).UPLOADS_DIR).toBe(
@@ -74,6 +117,12 @@ describe('validateEnv', () => {
     ['non-http NOMINATIM_URL', { ...valid, NOMINATIM_URL: 'nominatim' }, 'NOMINATIM_URL'],
     ['unknown NODE_ENV', { ...valid, NODE_ENV: 'staging' }, 'NODE_ENV'],
     ['empty UPLOADS_DIR', { ...valid, UPLOADS_DIR: '' }, 'UPLOADS_DIR'],
+    ['non-numeric P24_MERCHANT_ID', { ...valid, P24_MERCHANT_ID: 'abc' }, 'P24_MERCHANT_ID'],
+    [
+      'P24_BASE_URL with a path',
+      { ...valid, P24_BASE_URL: 'https://sandbox.przelewy24.pl/api/v1' },
+      'P24_BASE_URL',
+    ],
   ])('rejects %s and names the variable', (_name, raw, variable) => {
     expect(() => validateEnv(raw)).toThrow(variable);
   });

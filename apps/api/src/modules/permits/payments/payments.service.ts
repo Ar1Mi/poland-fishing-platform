@@ -113,7 +113,14 @@ export class PaymentsService {
    * cancel a payment whose money is being taken (the sweep skips locked rows).
    */
   async processNotification(body: unknown): Promise<PaymentStatus> {
-    const notification = await this.provider.handleNotification(body);
+    let notification: PaymentNotification;
+    try {
+      notification = await this.provider.handleNotification(body);
+    } catch (err) {
+      // The reason only: the body is not logged (.claude/rules/backend.md).
+      this.logger.warn({ reason: (err as Error).message }, 'Payment notification rejected');
+      throw err;
+    }
     return this.prisma.$transaction(
       async (tx) => {
         const payment = await this.lock(tx, notification.sessionId);
@@ -164,6 +171,21 @@ export class PaymentsService {
       },
       { timeout: CONFIRM_TRANSACTION_TIMEOUT_MS },
     );
+  }
+
+  /**
+   * A notification on the route of `kind` (P24 `urlStatus`). Outside that provider's mode the
+   * route does not exist: the fake adapter checks no signature, so its notifications must
+   * only come through the fake page.
+   */
+  async processProviderNotification(
+    kind: PaymentProviderKind,
+    body: unknown,
+  ): Promise<PaymentStatus> {
+    if (this.provider.kind !== kind) {
+      throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'Payment provider not configured');
+    }
+    return this.processNotification(body);
   }
 
   /**
