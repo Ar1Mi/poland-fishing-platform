@@ -2,13 +2,14 @@ import { CircleCheck, CircleX, Clock, LoaderCircle, RefreshCw } from 'lucide-rea
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router';
-import { formatDate, formatPrice } from '../../../shared/lib/format';
+import { formatPrice } from '../../../shared/lib/format';
 import { Alert, AlertDescription, AlertTitle } from '../../../shared/ui/alert';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Badge } from '../../../shared/ui/badge';
 import { Button } from '../../../shared/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/ui/card';
+import { Card, CardContent } from '../../../shared/ui/card';
 import { type MyPermit, PAYMENT_POLL_WINDOW_MS, useMyPermitPolling } from '../api/usePurchase';
+import { PermitTicket } from '../components/PermitTicket';
 import { PermitTypeTerms } from '../components/PermitTypeTerms';
 
 /**
@@ -108,7 +109,7 @@ function PaymentOutcome({ permitId }: { permitId: string }) {
   }
 }
 
-/** SCHEDULED, ACTIVE or EXPIRED: the payment went through. QR and the list come with T-15. */
+/** SCHEDULED, ACTIVE or EXPIRED: the payment went through. */
 function PaidPermit({ permit }: { permit: MyPermit }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? 'pl';
@@ -122,37 +123,29 @@ function PaidPermit({ permit }: { permit: MyPermit }) {
             : t('permits.payment.return.paidTitle')}
         </AlertTitle>
       </Alert>
+      <PermitTicket permit={permit} />
       <Card>
-        <CardHeader>
-          <CardTitle>{permit.permitType.name}</CardTitle>
-          <p className="text-small text-muted-foreground">
-            <PermitTypeTerms type={permit.permitType} />
-          </p>
-          <Badge variant={permit.status === 'EXPIRED' ? 'neutral' : 'success'}>
-            <CircleCheck aria-hidden />
-            {t(`permits.status.${permit.status}`)}
-          </Badge>
-        </CardHeader>
         <CardContent>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-            <dt className="caption text-muted-foreground">{t('permits.payment.return.number')}</dt>
-            <dd className="font-mono text-body font-semibold">{permit.number}</dd>
             <dt className="caption text-muted-foreground">
               {t('permits.payment.return.organization')}
             </dt>
             <dd className="text-body">{permit.organization.name}</dd>
+            <dt className="caption text-muted-foreground">{t('permits.detail.terms')}</dt>
+            <dd className="text-body">
+              <PermitTypeTerms type={permit.permitType} />
+            </dd>
             <dt className="caption text-muted-foreground">{t('permits.buy.price')}</dt>
             <dd className="font-mono text-body">{formatPrice(permit.pricePaidGrosze, locale)}</dd>
           </dl>
-          <p className="text-body">
-            {t('permits.validity', {
-              from: formatDate(permit.validFrom, locale),
-              to: formatDate(permit.validTo, locale),
-            })}
-          </p>
         </CardContent>
       </Card>
-      <CatalogLink />
+      <Link
+        to={`/me/permits/${permit.id}`}
+        className="flex min-h-11 w-fit items-center font-semibold text-primary"
+      >
+        {t('permits.payment.return.showPermit')}
+      </Link>
     </>
   );
 }

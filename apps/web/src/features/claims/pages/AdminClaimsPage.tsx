@@ -26,7 +26,7 @@ import {
   useReviewClaim,
 } from '../api/useClaims';
 import { ClaimStatusBadge } from '../components/ClaimStatusBadge';
-import { saveFile } from '../lib/save-file';
+import { saveFile } from '../../../shared/lib/save-file';
 
 const STATUSES = Object.values(ClaimStatus);
 const ALL = 'ALL';

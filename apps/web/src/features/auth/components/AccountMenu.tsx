@@ -1,4 +1,4 @@
-import { Building2, LogOut, ShieldCheck } from 'lucide-react';
+import { Building2, LogOut, ShieldCheck, Ticket } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { Button } from '../../../shared/ui/button';
@@ -8,8 +8,8 @@ const iconLink =
   'flex size-11 items-center justify-center rounded-md hover:bg-primary focus-visible:outline-primary-foreground [&_svg]:size-5';
 
 /**
- * Header part: login link for guests; for a logged-in user the name, the organization and
- * admin sections and logout.
+ * Header part: login link for guests; for a logged-in user the name, their permits, the
+ * organization and admin sections and logout.
  */
 export function AccountMenu() {
   const { t } = useTranslation();
@@ -37,6 +37,14 @@ export function AccountMenu() {
           {t('auth.account.greeting', { name: me.data.firstName })}
         </span>
       )}
+      <Link
+        to="/me/permits"
+        className={iconLink}
+        aria-label={t('auth.account.permits')}
+        title={t('auth.account.permits')}
+      >
+        <Ticket aria-hidden />
+      </Link>
       <Link
         to="/org"
         className={iconLink}

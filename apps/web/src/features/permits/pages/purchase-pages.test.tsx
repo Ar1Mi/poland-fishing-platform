@@ -57,6 +57,7 @@ const permit: MyPermit = {
   permitType: { id: weekly.id, name: 'Tygodniowe', durationDays: 7, discountKind: 'NONE' },
   organization: { id: '2d9f6c1e-1c1e-4f43-9a51-0d6c2f0d9a13', name: 'Koło PZW 7' },
   createdAt: '2026-10-06T10:00:00.000Z',
+  qrToken: 'header.payload.signature',
 };
 
 const apiError = (code: string, status: number) => jsonResponse({ code, message: code }, status);
@@ -304,6 +305,16 @@ describe('payment return page', () => {
     expect(screen.getByText('Zaplanowane')).toBeVisible();
     expect(screen.getByText('Koło PZW 7')).toBeVisible();
     expect(screen.getByText('Ważne od 10 paź 2026 do 16 paź 2026 włącznie')).toBeVisible();
+  });
+
+  it('shows the QR code of the paid permit and links to it', async () => {
+    show(['SCHEDULED']);
+
+    expect(await screen.findByTitle('Kod QR zezwolenia ZW-2026-000123')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Pokaż zezwolenie i kod QR' })).toHaveAttribute(
+      'href',
+      `/me/permits/${PERMIT_ID}`,
+    );
   });
 
   it('waits for the confirmation, asking every 2 seconds', async () => {

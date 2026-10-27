@@ -24,5 +24,6 @@
   "RATE_LIMITED": "Zbyt wiele prób. Spróbuj ponownie za chwilę.",
   "INTERNAL_ERROR": "Wystąpił błąd serwera. Spróbuj ponownie później.",
   "NETWORK_ERROR": "Brak połączenia z serwerem. Sprawdź internet i spróbuj ponownie.",
-  "UNKNOWN_ERROR": "Coś poszło nie tak. Spróbuj ponownie."
+  "UNKNOWN_ERROR": "Coś poszło nie tak. Spróbuj ponownie.",
+  "PERMIT_NOT_VALID": "To zezwolenie nie jest ważne ani zaplanowane, dlatego nie ma kodu QR ani PDF."
 }

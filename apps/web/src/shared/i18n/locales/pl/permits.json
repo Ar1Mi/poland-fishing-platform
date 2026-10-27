@@ -124,9 +124,32 @@
       "cancelledTitle": "Płatność nie została zrealizowana",
       "cancelled": "Zezwolenie anulowano. Możesz kupić je ponownie na stronie łowiska.",
       "revokedTitle": "Zezwolenie unieważnione",
-      "number": "Numer zezwolenia",
       "organization": "Wydaje",
-      "backToCatalog": "Wróć do mapy łowisk"
+      "backToCatalog": "Wróć do mapy łowisk",
+      "showPermit": "Pokaż zezwolenie i kod QR"
     }
+  },
+  "mine": {
+    "title": "Moje zezwolenia",
+    "loading": "Ładowanie zezwoleń…",
+    "empty": "Nie masz jeszcze żadnego zezwolenia.",
+    "toCatalog": "Znajdź łowisko na mapie",
+    "current": "Aktualne",
+    "past": "Archiwalne"
+  },
+  "detail": {
+    "title": "Zezwolenie",
+    "loading": "Ładowanie zezwolenia…",
+    "organization": "Wydaje",
+    "terms": "Rodzaj",
+    "downloadPdf": "Pobierz PDF",
+    "backToList": "Wszystkie zezwolenia"
+  },
+  "qr": {
+    "alt": "Kod QR zezwolenia {{number}}",
+    "showFullscreen": "Pokaż kod na pełnym ekranie",
+    "fullscreenTitle": "Pokaż kod kontrolerowi",
+    "brightness": "Zwiększ jasność ekranu, aby kod łatwiej się skanował.",
+    "close": "Zamknij"
   }
 }
