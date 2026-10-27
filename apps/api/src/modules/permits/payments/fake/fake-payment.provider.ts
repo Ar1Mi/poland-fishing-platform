@@ -1,5 +1,5 @@
 import { ErrorCode, PaymentProviderKind } from '@lowisko/shared';
-import { DomainError } from '../../../common/errors/domain-error';
+import { DomainError } from '../../../../common/errors/domain-error';
 import type { NewTransaction, PaymentNotification, PaymentProvider } from '../payment-provider';
 
 /**

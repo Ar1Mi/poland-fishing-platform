@@ -1,6 +1,6 @@
 import type { ConfigService } from '@nestjs/config';
 import type { PinoLogger } from 'nestjs-pino';
-import type { Env } from '../../config/env';
+import type { Env } from '../../../config/env';
 import { PAYMENT_EXPIRY_INTERVAL_MS, PaymentExpiryJob } from './payment-expiry.job';
 import type { PaymentsService } from './payments.service';
 

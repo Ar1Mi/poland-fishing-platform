@@ -3,17 +3,20 @@ import {
   PAYMENT_TIMEOUT_MINUTES,
   PaymentProviderKind,
   PaymentStatus,
+  PermitStatus,
+  warsawDate,
 } from '@lowisko/shared';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { PinoLogger } from 'nestjs-pino';
-import { ClockService } from '../../common/clock/clock.service';
-import { DomainError } from '../../common/errors/domain-error';
-import { GLOBAL_PREFIX } from '../../common/http/global-prefix';
-import type { Env } from '../../config/env';
-import { PrismaService } from '../../database/prisma.service';
-import type { Payment, Prisma } from '../../generated/prisma/client';
+import { ClockService } from '../../../common/clock/clock.service';
+import { DomainError } from '../../../common/errors/domain-error';
+import { GLOBAL_PREFIX } from '../../../common/http/global-prefix';
+import type { Env } from '../../../config/env';
+import { PrismaService } from '../../../database/prisma.service';
+import type { Payment, Prisma } from '../../../generated/prisma/client';
+import { fromDbDate } from '../permit-dates';
 import {
   PAYMENT_PROVIDER,
   type NewTransaction,
@@ -22,19 +25,6 @@ import {
 } from './payment-provider';
 
 type Db = Prisma.TransactionClient;
-
-/**
- * What a payment pays for (ADR-0012). PaymentsModule depends on no other module, so the
- * permit side registers itself (PermitsModule); every call runs in the transaction that
- * changes the payment, which holds the payment row lock.
- */
-export interface PaymentOutcomeHandler {
-  /** Whether it is still worth paying for: false fails the payment, unconfirmed. */
-  isStillPayable(tx: Db, permitId: string): Promise<boolean>;
-  onPaymentSucceeded(tx: Db, permitId: string): Promise<void>;
-  /** Refused, abandoned, expired before it was paid, or never registered with the provider. */
-  onPaymentsFailed(tx: Db, permitIds: string[]): Promise<void>;
-}
 
 /** Payments abandoned at once per sweep; the next run (a minute later) takes the rest. */
 const EXPIRE_BATCH = 500;
@@ -46,15 +36,14 @@ const EXPIRE_BATCH = 500;
 const CONFIRM_TRANSACTION_TIMEOUT_MS = 20_000;
 
 /**
- * Owner of `Payment`. A payment becomes SUCCEEDED only through a notification the provider
- * vouches for (docs/07-security.md); the browser coming back proves nothing. Every change
- * takes the payment row with FOR UPDATE first, then the permit: one lock order for the
+ * Payments of permits (ADR-0004, ADR-0012): owner of `Payment`, and what turns a waiting
+ * permit PAID or CANCELLED. A payment becomes SUCCEEDED only through a notification the
+ * provider vouches for (docs/07-security.md); the browser coming back proves nothing. Every
+ * change takes the payment row with FOR UPDATE first, then the permit: one lock order for the
  * notification, the refusal and the timeout, so they never deadlock and never both win.
  */
 @Injectable()
 export class PaymentsService {
-  private handler?: PaymentOutcomeHandler;
-
   constructor(
     private readonly prisma: PrismaService,
     @Inject(PAYMENT_PROVIDER) private readonly provider: PaymentProvider,
@@ -64,14 +53,6 @@ export class PaymentsService {
   ) {
     // @InjectPinoLogger would need this file loaded before LoggingModule is declared.
     logger.setContext(PaymentsService.name);
-  }
-
-  /** Called once by the module that sells what payments pay for (Observer). */
-  setOutcomeHandler(handler: PaymentOutcomeHandler): void {
-    if (this.handler) {
-      throw new Error('A payment outcome handler is already registered');
-    }
-    this.handler = handler;
   }
 
   /** A PENDING payment of the permit, in the transaction that creates the permit. */
@@ -158,8 +139,7 @@ export class PaymentsService {
             'The notified amount differs from the payment',
           );
         }
-        const handler = this.outcomeHandler();
-        const payable = await handler.isStillPayable(tx, payment.permitId);
+        const payable = await this.isStillPayable(tx, payment.permitId);
         const status = payable ? PaymentStatus.SUCCEEDED : PaymentStatus.FAILED;
         await tx.payment.update({
           where: { id: payment.id },
@@ -170,14 +150,14 @@ export class PaymentsService {
           },
         });
         if (!payable) {
-          await handler.onPaymentsFailed(tx, [payment.permitId]);
+          await this.cancelPermits(tx, [payment.permitId]);
           this.logger.warn(
             { paymentId: payment.id },
             'Payment notified after its permit expired: not confirmed',
           );
           return status;
         }
-        await handler.onPaymentSucceeded(tx, payment.permitId);
+        await this.payPermit(tx, payment.permitId);
         await this.provider.confirm(notification);
         this.logger.info({ paymentId: payment.id }, 'Payment succeeded');
         return status;
@@ -232,7 +212,7 @@ export class PaymentsService {
         where: { id: { in: abandoned.map((payment) => payment.id) } },
         data: { status: PaymentStatus.FAILED },
       });
-      await this.outcomeHandler().onPaymentsFailed(
+      await this.cancelPermits(
         tx,
         abandoned.map((payment) => payment.permitId),
       );
@@ -251,7 +231,7 @@ export class PaymentsService {
         where: { id: payment.id },
         data: { status: PaymentStatus.FAILED },
       });
-      await this.outcomeHandler().onPaymentsFailed(tx, [payment.permitId]);
+      await this.cancelPermits(tx, [payment.permitId]);
       this.logger.info({ paymentId: payment.id }, 'Payment failed');
       return PaymentStatus.FAILED;
     });
@@ -271,11 +251,36 @@ export class PaymentsService {
     return tx.payment.findUniqueOrThrow({ where: { id } });
   }
 
-  private outcomeHandler(): PaymentOutcomeHandler {
-    if (!this.handler) {
-      throw new Error('No payment outcome handler registered (PermitsModule not loaded?)');
+  /**
+   * A permit whose last day has passed (Warsaw) is not worth paying for any more: bought on
+   * the last evening, its payment came after midnight.
+   */
+  private async isStillPayable(tx: Db, permitId: string): Promise<boolean> {
+    const { validTo } = await tx.permit.findUniqueOrThrow({
+      where: { id: permitId },
+      select: { validTo: true },
+    });
+    return fromDbDate(validTo) >= warsawDate(this.clock.now());
+  }
+
+  /** The permit is paid only while it waits: the payment row lock orders this call. */
+  private async payPermit(tx: Db, permitId: string): Promise<void> {
+    const { count } = await tx.permit.updateMany({
+      where: { id: permitId, status: PermitStatus.PENDING_PAYMENT },
+      data: { status: PermitStatus.PAID },
+    });
+    if (count !== 1) {
+      // A PENDING payment always belongs to a PENDING_PAYMENT permit; rolls the payment back.
+      throw new Error(`Permit ${permitId} of a pending payment is not waiting for it`);
     }
-    return this.handler;
+  }
+
+  /** Refused, abandoned, expired before it was paid, or never registered with the provider. */
+  private async cancelPermits(tx: Db, permitIds: string[]): Promise<void> {
+    await tx.permit.updateMany({
+      where: { id: { in: permitIds }, status: PermitStatus.PENDING_PAYMENT },
+      data: { status: PermitStatus.CANCELLED },
+    });
   }
 
   /** P24 `urlStatus`; the fake page completes through its own route and never calls it. */

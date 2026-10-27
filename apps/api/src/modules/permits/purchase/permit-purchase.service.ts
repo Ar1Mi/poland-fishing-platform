@@ -6,7 +6,7 @@ import {
   permitValidTo,
   warsawDate,
 } from '@lowisko/shared';
-import { Injectable, type OnModuleInit } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ClockService } from '../../../common/clock/clock.service';
 import { DomainError } from '../../../common/errors/domain-error';
@@ -15,18 +15,18 @@ import { PermitNumberService } from '../../../database/permit-number.service';
 import { PrismaService } from '../../../database/prisma.service';
 import type { PermitType, Prisma } from '../../../generated/prisma/client';
 import { OrganizationsService } from '../../organizations/organizations.service';
-import { type PaymentOutcomeHandler, PaymentsService } from '../../payments/payments.service';
 import { UsersService } from '../../users/users.service';
 import type { PurchasePermitDto, PurchasePermitResultDto } from '../dto/permit.dto';
 import { MyPermitsService } from '../my-permits/my-permits.service';
+import { PaymentsService } from '../payments/payments.service';
 import { fromDbDate, toDbDate } from '../permit-dates';
 
 /**
  * Buying a permit (FR-08, scenario A): a PENDING_PAYMENT permit with its payment, sent to the
- * provider; the permit becomes PAID only when PaymentsModule reports a confirmed notification.
+ * provider; the permit becomes PAID only when PaymentsService handles a confirmed notification.
  */
 @Injectable()
-export class PermitPurchaseService implements OnModuleInit, PaymentOutcomeHandler {
+export class PermitPurchaseService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly payments: PaymentsService,
@@ -37,10 +37,6 @@ export class PermitPurchaseService implements OnModuleInit, PaymentOutcomeHandle
     private readonly clock: ClockService,
     private readonly config: ConfigService<Env, true>,
   ) {}
-
-  onModuleInit(): void {
-    this.payments.setOutcomeHandler(this);
-  }
 
   /**
    * The permit and its payment are written in one short transaction (the permit number may
@@ -107,37 +103,6 @@ export class PermitPurchaseService implements OnModuleInit, PaymentOutcomeHandle
         })
       : returnUrl.toString();
     return { permit: await this.myPermits.get(userId, permitId), paymentUrl };
-  }
-
-  /**
-   * A permit whose last day has passed (Warsaw) is not worth paying for any more: bought on
-   * the last evening, its payment came after midnight.
-   */
-  async isStillPayable(tx: Prisma.TransactionClient, permitId: string): Promise<boolean> {
-    const { validTo } = await tx.permit.findUniqueOrThrow({
-      where: { id: permitId },
-      select: { validTo: true },
-    });
-    return fromDbDate(validTo) >= warsawDate(this.clock.now());
-  }
-
-  /** The permit is paid only while it waits: the payment row lock orders this call. */
-  async onPaymentSucceeded(tx: Prisma.TransactionClient, permitId: string): Promise<void> {
-    const { count } = await tx.permit.updateMany({
-      where: { id: permitId, status: PermitStatus.PENDING_PAYMENT },
-      data: { status: PermitStatus.PAID },
-    });
-    if (count !== 1) {
-      // A PENDING payment always belongs to a PENDING_PAYMENT permit; rolls the payment back.
-      throw new Error(`Permit ${permitId} of a pending payment is not waiting for it`);
-    }
-  }
-
-  async onPaymentsFailed(tx: Prisma.TransactionClient, permitIds: string[]): Promise<void> {
-    await tx.permit.updateMany({
-      where: { id: { in: permitIds }, status: PermitStatus.PENDING_PAYMENT },
-      data: { status: PermitStatus.CANCELLED },
-    });
   }
 
   /** BR-09 and the upper bound (docs/02-business-rules.md), by the Warsaw calendar day. */

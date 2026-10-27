@@ -6,8 +6,8 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
-import { ErrorResponseDto } from '../../../common/errors/error-response.dto';
-import { Public } from '../../auth/decorators/auth.decorators';
+import { ErrorResponseDto } from '../../../../common/errors/error-response.dto';
+import { Public } from '../../../auth/decorators/auth.decorators';
 import { CompleteFakePaymentDto, PaymentStatusDto } from '../dto/payment.dto';
 import { PaymentsService } from '../payments.service';
 

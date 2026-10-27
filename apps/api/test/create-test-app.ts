@@ -6,7 +6,10 @@ import { setupApp } from '../src/app.setup';
 import { ClockService } from '../src/common/clock/clock.service';
 import { PrismaService } from '../src/database/prisma.service';
 import { MAIL_TRANSPORT } from '../src/modules/notifications/mail-transport';
-import { PAYMENT_PROVIDER, type PaymentProvider } from '../src/modules/payments/payment-provider';
+import {
+  PAYMENT_PROVIDER,
+  type PaymentProvider,
+} from '../src/modules/permits/payments/payment-provider';
 import { GEOCODER } from '../src/modules/waters/import/geocoder';
 import { FakeGeocoder } from './geocoding/fake-geocoder';
 import { FakeMailTransport } from './mail/fake-mail-transport';

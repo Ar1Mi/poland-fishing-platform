@@ -1,7 +1,7 @@
 import { Injectable, type OnApplicationBootstrap, type OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PinoLogger } from 'nestjs-pino';
-import type { Env } from '../../config/env';
+import type { Env } from '../../../config/env';
 import { PaymentsService } from './payments.service';
 
 /** How often abandoned payments are looked for; a permit is cancelled at most this late. */

@@ -1,9 +1,9 @@
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import type { PrismaService } from '../src/database/prisma.service';
-import { FakePaymentProvider } from '../src/modules/payments/fake/fake-payment.provider';
-import type { NewTransaction } from '../src/modules/payments/payment-provider';
-import { PaymentsService } from '../src/modules/payments/payments.service';
+import { FakePaymentProvider } from '../src/modules/permits/payments/fake/fake-payment.provider';
+import type { NewTransaction } from '../src/modules/permits/payments/payment-provider';
+import { PaymentsService } from '../src/modules/permits/payments/payments.service';
 import { createVerifiedUser, login } from './auth-helpers';
 import { createTestApp, FIXED_NOW } from './create-test-app';
 import { prismaServiceFor } from './db/prisma-service';

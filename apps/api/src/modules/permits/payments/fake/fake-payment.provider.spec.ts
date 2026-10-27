@@ -1,4 +1,4 @@
-import { DomainError } from '../../../common/errors/domain-error';
+import { DomainError } from '../../../../common/errors/domain-error';
 import { FakePaymentProvider } from './fake-payment.provider';
 
 describe('FakePaymentProvider', () => {
