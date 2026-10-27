@@ -15,6 +15,8 @@ const profile = {
   isSuperAdmin: false,
 };
 const health = () => jsonResponse({ status: 'ok', time: '2026-10-06T15:20:00.000Z' });
+/** The home page is the catalogue: it asks for the waters of the map view. */
+const emptyCatalogue = () => jsonResponse({ items: [], truncated: false });
 const apiError = (code: string, status: number) => jsonResponse({ code, message: code }, status);
 
 const field = (name: string | RegExp) => screen.getByLabelText(name);
@@ -25,6 +27,7 @@ describe('login', () => {
       'POST /api/v1/auth/login': () => jsonResponse({ accessToken: 'access-1' }),
       'GET /api/v1/me': () => jsonResponse(profile),
       'GET /api/v1/health': health,
+      'GET /api/v1/waters': emptyCatalogue,
     });
     renderRoute('/login');
 
@@ -69,7 +72,11 @@ describe('login', () => {
   });
 
   it('sends a logged-in user away from the login page', async () => {
-    mockApi({ 'GET /api/v1/me': () => jsonResponse(profile), 'GET /api/v1/health': health });
+    mockApi({
+      'GET /api/v1/me': () => jsonResponse(profile),
+      'GET /api/v1/health': health,
+      'GET /api/v1/waters': emptyCatalogue,
+    });
     renderRoute('/login', { accessToken: 'access-1' });
 
     expect(
@@ -222,6 +229,7 @@ describe('account in the header', () => {
     const fetch = mockApi({
       'GET /api/v1/me': () => jsonResponse(profile),
       'GET /api/v1/health': health,
+      'GET /api/v1/waters': emptyCatalogue,
       'POST /api/v1/auth/logout': noContent,
     });
     renderRoute('/', { accessToken: 'access-1' });
@@ -238,6 +246,7 @@ describe('account in the header', () => {
     mockApi({
       'GET /api/v1/me': () => jsonResponse({ ...profile, locale: 'en' }),
       'GET /api/v1/health': health,
+      'GET /api/v1/waters': emptyCatalogue,
     });
     renderRoute('/', { accessToken: 'access-1' });
 
@@ -250,6 +259,7 @@ describe('account in the header', () => {
     const fetch = mockApi({
       'GET /api/v1/me': () => jsonResponse(profile),
       'GET /api/v1/health': health,
+      'GET /api/v1/waters': emptyCatalogue,
       'PATCH /api/v1/me': () => jsonResponse({ ...profile, locale: 'en' }),
     });
     renderRoute('/', { accessToken: 'access-1' });

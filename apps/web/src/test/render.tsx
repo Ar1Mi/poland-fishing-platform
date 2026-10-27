@@ -4,6 +4,7 @@ import { RouterProvider, createMemoryRouter } from 'react-router';
 import { vi } from 'vitest';
 import { routes } from '../app/routes';
 import { endSession, startSession } from '../shared/auth/session';
+import { recordUnexpectedRequest } from './unexpected-requests';
 
 /**
  * Renders the real route tree at `path`, with a fresh query cache and no retries.
@@ -35,6 +36,8 @@ type Handler = (request: Request) => Response | Promise<Response>;
 
 /**
  * Stubs `fetch` with handlers keyed by `METHOD /path`; an unexpected request fails the test.
+ * The request itself only rejects, and the API client turns that into a query error the test
+ * may never look at, so it is also recorded: `src/test/setup.ts` fails the test after it ends.
  * Returns the mock, whose calls hold the sent Request objects.
  */
 export function mockApi(handlers: Record<string, Handler>) {
@@ -42,6 +45,7 @@ export function mockApi(handlers: Record<string, Handler>) {
     const key = `${input.method} ${new URL(input.url).pathname}`;
     const handler = handlers[key];
     if (!handler) {
+      recordUnexpectedRequest(key);
       throw new Error(`Unexpected request ${key}`);
     }
     return handler(input);
