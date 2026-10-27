@@ -17,6 +17,10 @@ import { MyPermitsService } from './my-permits.service';
 
 const error = { type: ErrorResponseDto };
 
+// Personal data and QR tokens fetched with a token: every route keeps no copy in browser or
+// proxy caches (`Cache-Control: no-store`).
+const NO_STORE = ['Cache-Control', 'no-store'] as const;
+
 @ApiTags('me')
 @ApiBearerAuth()
 @ApiUnauthorizedResponse({ ...error, description: 'UNAUTHENTICATED, TOKEN_EXPIRED' })
@@ -25,6 +29,7 @@ export class MyPermitsController {
   constructor(private readonly myPermits: MyPermitsService) {}
 
   @Get()
+  @Header(...NO_STORE)
   @ApiOperation({ summary: 'My permits with computed statuses, latest start first' })
   @ApiOkResponse({ type: [MyPermitDto] })
   list(@CurrentUser() user: AuthUser): Promise<MyPermitDto[]> {
@@ -32,6 +37,7 @@ export class MyPermitsController {
   }
 
   @Get(':id')
+  @Header(...NO_STORE)
   @ApiOperation({
     summary: 'My permit with its computed status and QR token (polled after payment)',
   })
@@ -43,8 +49,7 @@ export class MyPermitsController {
   }
 
   @Get(':id/pdf')
-  // Personal data fetched with a token: no copy in browser or proxy caches.
-  @Header('Cache-Control', 'no-store')
+  @Header(...NO_STORE)
   @ApiOperation({ summary: 'The permit with its QR code as a PDF attachment' })
   @ApiProduces('application/pdf')
   @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })

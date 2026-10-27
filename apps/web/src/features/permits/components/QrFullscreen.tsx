@@ -7,7 +7,8 @@ import { Button } from '../../../shared/ui/button';
 
 /**
  * The QR code over the whole screen for the inspector's camera (docs/06-frontend.md), with the
- * permit number as text for when the code cannot be scanned. Escape or «Zamknij» closes it.
+ * permit number as text for when the code cannot be scanned. The page under it is inert (no focus,
+ * no scrolling); Escape or «Zamknij» closes it.
  */
 export function QrFullscreen({
   value,
@@ -20,9 +21,18 @@ export function QrFullscreen({
 }) {
   const { t } = useTranslation();
   const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
+    // Everything but the dialog (a direct child of body, see the portal) leaves the tab order and
+    // the accessibility tree, and the page under it stops scrolling.
+    const background = [...document.body.children].filter(
+      (element) => element !== dialogRef.current && !element.hasAttribute('inert'),
+    );
+    background.forEach((element) => element.setAttribute('inert', ''));
+    const { overflow } = document.body.style;
+    document.body.style.overflow = 'hidden';
     const previous = document.activeElement;
     closeRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
@@ -31,6 +41,9 @@ export function QrFullscreen({
     document.addEventListener('keydown', onKeyDown);
     return () => {
       document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = overflow;
+      background.forEach((element) => element.removeAttribute('inert'));
+      // After `inert` is gone: an inert element cannot take focus.
       if (previous instanceof HTMLElement) previous.focus();
     };
   }, [onClose]);
@@ -38,6 +51,7 @@ export function QrFullscreen({
   // Above the header and the map (Leaflet panes go up to z-index 1000).
   return createPortal(
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}

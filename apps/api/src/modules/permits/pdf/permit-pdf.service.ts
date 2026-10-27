@@ -62,7 +62,8 @@ export function permitPdfContent({
   const discount = DISCOUNT_LABEL[permit.permitType.discountKind];
   const rows: [string, string][] = [
     ['Posiadacz', `${holder.firstName} ${holder.lastName}`],
-    ['Data urodzenia', polishDate(holder.birthDate)],
+    // The inspector compares name and birth year with an ID (docs/07-security.md); no more.
+    ['Rok urodzenia', holder.birthDate.slice(0, 4)],
   ];
   if (holder.anglerCardNo) {
     rows.push(['Nr karty wędkarskiej', holder.anglerCardNo]);

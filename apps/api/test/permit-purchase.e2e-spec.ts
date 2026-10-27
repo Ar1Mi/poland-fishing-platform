@@ -364,6 +364,7 @@ describe('permit purchase', () => {
       const { permit, paymentUrl } = await buy(type.id, '2026-10-06');
 
       expect(permit).toMatchObject({ status: 'ACTIVE', pricePaidGrosze: 0 });
+      expect(permit.qrToken).toEqual(expect.any(String));
       expect(paymentUrl).toBe(`${WEB_URL}/payment/return?permitId=${permit.id}`);
       expect(await prisma.payment.count()).toBe(0);
     });

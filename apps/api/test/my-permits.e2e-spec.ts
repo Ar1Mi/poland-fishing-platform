@@ -89,6 +89,7 @@ describe('my permits', () => {
         .set(bearer(angler.accessToken))
         .expect(200);
 
+      expect(response.headers['cache-control']).toBe('no-store');
       const permits = response.body as MyPermit[];
       expect(permits.map(({ id, status }) => ({ id, status }))).toEqual([
         { id: scheduled.id, status: 'SCHEDULED' },

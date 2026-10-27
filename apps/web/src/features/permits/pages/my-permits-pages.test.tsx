@@ -142,6 +142,24 @@ describe('my permit page', () => {
     expect(open).toHaveFocus();
   });
 
+  it('makes the page under the full-screen QR inert and still while it is open', async () => {
+    show(active);
+    const open = await screen.findByRole('button', { name: 'Pokaż kod na pełnym ekranie' });
+    const page = open.closest('body > *');
+
+    await userEvent.click(open);
+
+    const dialog = screen.getByRole('dialog');
+    expect(page).toHaveAttribute('inert');
+    expect(dialog).not.toHaveAttribute('inert');
+    expect(document.body.style.overflow).toBe('hidden');
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Zamknij' }));
+
+    expect(page).not.toHaveAttribute('inert');
+    expect(document.body.style.overflow).toBe('');
+  });
+
   it('closes the full-screen QR with its button', async () => {
     show(active);
     await userEvent.click(

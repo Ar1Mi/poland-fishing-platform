@@ -67,7 +67,7 @@
 - `/me/permits` (`RequireAuth`, иконка «Moje zezwolenia» в шапке): «Aktualne» (`ACTIVE`, `SCHEDULED`, `PENDING_PAYMENT`) и «Archiwalne» (остальные); карточка — тип, организация, номер, срок, статус, ссылка на разрешение.
 - `/me/permits/:id`: `PermitTicket` (тёмная шапка с типом и статусом, QR `qrcode.react` — SVG, уровень коррекции M, номер текстом, срок), детали и «Pobierz PDF» (blob с токеном доступа, `shared/lib/save-file.ts`). QR и PDF — только если API дал `qrToken`.
 - QR кодирует `new URL('/verify/' + qrToken, location.origin)` (`features/permits/lib/verify-url.ts`): сайт отдаётся с `WEB_URL`, поэтому адрес совпадает с адресом в PDF.
-- «Pokaż kod na pełnym ekranie» — слой поверх всего (`role="dialog"`, `aria-modal`): QR по меньшей стороне экрана, номер Plex Mono, подсказка про яркость; фокус на «Zamknij», Escape закрывает и возвращает фокус.
+- «Pokaż kod na pełnym ekranie» — слой поверх всего (`role="dialog"`, `aria-modal`): QR по меньшей стороне экрана, номер Plex Mono, подсказка про яркость; фокус на «Zamknij»; остальная страница получает `inert` (нет фокуса по Tab, скрыта от скринридера), прокрутка `body` заблокирована; Escape закрывает и возвращает фокус.
 - В шапке на ширине < 640 px иконка панели суперадмина скрыта: четыре иконки 44 px и переключатель языка не помещаются в 375 px. Панель — экран для десктопа.
 
 ## Каталог (T-09)

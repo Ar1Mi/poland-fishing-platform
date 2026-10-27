@@ -27,10 +27,10 @@ const input = (changes: Partial<PermitPdfInput> = {}): PermitPdfInput => ({
 });
 
 describe('permitPdfContent', () => {
-  it('lists holder, issuer, type, Polish dates and the price in złoty', () => {
+  it('lists holder with birth year only, issuer, type, Polish dates and the price in złoty', () => {
     expect(permitPdfContent(input()).rows).toEqual([
       ['Posiadacz', 'Józef Żółć'],
-      ['Data urodzenia', '09.03.1980'],
+      ['Rok urodzenia', '1980'],
       ['Wydające', 'PZW Okręg Mazowiecki'],
       ['Rodzaj', 'Tygodniowe'],
       ['Ważne od', '10.10.2026'],
