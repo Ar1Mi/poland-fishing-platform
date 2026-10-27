@@ -1,6 +1,7 @@
 import { Building2, LogOut, ShieldCheck, Ticket } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
+import { cn } from '../../../shared/lib/cn';
 import { Button } from '../../../shared/ui/button';
 import { useLogout, useMe, useSessionStatus } from '../api/useAuth';
 
@@ -53,10 +54,11 @@ export function AccountMenu() {
       >
         <Building2 aria-hidden />
       </Link>
+      {/* The admin panel is a desktop screen; on a 375 px phone its icon would push logout off. */}
       {me.data?.isSuperAdmin && (
         <Link
           to="/admin/claims"
-          className={iconLink}
+          className={cn(iconLink, 'hidden sm:flex')}
           aria-label={t('auth.account.admin')}
           title={t('auth.account.admin')}
         >
