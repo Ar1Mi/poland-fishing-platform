@@ -11,4 +11,10 @@ Object.assign(process.env, {
   JWT_ACCESS_SECRET: 'openapi-export-placeholder-32-bytes',
   SMTP_URL: 'smtp://localhost:1025',
   MAIL_FROM: 'openapi@localhost',
+  // Production refuses the fake provider.
+  PAYMENTS_PROVIDER: 'p24',
+  P24_MERCHANT_ID: '1',
+  P24_POS_ID: '1',
+  P24_API_KEY: 'openapi-placeholder',
+  P24_CRC: 'openapi-placeholder',
 });

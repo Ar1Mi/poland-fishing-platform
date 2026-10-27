@@ -21,7 +21,7 @@
 | T-11 | Claim водоёма | Срез | T-08, T-09 | done |
 | T-12 | Типы разрешений | Срез | T-11 | done |
 | T-13 | Покупка разрешения + FakePaymentProvider | Срез | T-12 | done |
-| T-14 | Przelewy24 sandbox | Срез | T-13 | todo |
+| T-14 | Przelewy24 sandbox | Срез | T-13 | doing |
 | T-15 | Мои разрешения, QR-токен, PDF | Срез | T-13 | todo |
 | T-16 | Правила: CRUD и слияние уровней | Срез | T-08, T-02 | todo |
 | T-17 | CatchValidator | Срез | T-16 | todo |
