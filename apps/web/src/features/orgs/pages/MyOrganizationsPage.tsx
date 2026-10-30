@@ -54,6 +54,9 @@ function OrganizationCard({ organization }: { organization: MyOrganization }) {
               <Link to={`/org/${organization.id}/permit-types`} className={sectionLink}>
                 {t('orgs.mine.permitTypes')}
               </Link>
+              <Link to={`/org/${organization.id}/rules`} className={sectionLink}>
+                {t('orgs.mine.rules')}
+              </Link>
             </nav>
           )
         ) : (

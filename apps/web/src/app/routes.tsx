@@ -16,6 +16,7 @@ import { FakePaymentPage } from '../features/permits/pages/FakePaymentPage';
 import { MyPermitPage } from '../features/permits/pages/MyPermitPage';
 import { MyPermitsPage } from '../features/permits/pages/MyPermitsPage';
 import { OrgPermitTypesPage } from '../features/permits/pages/OrgPermitTypesPage';
+import { OrgRulesPage } from '../features/rules/pages/OrgRulesPage';
 import { PaymentReturnPage } from '../features/permits/pages/PaymentReturnPage';
 import { NotFoundPage } from '../shared/pages/NotFoundPage';
 import { RouteErrorPage } from '../shared/pages/RouteErrorPage';
@@ -105,6 +106,14 @@ export const routes: RouteObject[] = [
         element: (
           <RequireAuth>
             <OrgPermitTypesPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'org/:orgId/rules',
+        element: (
+          <RequireAuth>
+            <OrgRulesPage />
           </RequireAuth>
         ),
       },

@@ -216,6 +216,9 @@ describe('water page', () => {
     const fetch = mockApi({
       [`GET /api/v1/waters/${water.id}`]: () => jsonResponse(water),
       'GET /api/v1/permit-types': () => jsonResponse(permitTypes),
+      // The rules section (T-16) is covered by rules-pages.test.tsx.
+      [`GET /api/v1/waters/${water.id}/rules`]: () => jsonResponse([]),
+      'GET /api/v1/species': () => jsonResponse([]),
     });
     renderRoute(`/waters/${water.id}`);
     return fetch;
@@ -401,6 +404,8 @@ describe('water page', () => {
         'GET /api/v1/me': () => jsonResponse(profile),
         'GET /api/v1/me/orgs': () => jsonResponse(orgs),
         'GET /api/v1/permit-types': () => jsonResponse([]),
+        [`GET /api/v1/waters/${water.id}/rules`]: () => jsonResponse([]),
+        'GET /api/v1/species': () => jsonResponse([]),
       });
       renderRoute(`/waters/${water.id}`, { accessToken: 'access-1' });
       return fetch;

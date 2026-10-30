@@ -106,6 +106,7 @@ export class CreateGeneralRuleDto extends UpdateSpeciesRuleDto {
 /** A rule of the organization, or of one of its connected waters. */
 export class CreateOrgRuleDto extends CreateGeneralRuleDto {
   @ApiPropertyOptional({
+    type: String,
     format: 'uuid',
     nullable: true,
     description: 'A water connected to the organization; omitted or null: the whole organization',

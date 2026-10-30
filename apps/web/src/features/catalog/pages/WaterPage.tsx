@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/ui/car
 import { activeAdminOrgs, useMyOrgs } from '../../orgs/api/useMyOrgs';
 import { useWaterPermitTypes } from '../../permits/api/usePermitTypes';
 import { PermitTypeTerms } from '../../permits/components/PermitTypeTerms';
+import { WaterRules } from '../../rules/components/WaterRules';
 import { useWater, type WaterDetail } from '../api/useWaters';
 import { WaterStatusBadge } from '../components/WaterStatusBadge';
 import { safeExternalUrl } from '../lib/external-url';
@@ -110,6 +111,7 @@ function WaterDetails({ water }: { water: WaterDetail }) {
           )}
         </CardContent>
       </Card>
+      <WaterRules waterId={water.id} />
       {water.status === 'UNCLAIMED' && <ClaimOffer waterId={water.id} />}
       {water.description && (
         <Card>
