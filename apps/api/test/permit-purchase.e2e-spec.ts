@@ -45,6 +45,7 @@ interface MyPermit {
   permitType: { id: string; name: string; durationDays: number; discountKind: string };
   organization: { id: string; name: string };
   createdAt: string;
+  qrToken: string | null;
 }
 
 interface Purchase {
@@ -182,6 +183,7 @@ describe('permit purchase', () => {
         permitType: { id: type.id, name: 'Tygodniowe', durationDays: 7, discountKind: 'NONE' },
         organization: { id: organizationId, name: 'Koło PZW 7' },
         createdAt: FIXED_NOW.toISOString(),
+        qrToken: null,
       });
       const url = new URL(paymentUrl);
       const payment = await paymentOf(permit.id);
@@ -362,6 +364,7 @@ describe('permit purchase', () => {
       const { permit, paymentUrl } = await buy(type.id, '2026-10-06');
 
       expect(permit).toMatchObject({ status: 'ACTIVE', pricePaidGrosze: 0 });
+      expect(permit.qrToken).toEqual(expect.any(String));
       expect(paymentUrl).toBe(`${WEB_URL}/payment/return?permitId=${permit.id}`);
       expect(await prisma.payment.count()).toBe(0);
     });

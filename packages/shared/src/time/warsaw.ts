@@ -25,6 +25,48 @@ export function warsawDate(date: Date): DateOnly {
   return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
+const warsawDateTimeFormat = new Intl.DateTimeFormat('en-CA', {
+  timeZone: WARSAW_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+});
+
+/** How far Warsaw wall-clock time is ahead of UTC at the instant: 1 h in winter, 2 h in summer. */
+function warsawOffsetMs(instant: number): number {
+  const parts = warsawDateTimeFormat.formatToParts(new Date(instant));
+  const part = (type: Intl.DateTimeFormatPartTypes): number =>
+    Number(parts.find((p) => p.type === type)?.value);
+  const wallClockAsUtc = Date.UTC(
+    part('year'),
+    part('month') - 1,
+    part('day'),
+    part('hour'),
+    part('minute'),
+    part('second'),
+  );
+  return wallClockAsUtc - (instant - (instant % 1000));
+}
+
+/**
+ * The instant the Warsaw calendar day `date` ends (the next local midnight, exclusive): the expiry
+ * of a QR token for a permit valid through `date` (ADR-0006).
+ */
+export function warsawDayEnd(date: DateOnly): Date {
+  assertDateOnly(date);
+  const nextMidnightAsUtc = Date.UTC(
+    Number(date.slice(0, 4)),
+    Number(date.slice(5, 7)) - 1,
+    Number(date.slice(8, 10)) + 1,
+  );
+  // Warsaw changes its offset at 01:00 UTC, so at 00:00 UTC it is still the offset of local midnight.
+  return new Date(nextMidnightAsUtc - warsawOffsetMs(nextMidnightAsUtc));
+}
+
 /** Guards string comparison of dates: anything but `YYYY-MM-DD` would compare silently wrong. */
 export function assertDateOnly(value: string): asserts value is DateOnly {
   if (!DATE_ONLY.test(value)) throw new RangeError(`Expected YYYY-MM-DD, got "${value}"`);

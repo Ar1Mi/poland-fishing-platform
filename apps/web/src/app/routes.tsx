@@ -13,6 +13,8 @@ import { PrivacyPolicyPage } from '../features/legal/pages/PrivacyPolicyPage';
 import { MyOrganizationsPage } from '../features/orgs/pages/MyOrganizationsPage';
 import { BuyPermitPage } from '../features/permits/pages/BuyPermitPage';
 import { FakePaymentPage } from '../features/permits/pages/FakePaymentPage';
+import { MyPermitPage } from '../features/permits/pages/MyPermitPage';
+import { MyPermitsPage } from '../features/permits/pages/MyPermitsPage';
 import { OrgPermitTypesPage } from '../features/permits/pages/OrgPermitTypesPage';
 import { PaymentReturnPage } from '../features/permits/pages/PaymentReturnPage';
 import { NotFoundPage } from '../shared/pages/NotFoundPage';
@@ -61,6 +63,22 @@ export const routes: RouteObject[] = [
         element: (
           <RequireAuth>
             <PaymentReturnPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'me/permits',
+        element: (
+          <RequireAuth>
+            <MyPermitsPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'me/permits/:id',
+        element: (
+          <RequireAuth>
+            <MyPermitPage />
           </RequireAuth>
         ),
       },

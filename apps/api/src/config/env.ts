@@ -1,3 +1,4 @@
+import { createPrivateKey, createPublicKey } from 'node:crypto';
 import { z } from 'zod';
 
 /** Bare http(s) origin (no path or query): usable as a CORS origin and as a URL base. */
@@ -32,6 +33,12 @@ const smtpUrl = z
     message: 'must be an smtp:// or smtps:// URL',
   });
 
+/** PEM text; a one-line value with `\n` escapes (as `keys:qr` prints it) gets its line breaks back. */
+const pem = z
+  .string()
+  .min(1)
+  .transform((value) => value.replace(/\\n/g, '\n').trim());
+
 // Variables are added here by the task that first reads them (docs/08-testing-and-infra.md → «Окружение»).
 // A new required variable also needs a placeholder in src/openapi/fixed-env.ts (`pnpm gen:api`).
 export const envSchema = z.object({
@@ -61,9 +68,38 @@ export const envSchema = z.object({
   P24_POS_ID: z.coerce.number().int().positive().optional(),
   P24_API_KEY: z.string().min(1).optional(),
   P24_CRC: z.string().min(1).optional(),
+  // Ed25519 pair signing permit QR tokens (ADR-0006); `pnpm --filter api keys:qr` makes one.
+  QR_SIGNING_PRIVATE_KEY: pem,
+  QR_SIGNING_PUBLIC_KEY: pem,
 });
 
 const P24_REQUIRED = ['P24_MERCHANT_ID', 'P24_POS_ID', 'P24_API_KEY', 'P24_CRC'] as const;
+
+/** A broken or mismatched pair would only show up when the first QR is signed or checked. */
+function checkQrKeys(
+  privatePem: string,
+  publicPem: string,
+): { variable: 'QR_SIGNING_PRIVATE_KEY' | 'QR_SIGNING_PUBLIC_KEY'; message: string } | undefined {
+  let derivedPublic: string;
+  try {
+    const key = createPrivateKey(privatePem);
+    if (key.asymmetricKeyType !== 'ed25519') {
+      return { variable: 'QR_SIGNING_PRIVATE_KEY', message: 'must be an Ed25519 key' };
+    }
+    derivedPublic = createPublicKey(key).export({ type: 'spki', format: 'pem' }).toString();
+  } catch {
+    return { variable: 'QR_SIGNING_PRIVATE_KEY', message: 'must be a PEM private key' };
+  }
+  let givenPublic: string;
+  try {
+    givenPublic = createPublicKey(publicPem).export({ type: 'spki', format: 'pem' }).toString();
+  } catch {
+    return { variable: 'QR_SIGNING_PUBLIC_KEY', message: 'must be a PEM public key' };
+  }
+  return derivedPublic === givenPublic
+    ? undefined
+    : { variable: 'QR_SIGNING_PUBLIC_KEY', message: 'must be the public half of the private key' };
+}
 
 const envWithPayments = envSchema.superRefine((env, ctx) => {
   // The fake page pays anything with one click (docs/07-security.md).
@@ -73,6 +109,10 @@ const envWithPayments = envSchema.superRefine((env, ctx) => {
       path: ['PAYMENTS_PROVIDER'],
       message: 'must not be fake in production',
     });
+  }
+  const qrKeyIssue = checkQrKeys(env.QR_SIGNING_PRIVATE_KEY, env.QR_SIGNING_PUBLIC_KEY);
+  if (qrKeyIssue) {
+    ctx.addIssue({ code: 'custom', path: [qrKeyIssue.variable], message: qrKeyIssue.message });
   }
   if (env.PAYMENTS_PROVIDER === 'p24') {
     for (const variable of P24_REQUIRED) {

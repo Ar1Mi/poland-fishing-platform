@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { assertDateOnly, isInClosedPeriod, warsawDate } from './warsaw.js';
+import { assertDateOnly, isInClosedPeriod, warsawDate, warsawDayEnd } from './warsaw.js';
 
 const utc = (iso: string): Date => new Date(`${iso}Z`);
 
@@ -33,6 +33,43 @@ describe('warsawDate', () => {
 
   it('rejects an invalid date', () => {
     expect(() => warsawDate(new Date(Number.NaN))).toThrow(RangeError);
+  });
+});
+
+describe('warsawDayEnd', () => {
+  it('ends a winter day at 23:00 UTC', () => {
+    expect(warsawDayEnd('2026-01-15')).toEqual(utc('2026-01-15T23:00:00'));
+  });
+
+  it('ends a summer day at 22:00 UTC', () => {
+    expect(warsawDayEnd('2026-07-10')).toEqual(utc('2026-07-10T22:00:00'));
+  });
+
+  it('ends the days around the switch to summer time at their own local midnight', () => {
+    expect(warsawDayEnd('2026-03-28')).toEqual(utc('2026-03-28T23:00:00'));
+    expect(warsawDayEnd('2026-03-29')).toEqual(utc('2026-03-29T22:00:00'));
+  });
+
+  it('ends the days around the switch to winter time at their own local midnight', () => {
+    expect(warsawDayEnd('2026-10-24')).toEqual(utc('2026-10-24T22:00:00'));
+    expect(warsawDayEnd('2026-10-25')).toEqual(utc('2026-10-25T23:00:00'));
+  });
+
+  it("ends New Year's Eve and the last day of February in the next month or year", () => {
+    expect(warsawDayEnd('2026-12-31')).toEqual(utc('2026-12-31T23:00:00'));
+    expect(warsawDayEnd('2028-02-29')).toEqual(utc('2028-02-29T23:00:00'));
+  });
+
+  it('is the first instant whose Warsaw date is the next day', () => {
+    for (const date of ['2026-03-29', '2026-10-25', '2026-06-01']) {
+      const end = warsawDayEnd(date).getTime();
+      expect(warsawDate(new Date(end - 1))).toBe(date);
+      expect(warsawDate(new Date(end))).not.toBe(date);
+    }
+  });
+
+  it('rejects a malformed date', () => {
+    expect(() => warsawDayEnd('2026-7-1')).toThrow(RangeError);
   });
 });
 

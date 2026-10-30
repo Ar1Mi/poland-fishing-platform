@@ -60,8 +60,16 @@
 - Дата — нативное `input type="date"` с `min`/`max`; окно проверяет `permitStartFormSchema(today)` из `shared` (сегодня по Варшаве фиксируется при открытии страницы). Под полем — «Ważne od … do … włącznie» по `permitValidTo`; у льготного типа — условие возраста из `DISCOUNT_AGE`. Отказ API (`DISCOUNT_NOT_ELIGIBLE`, `PERMIT_TYPE_INACTIVE` …) — переведённый `ApiErrorAlert`.
 - После `POST /permits` — полная загрузка `paymentUrl` (`shared/lib/redirect.ts`, в тестах подменяется): страница оплаты принадлежит провайдеру.
 - `/payment/fake/:sessionId` (без входа, как у P24): сумма и название из адреса — только для показа; «Zapłać» / «Odrzuć» вызывают `POST /payments/fake/:sessionId/complete` и возвращают на `returnUrl` только внутри приложения (`safeReturnPath`).
-- `/payment/return?permitId=` (`RequireAuth`) спрашивает `GET /me/permits/:id` каждые 2 с, пока разрешение `PENDING_PAYMENT` и с начала опроса прошло меньше 60 с (`refetchInterval` TanStack Query). Итог: оплачено (номер, срок, организация, цена; QR — T-15), отменено, или «ещё не подтверждено» с кнопкой «Sprawdź ponownie», которая начинает новый круг опроса.
+- `/payment/return?permitId=` (`RequireAuth`) спрашивает `GET /me/permits/:id` каждые 2 с, пока разрешение `PENDING_PAYMENT` и с начала опроса прошло меньше 60 с (`refetchInterval` TanStack Query). Итог: оплачено (`PermitTicket` с QR, организация, тип, цена, ссылка на `/me/permits/:id`), отменено, или «ещё не подтверждено» с кнопкой «Sprawdź ponownie», которая начинает новый круг опроса.
 - `WaterCard` в списке каталога показывает «od …» у подключённых водоёмов: один запрос `GET /permit-types/lowest-prices` по id подключённых водоёмов из показанных (до `LIST_LIMIT`), прежние цены остаются на экране, пока карта двигается.
+## Мои разрешения (T-15)
+
+- `/me/permits` (`RequireAuth`, иконка «Moje zezwolenia» в шапке): «Aktualne» (`ACTIVE`, `SCHEDULED`, `PENDING_PAYMENT`) и «Archiwalne» (остальные); карточка — тип, организация, номер, срок, статус, ссылка на разрешение.
+- `/me/permits/:id`: `PermitTicket` (тёмная шапка с типом и статусом, QR `qrcode.react` — SVG, уровень коррекции M, номер текстом, срок), детали и «Pobierz PDF» (blob с токеном доступа, `shared/lib/save-file.ts`). QR и PDF — только если API дал `qrToken`.
+- QR кодирует `new URL('/verify/' + qrToken, location.origin)` (`features/permits/lib/verify-url.ts`): сайт отдаётся с `WEB_URL`, поэтому адрес совпадает с адресом в PDF.
+- «Pokaż kod na pełnym ekranie» — слой поверх всего (`role="dialog"`, `aria-modal`): QR по меньшей стороне экрана, номер Plex Mono, подсказка про яркость; фокус на «Zamknij»; остальная страница получает `inert` (нет фокуса по Tab, скрыта от скринридера), прокрутка `body` заблокирована; Escape закрывает и возвращает фокус.
+- В шапке на ширине < 640 px иконка панели суперадмина скрыта: четыре иконки 44 px и переключатель языка не помещаются в 375 px. Панель — экран для десктопа.
+
 ## Каталог (T-09)
 
 - `/` — карта и список под ней (`features/catalog`). Фильтры `region`, `type`, `status`, `q` хранятся в URL (ссылкой можно поделиться, работает «назад»); неизвестное значение в URL игнорируется.

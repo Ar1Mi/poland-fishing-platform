@@ -12,6 +12,7 @@ import { createPaymentProvider } from './payments/payment-provider.factory';
 import { P24PaymentsController } from './payments/p24/p24-payments.controller';
 import { PaymentExpiryJob } from './payments/payment-expiry.job';
 import { PaymentsService } from './payments/payments.service';
+import { PermitPdfService } from './pdf/permit-pdf.service';
 import {
   OrgPermitTypesController,
   PermitTypesController,
@@ -19,11 +20,12 @@ import {
 import { PermitTypesService } from './permit-types/permit-types.service';
 import { PermitPurchaseService } from './purchase/permit-purchase.service';
 import { PermitsController } from './purchase/permits.controller';
+import { QrTokenService } from './qr/qr-token.service';
 
 /**
  * Permit types (T-12), the purchase and its payment (T-13, ADR-0012): the provider chosen by
  * `PAYMENTS_PROVIDER` (ADR-0004; Przelewy24 since T-14), notifications and the timeout.
- * QR and PDF come with T-15.
+ * The angler's permits with their QR token (ADR-0006) and PDF (T-15).
  */
 @Module({
   imports: [OrganizationsModule, WatersModule, AuditModule, UsersModule],
@@ -39,6 +41,8 @@ import { PermitsController } from './purchase/permits.controller';
     PermitTypesService,
     PermitPurchaseService,
     MyPermitsService,
+    QrTokenService,
+    PermitPdfService,
     PaymentsService,
     PaymentExpiryJob,
     {

@@ -37,6 +37,7 @@ describe('error codes', () => {
         'PERMIT_TYPE_INACTIVE',
         'EDIT_WINDOW_CLOSED',
         'PERMIT_NOT_REVOCABLE',
+        'PERMIT_NOT_VALID',
       ],
       429: ['RATE_LIMITED'],
       500: ['INTERNAL_ERROR'],
