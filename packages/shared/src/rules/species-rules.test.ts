@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ineffectiveParameters,
   isRuleMonthDay,
   resolveEffectiveRule,
   resolveEffectiveRules,
@@ -202,5 +203,32 @@ describe('ruleFormSchema', () => {
 
   it('refuses an empty form', () => {
     expect(ruleFormSchema.safeParse(form).success).toBe(false);
+  });
+});
+
+describe('ineffectiveParameters', () => {
+  it('marks the parameters a stricter higher level overrides', () => {
+    const looser = rule({ minLengthCm: 40, dailyLimitCount: 5, dailyLimitWeightG: 3000 });
+    const higher = [rule({ minLengthCm: 50 }), rule({ dailyLimitCount: 2 })];
+    expect(ineffectiveParameters(looser, higher)).toEqual(['minLengthCm', 'dailyLimitCount']);
+  });
+
+  it('does not mark an equal or stricter value, nor one the higher level leaves free', () => {
+    const own = rule({ minLengthCm: 50, dailyLimitCount: 1, dailyLimitWeightG: 3000 });
+    expect(ineffectiveParameters(own, [rule({ minLengthCm: 50, dailyLimitCount: 2 })])).toEqual([]);
+  });
+
+  it('marks any limit above a zero (no-kill) one', () => {
+    expect(
+      ineffectiveParameters(rule({ dailyLimitCount: 1 }), [rule({ dailyLimitCount: 0 })]),
+    ).toEqual(['dailyLimitCount']);
+  });
+
+  it('never marks a closed period or a rule without a higher level', () => {
+    const own = rule({ minLengthCm: 10, closedFrom: '05-01', closedTo: '05-31' });
+    expect(ineffectiveParameters(own, [rule({ closedFrom: '01-01', closedTo: '12-31' })])).toEqual(
+      [],
+    );
+    expect(ineffectiveParameters(own, [])).toEqual([]);
   });
 });

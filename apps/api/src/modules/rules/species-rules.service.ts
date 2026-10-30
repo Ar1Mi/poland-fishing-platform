@@ -4,6 +4,7 @@ import {
   type RuleParameter,
   type RuleParameters,
   WaterStatus,
+  ineffectiveParameters,
   resolveEffectiveRules,
   ruleParametersSchema,
 } from '@lowisko/shared';
@@ -222,8 +223,10 @@ export class SpeciesRulesService {
     const waterIds = [
       ...new Set(rules.flatMap((rule) => (rule.fishingWaterId ? [rule.fishingWaterId] : []))),
     ];
-    const names =
-      waterIds.length > 0 ? await this.waters.findNames(waterIds) : new Map<string, string>();
+    const [names, higher] = await Promise.all([
+      waterIds.length > 0 ? this.waters.findNames(waterIds) : new Map<string, string>(),
+      this.higherLevels(rules),
+    ]);
     return rules.map((rule) => ({
       id: rule.id,
       speciesId: rule.speciesId,
@@ -231,9 +234,47 @@ export class SpeciesRulesService {
         ? { id: rule.fishingWaterId, name: names.get(rule.fishingWaterId) ?? '' }
         : null,
       ...parametersOf(rule),
+      ineffective: ineffectiveParameters(
+        rule,
+        higher.filter(
+          (row) => row.speciesId === rule.speciesId && row.id !== rule.id && isAbove(row, rule),
+        ),
+      ),
       updatedAt: rule.updatedAt.toISOString(),
     }));
   }
+
+  /** General and organization-wide rules of the species of `rules`: the levels above them. */
+  private higherLevels(rules: SpeciesRule[]): Promise<SpeciesRule[]> {
+    const below = rules.filter((rule) => rule.organizationId !== null);
+    if (below.length === 0) {
+      return Promise.resolve([]);
+    }
+    return this.prisma.speciesRule.findMany({
+      where: {
+        speciesId: { in: [...new Set(below.map((rule) => rule.speciesId))] },
+        fishingWaterId: null,
+        OR: [
+          { organizationId: null },
+          { organizationId: { in: [...new Set(below.map((rule) => rule.organizationId!))] } },
+        ],
+      },
+    });
+  }
+}
+
+/**
+ * Whether `row` is a level above `rule`: the general rule is above an organization rule; the
+ * general and the organization-wide rules of its organization are above a water rule.
+ */
+function isAbove(row: SpeciesRule, rule: SpeciesRule): boolean {
+  if (rule.organizationId === null || row.fishingWaterId !== null) {
+    return false;
+  }
+  return (
+    row.organizationId === null ||
+    (rule.fishingWaterId !== null && row.organizationId === rule.organizationId)
+  );
 }
 
 function scopeFilter(scope: RuleScope): Prisma.SpeciesRuleWhereInput {

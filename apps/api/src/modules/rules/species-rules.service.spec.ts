@@ -37,13 +37,12 @@ describe('validParameters', () => {
   });
 
   it('throws a DomainError with VALIDATION_FAILED', () => {
-    const error = (() => {
-      try {
-        validParameters(none);
-      } catch (thrown) {
-        return thrown;
-      }
-    })();
+    let error: unknown;
+    try {
+      validParameters(none);
+    } catch (thrown) {
+      error = thrown;
+    }
     expect(error).toBeInstanceOf(DomainError);
     expect((error as DomainError).code).toBe('VALIDATION_FAILED');
   });

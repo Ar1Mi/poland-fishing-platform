@@ -106,9 +106,33 @@ export function resolveEffectiveRules(rows: readonly SpeciesRuleRow[]): Map<stri
   );
 }
 
+/** Parameters a higher level can make ineffective; closed periods only add up. */
+export const LIMIT_PARAMETERS = ['minLengthCm', 'dailyLimitCount', 'dailyLimitWeightG'] as const;
+export type LimitParameter = (typeof LIMIT_PARAMETERS)[number];
+
+/**
+ * Parameters of `rule` that do not apply because the rules of the higher levels (`higher`:
+ * the general rule for an organization rule; also the organization rules for a water rule)
+ * are strictly stricter. Saving such a rule is allowed — the list warns about it.
+ */
+export function ineffectiveParameters(
+  rule: SpeciesRuleRow,
+  higher: readonly SpeciesRuleRow[],
+): LimitParameter[] {
+  const above = resolveEffectiveRule(higher);
+  return LIMIT_PARAMETERS.filter((parameter) => {
+    const own = rule[parameter];
+    const limit = above[parameter];
+    if (own === null || limit === null) {
+      return false;
+    }
+    return parameter === 'minLengthCm' ? limit > own : limit < own;
+  });
+}
+
 function strictest(
   rows: readonly SpeciesRuleRow[],
-  parameter: 'minLengthCm' | 'dailyLimitCount' | 'dailyLimitWeightG',
+  parameter: LimitParameter,
   pick: (...values: number[]) => number,
 ): number | null {
   const values = rows.flatMap((row) => (row[parameter] === null ? [] : [row[parameter]]));

@@ -90,6 +90,7 @@ describe('fishing rules', () => {
         closedTo: null,
         dailyLimitCount: 2,
         dailyLimitWeightG: null,
+        ineffective: [],
         updatedAt: anyString,
       });
       const stored = await prisma.speciesRule.findUniqueOrThrow({
@@ -168,7 +169,34 @@ describe('fishing rules', () => {
       await createGeneralRule({ minLengthCm: 50 }).expect(201);
 
       await createOrgRule({ dailyLimitCount: 0, dailyLimitWeightG: 0 }).expect(201);
-      await createOrgRule({ minLengthCm: 40 }).expect(201);
+      const looser = await createOrgRule({ minLengthCm: 40, dailyLimitCount: 3 }).expect(201);
+
+      expect(looser.body).toMatchObject({ minLengthCm: 40, ineffective: ['minLengthCm'] });
+    });
+
+    it('marks parameters of a water rule overridden by the organization or the general rule', async () => {
+      await createGeneralRule({ minLengthCm: 50 }).expect(201);
+      await createOrgRule({ dailyLimitCount: 2 }).expect(201);
+      // A rule of another organization is not above this one.
+      const stranger = await loginOrgMember(app, prisma, 'ORG_ADMIN');
+      await createOrgRule({ dailyLimitWeightG: 1000 }, stranger).expect(201);
+      const waterRule = (
+        await createOrgRule({
+          fishingWaterId: waterId,
+          minLengthCm: 45,
+          dailyLimitCount: 4,
+          dailyLimitWeightG: 5000,
+        }).expect(201)
+      ).body as Rule & { ineffective: string[] };
+
+      expect(waterRule.ineffective).toEqual(['minLengthCm', 'dailyLimitCount']);
+      const list = await request(server())
+        .get(orgPath())
+        .set(bearer(admin.accessToken))
+        .expect(200);
+      expect(
+        (list.body as (Rule & { ineffective: string[] })[]).map((rule) => rule.ineffective),
+      ).toEqual([[], ['minLengthCm', 'dailyLimitCount']]);
     });
 
     it('lists the rules of the organization by species, organization rule before waters', async () => {

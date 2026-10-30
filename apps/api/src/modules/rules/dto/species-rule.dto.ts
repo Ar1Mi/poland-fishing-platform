@@ -1,4 +1,6 @@
 import {
+  LIMIT_PARAMETERS,
+  type LimitParameter,
   RULE_DAILY_COUNT_MAX,
   RULE_DAILY_WEIGHT_MAX_G,
   RULE_MIN_LENGTH_MAX_CM,
@@ -150,6 +152,15 @@ export class SpeciesRuleDto {
 
   @ApiProperty({ type: Number, nullable: true })
   dailyLimitWeightG!: number | null;
+
+  @ApiProperty({
+    enum: LIMIT_PARAMETERS,
+    enumName: 'LimitParameter',
+    isArray: true,
+    description:
+      'Parameters that do not apply: a higher level is stricter (always empty for a general rule)',
+  })
+  ineffective!: LimitParameter[];
 
   @ApiProperty({ format: 'date-time' })
   updatedAt!: string;
