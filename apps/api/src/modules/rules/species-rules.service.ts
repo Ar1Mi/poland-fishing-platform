@@ -104,7 +104,7 @@ export class SpeciesRulesService {
     dto: UpdateSpeciesRuleDto,
   ): Promise<SpeciesRuleDto> {
     await this.prisma.$transaction(async (tx) => {
-      const current = await this.find(scope, id, tx);
+      const current = await this.lockForChange(tx, scope, id);
       const next = validParameters({ ...parametersOf(current), ...definedParameters(dto) });
       const changed = RULE_PARAMETERS.filter((parameter) => next[parameter] !== current[parameter]);
       if (changed.length === 0) {
@@ -132,7 +132,7 @@ export class SpeciesRulesService {
 
   async remove(scope: RuleScope, actorId: string, id: string): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
-      const current = await this.find(scope, id, tx);
+      const current = await this.lockForChange(tx, scope, id);
       await tx.speciesRule.delete({ where: { id } });
       await this.audit.record(tx, {
         actorId,
@@ -177,6 +177,23 @@ export class SpeciesRulesService {
           speciesName.get(a.speciesId)!.localeCompare(speciesName.get(b.speciesId)!, 'pl') ||
           a.speciesId.localeCompare(b.speciesId),
       );
+  }
+
+  /**
+   * Locks the rule row, then reads it. Two changes of one rule run one after the other: each
+   * validates the merge with what the other wrote. Without the lock both pass validation on
+   * the same old row and their writes together can leave half a closed period (the CHECK
+   * fails: 500) or a rule that restricts nothing.
+   */
+  private async lockForChange(
+    tx: Prisma.TransactionClient,
+    scope: RuleScope,
+    id: string,
+  ): Promise<SpeciesRule> {
+    // A row outside the scope is locked only for the moment it takes to answer NOT_FOUND.
+    await tx.$queryRaw`SELECT "id" FROM "SpeciesRule" WHERE "id" = ${id}::uuid FOR UPDATE`;
+    // A new statement after the lock sees what the change that held it committed (READ COMMITTED).
+    return this.find(scope, id, tx);
   }
 
   private async find(

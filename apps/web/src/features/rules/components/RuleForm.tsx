@@ -154,7 +154,10 @@ export function RuleForm({
             error={errors.dailyLimitWeightG && t('rules.form.dailyWeight.error')}
             {...register('dailyLimitWeightG')}
           />
-          {nothing && <FieldError id={formErrorId}>{t('rules.form.nothing')}</FieldError>}
+          {/* Belongs to no field, so it is announced on submit instead of on focus. */}
+          <div role="alert">
+            {nothing && <FieldError id={formErrorId}>{t('rules.form.nothing')}</FieldError>}
+          </div>
           {mutation.isError && <ApiErrorAlert error={mutation.error} />}
           <div className="flex flex-wrap gap-2">
             <Button type="submit" disabled={mutation.isPending}>

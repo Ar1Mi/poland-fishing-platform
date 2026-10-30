@@ -51,6 +51,18 @@ describe('fishing rules', () => {
       .set(bearer(superAdminToken))
       .send({ speciesId: pikeId, ...body });
 
+  /** Waits until a query of another connection is blocked on a row lock. */
+  const untilSomeQueryWaitsForLock = async () => {
+    for (let attempt = 0; attempt < 200; attempt += 1) {
+      const [row] = await prisma.$queryRaw<{ waiting: number }[]>`
+        SELECT count(*)::int AS "waiting" FROM pg_stat_activity
+        WHERE "datname" = current_database() AND "wait_event_type" = 'Lock'`;
+      if (row && row.waiting > 0) return;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    throw new Error('No query waited for the lock');
+  };
+
   const effective = async (id = waterId) =>
     (await request(server()).get(`/api/v1/waters/${id}/rules`).expect(200)).body as unknown[];
 
@@ -293,6 +305,50 @@ describe('fishing rules', () => {
       expect(response.body).toMatchObject({ details: { fields: { [field]: [anyString] } } });
     });
 
+    it('validates a change against a concurrent one that committed first', async () => {
+      const rule = (
+        await createOrgRule({ minLengthCm: 50, closedFrom: '01-01', closedTo: '04-30' }).expect(201)
+      ).body as Rule;
+      await prisma.auditLog.deleteMany();
+      // Another change holds the row: it removes the period and commits only once the request
+      // below waits for the row. Alone, the request (removing the length) would be valid.
+      let locked!: () => void;
+      let commit!: () => void;
+      const lockedPromise = new Promise<void>((resolve) => (locked = resolve));
+      const commitPromise = new Promise<void>((resolve) => (commit = resolve));
+      const other = prisma.$transaction(
+        async (tx) => {
+          await tx.$queryRaw`SELECT "id" FROM "SpeciesRule" WHERE "id" = ${rule.id}::uuid FOR UPDATE`;
+          await tx.speciesRule.update({
+            where: { id: rule.id },
+            data: { closedFrom: null, closedTo: null },
+          });
+          locked();
+          await commitPromise;
+        },
+        { timeout: 20_000 },
+      );
+      await lockedPromise;
+      const response = request(server())
+        .patch(orgPath(`/${rule.id}`))
+        .set(bearer(admin.accessToken))
+        .send({ minLengthCm: null })
+        .then((result) => result);
+      await untilSomeQueryWaitsForLock();
+      commit();
+      await other;
+
+      expect((await response).body).toMatchObject({
+        code: 'VALIDATION_FAILED',
+        details: { fields: { rule: [anyString] } },
+      });
+      expect(await prisma.speciesRule.findUniqueOrThrow({ where: { id: rule.id } })).toMatchObject({
+        minLengthCm: 50,
+        closedFrom: null,
+      });
+      expect(await prisma.auditLog.count()).toBe(0);
+    });
+
     it('does not move a rule to another species or water', async () => {
       const rule = (await createOrgRule({ minLengthCm: 50 }).expect(201)).body as Rule;
 
@@ -413,6 +469,19 @@ describe('fishing rules', () => {
         code: 'RULE_ALREADY_EXISTS',
         details: { speciesId: pikeId },
       });
+    });
+
+    it('lets only one of two concurrent general rules of a species in', async () => {
+      const responses = await Promise.all([
+        createGeneralRule({ minLengthCm: 50 }),
+        createGeneralRule({ minLengthCm: 55 }),
+      ]);
+
+      expect(responses.map(({ status }) => status).sort()).toEqual([201, 409]);
+      expect(responses.find(({ status }) => status === 409)?.body).toMatchObject({
+        code: 'RULE_ALREADY_EXISTS',
+      });
+      expect(await prisma.speciesRule.count()).toBe(1);
     });
 
     it('rejects a level in the body of a general rule', async () => {

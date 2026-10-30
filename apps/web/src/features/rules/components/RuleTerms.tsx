@@ -50,7 +50,11 @@ export function RuleTerms({
           : t('rules.terms.dailyCount', { count: rule.dailyLimitCount }),
     });
   }
-  if (rule.dailyLimitWeightG !== null) {
+  // Both limits at 0 say the same thing: no-kill once.
+  if (
+    rule.dailyLimitWeightG !== null &&
+    !(rule.dailyLimitWeightG === 0 && rule.dailyLimitCount === 0)
+  ) {
     lines.push({
       key: 'dailyLimitWeightG',
       parameter: 'dailyLimitWeightG',

@@ -69,6 +69,7 @@ const waterRule: OrgRule = {
   closedFrom: '12-01',
   closedTo: '02-28',
   dailyLimitCount: 0,
+  dailyLimitWeightG: 0,
   ineffective: [],
 };
 
@@ -117,7 +118,8 @@ describe('organization rules page', () => {
 
     expect(within(water).getByText('Jezioro Białe')).toBeVisible();
     expect(within(water).getByText('Okres ochronny: 1 grudnia – 28 lutego')).toBeVisible();
-    expect(within(water).getByText(/Nie wolno zabierać/)).toBeVisible();
+    // Both limits at 0 (no-kill) make one line, not two.
+    expect(within(water).getAllByText(/Nie wolno zabierać/)).toHaveLength(1);
     expect(within(water).queryByText(/Nie obowiązuje/)).toBeNull();
   });
 
@@ -166,9 +168,9 @@ describe('organization rules page', () => {
     await user.selectOptions(screen.getByLabelText('Gatunek'), 'Szczupak');
     await user.click(screen.getAllByRole('button', { name: 'Dodaj zasadę' }).at(-1)!);
 
-    expect(
-      await screen.findByText('Zasada musi coś ograniczać: wypełnij przynajmniej jedno pole.'),
-    ).toBeVisible();
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Zasada musi coś ograniczać: wypełnij przynajmniej jedno pole.',
+    );
 
     await user.type(screen.getByLabelText('Od'), '02-30');
     await user.click(screen.getAllByRole('button', { name: 'Dodaj zasadę' }).at(-1)!);
