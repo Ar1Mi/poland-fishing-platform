@@ -191,6 +191,15 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 - **`GET /permit-types/lowest-prices?waterIds=a,b,…`** (публично): до 100 разных id через запятую (одна страница списка каталога, `LOWEST_PRICES_MAX_WATERS`; повтор → 400) → `[{ waterId, priceGrosze }]` в порядке запроса — минимальная цена активного обычного (`NONE`) типа `ACTIVE`-организации, к которой водоём подключён сейчас (как в `GET /permit-types?waterId=`); водоёмы без такой цены пропускаются. Льготные типы в «od» не входят: цена для подростка вводила бы в заблуждение взрослого. Отдельный эндпоинт, а не поле `GET /waters`: `PermitsModule` зависит от `WatersModule`, обратная зависимость дала бы цикл модулей.
 - **`GET /orgs/:orgId/waters`:** подключённые водоёмы организации по названию: `{ id, name, type, region }`.
 
+Детали (T-16, FR-16, ADR-0008):
+
+- **Правило:** `{ speciesId, minLengthCm, closedFrom, closedTo, dailyLimitCount, dailyLimitWeightG }` (+ `fishingWaterId` у `/orgs/:orgId/rules`). Параметр пропущен или `null` — нет ограничения. Пределы и формат `MM-DD` — `packages/shared/src/rules/species-rules.ts` (`02-business-rules.md` → «Три уровня правил»). Правило, которое ничего не ограничивает, → 400 `VALIDATION_FAILED` с `details.fields.rule`; половина периода — с полем недостающего конца; неизвестный вид — `details.fields.speciesId`.
+- **`/orgs/:orgId/rules`** (ORG_ADMIN): правила организации (`fishingWaterId` пропущен или `null`) и её водоёмов. Водоём должен быть подключён к этой организации, иначе 400 `VALIDATION_FAILED` (`details.fields.fishingWaterId`). Правил одного вида на уровне может быть несколько — они сливаются. Список: по `namePl` вида, внутри вида правило организации, затем водоёмы по названию; ответ `{ id, speciesId, water: { id, name } | null, …параметры, ineffective, updatedAt }`; `ineffective` — параметры, которые не действуют из-за более строгого верхнего уровня (`02-business-rules.md`), у общих правил всегда `[]`. Правило другого уровня или другой организации → 404 `NOT_FOUND`.
+- **`/admin/rules`** (суперадмин): общие правила, по одному на вид — второе → 409 `RULE_ALREADY_EXISTS` (`details.speciesId`; гонку решает индекс `rule_one_general`). `fishingWaterId` в теле → 400. Правило организации здесь → 404.
+- **`PATCH …/rules/:id`:** только параметры: пропущенный не меняется, `null` снимает ограничение; вид и уровень не меняются (`speciesId`, `fishingWaterId` в теле → 400; чтобы сменить — удалить и создать). Результат проверяется целиком, как при создании. Запрос без изменений ничего не пишет. `DELETE` → 204.
+- **AuditLog:** `RULE_CREATED` (вид, уровень, параметры), `RULE_UPDATED` (`{ параметр: { from, to } }` только изменённых), `RULE_DELETED` (снимок) — в транзакции действия; одинаково для общих и правил организации.
+- **`GET /waters/:id/rules`** (публично): `[{ speciesId, minLengthCm, dailyLimitCount, dailyLimitWeightG, closedPeriods: [{ from, to }] }]` по `namePl` вида; виды без правил не возвращаются. Применимые уровни — `02-business-rules.md`. Неизвестный или неопубликованный водоём → 404, не-UUID → 400.
+
 ## Коды ошибок
 
 Определены в `packages/shared/src/errors.ts`. Минимальный набор:
@@ -201,7 +210,7 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 | 401 | `UNAUTHENTICATED`, `INVALID_CREDENTIALS`, `EMAIL_NOT_VERIFIED`, `TOKEN_EXPIRED` |
 | 403 | `FORBIDDEN`, `ORG_SCOPE_VIOLATION`, `ORG_NOT_ACTIVE` |
 | 404 | `NOT_FOUND` |
-| 409 | `EMAIL_TAKEN`, `NIP_TAKEN`, `CLAIM_ALREADY_PENDING`, `WATER_ALREADY_CONNECTED`, `CLAIM_NOT_PENDING`, `PERMIT_TYPE_IN_USE` |
+| 409 | `EMAIL_TAKEN`, `NIP_TAKEN`, `CLAIM_ALREADY_PENDING`, `WATER_ALREADY_CONNECTED`, `CLAIM_NOT_PENDING`, `PERMIT_TYPE_IN_USE`, `RULE_ALREADY_EXISTS` |
 | 422 | Бизнес-правила: `PERMIT_START_IN_PAST`, `DISCOUNT_NOT_ELIGIBLE`, `PERMIT_TYPE_INACTIVE`, `EDIT_WINDOW_CLOSED`, `PERMIT_NOT_REVOCABLE`, `PERMIT_NOT_VALID` |
 | 429 | `RATE_LIMITED` |
 | 500 | `INTERNAL_ERROR` — необработанное исключение; `message` не раскрывает детали, они только в логе |

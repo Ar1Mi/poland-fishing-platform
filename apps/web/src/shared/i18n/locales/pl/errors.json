@@ -16,6 +16,7 @@
   "WATER_ALREADY_CONNECTED": "To łowisko jest już podłączone przez inną organizację.",
   "CLAIM_NOT_PENDING": "Ten wniosek został już rozpatrzony.",
   "PERMIT_TYPE_IN_USE": "Zezwolenia tego rodzaju zostały już sprzedane: nie można zmienić jego warunków ani go usunąć. Wstrzymaj sprzedaż lub utwórz nowy rodzaj.",
+  "RULE_ALREADY_EXISTS": "Ten gatunek ma już zasadę ogólną. Zmień istniejącą zasadę.",
   "PERMIT_START_IN_PAST": "Data rozpoczęcia zezwolenia nie może być w przeszłości.",
   "DISCOUNT_NOT_ELIGIBLE": "Ta zniżka Ci nie przysługuje.",
   "PERMIT_TYPE_INACTIVE": "Ten rodzaj zezwolenia nie jest już sprzedawany.",

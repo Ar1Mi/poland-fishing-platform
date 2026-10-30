@@ -1,0 +1,76 @@
+{
+  "terms": {
+    "minLength": "Wymiar ochronny: od {{cm}} cm",
+    "closedPeriod": "Okres ochronny: {{from}} – {{to}}",
+    "dailyCount_one": "Limit dzienny: {{count}} sztuka",
+    "dailyCount_few": "Limit dzienny: {{count}} sztuki",
+    "dailyCount_many": "Limit dzienny: {{count}} sztuk",
+    "dailyCount_other": "Limit dzienny: {{count}} sztuki",
+    "dailyWeight": "Limit dzienny: łącznie {{weight}}",
+    "noKill": "Nie wolno zabierać — tylko wypuszczanie (no-kill)",
+    "ineffective": "Nie obowiązuje: przepisy ogólne lub regulamin organizacji są surowsze."
+  },
+  "org": {
+    "title": "Zasady połowu",
+    "lead": "Przepisy ogólne (rozporządzenie w sprawie połowu ryb) obowiązują zawsze. Regulamin organizacji i łowiska może je tylko zaostrzyć — z kilku wartości obowiązuje najsurowsza.",
+    "loading": "Ładowanie zasad…",
+    "add": "Dodaj zasadę",
+    "listTitle": "Zasady organizacji i łowisk",
+    "empty": "Organizacja nie ma własnych zasad — obowiązują przepisy ogólne.",
+    "wholeOrganization": "Wszystkie łowiska organizacji",
+    "saved": "Zasada została zapisana.",
+    "deleted": "Zasada została usunięta.",
+    "edit": "Zmień",
+    "editLabel": "Zmień zasadę: {{name}}",
+    "delete": "Usuń",
+    "deleteLabel": "Usuń zasadę: {{name}}",
+    "deleteConfirm": "Usunąć zasadę dla gatunku {{name}}?",
+    "deleteConfirmYes": "Tak, usuń",
+    "deleteConfirmNo": "Anuluj"
+  },
+  "form": {
+    "titleNew": "Nowa zasada",
+    "titleEdit": "Zmiana zasady",
+    "species": {
+      "label": "Gatunek",
+      "placeholder": "Wybierz gatunek",
+      "error": "Wybierz gatunek."
+    },
+    "scope": {
+      "label": "Dotyczy",
+      "organization": "Wszystkich łowisk organizacji"
+    },
+    "emptyHint": "Puste pole — bez ograniczenia.",
+    "limitHint": "Puste pole — bez limitu; 0 — nie wolno zabierać (no-kill).",
+    "minLength": {
+      "label": "Wymiar ochronny (cm)",
+      "error": "Podaj liczbę całkowitą od 1 do 300."
+    },
+    "closed": {
+      "legend": "Okres ochronny",
+      "hint": "Miesiąc i dzień, np. 01-01 i 04-30. Okres może przechodzić przez Nowy Rok (12-01 – 02-28); koniec lutego to 02-28.",
+      "from": "Od",
+      "to": "Do",
+      "error": "Podaj istniejący dzień w formacie MM-DD; okres wymaga obu dat."
+    },
+    "dailyCount": {
+      "label": "Limit dzienny (sztuki)",
+      "error": "Podaj liczbę całkowitą od 0 do 100."
+    },
+    "dailyWeight": {
+      "label": "Limit dzienny (gramy)",
+      "error": "Podaj liczbę całkowitą od 0 do 100 000."
+    },
+    "nothing": "Zasada musi coś ograniczać: wypełnij przynajmniej jedno pole.",
+    "submitNew": "Dodaj zasadę",
+    "submitEdit": "Zapisz zmiany",
+    "cancel": "Anuluj"
+  },
+  "water": {
+    "title": "Zasady połowu",
+    "loading": "Ładowanie zasad połowu…",
+    "lead": "Najsurowsze z przepisów ogólnych i regulaminu łowiska. Według nich rejestr sprawdza połowy.",
+    "empty": "Brak szczególnych zasad dla gatunków na tym łowisku.",
+    "protected": "Gatunek chroniony — tylko wypuścić"
+  }
+}

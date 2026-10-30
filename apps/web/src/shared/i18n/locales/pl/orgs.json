@@ -5,6 +5,7 @@
     "empty": "Nie należysz do żadnej organizacji.",
     "claims": "Wnioski o łowiska",
     "permitTypes": "Rodzaje zezwoleń",
+    "rules": "Zasady połowu",
     "status": {
       "PENDING": "Organizacja czeka na aktywację przez administratora serwisu.",
       "BLOCKED": "Organizacja jest zablokowana. Skontaktuj się z administratorem serwisu."

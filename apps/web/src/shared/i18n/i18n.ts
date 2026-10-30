@@ -9,6 +9,7 @@ import enErrors from './locales/en/errors.json';
 import enLegal from './locales/en/legal.json';
 import enOrgs from './locales/en/orgs.json';
 import enPermits from './locales/en/permits.json';
+import enRules from './locales/en/rules.json';
 import plAuth from './locales/pl/auth.json';
 import plCatalog from './locales/pl/catalog.json';
 import plClaims from './locales/pl/claims.json';
@@ -17,6 +18,7 @@ import plErrors from './locales/pl/errors.json';
 import plLegal from './locales/pl/legal.json';
 import plOrgs from './locales/pl/orgs.json';
 import plPermits from './locales/pl/permits.json';
+import plRules from './locales/pl/rules.json';
 import ruAuth from './locales/ru/auth.json';
 import ruCatalog from './locales/ru/catalog.json';
 import ruClaims from './locales/ru/claims.json';
@@ -25,6 +27,7 @@ import ruErrors from './locales/ru/errors.json';
 import ruLegal from './locales/ru/legal.json';
 import ruOrgs from './locales/ru/orgs.json';
 import ruPermits from './locales/ru/permits.json';
+import ruRules from './locales/ru/rules.json';
 
 /*
  * One file per feature (`locales/{lng}/{feature}.json`), merged under the feature name into
@@ -40,6 +43,7 @@ export const resources = {
       claims: plClaims,
       orgs: plOrgs,
       permits: plPermits,
+      rules: plRules,
       legal: plLegal,
       errors: plErrors,
     },
@@ -52,6 +56,7 @@ export const resources = {
       claims: enClaims,
       orgs: enOrgs,
       permits: enPermits,
+      rules: enRules,
       legal: enLegal,
       errors: enErrors,
     },
@@ -64,6 +69,7 @@ export const resources = {
       claims: ruClaims,
       orgs: ruOrgs,
       permits: ruPermits,
+      rules: ruRules,
       legal: ruLegal,
       errors: ruErrors,
     },
