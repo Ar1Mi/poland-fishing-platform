@@ -48,7 +48,7 @@ export function WaterRules({ waterId }: { waterId: string }) {
                         {item ? speciesName(item, i18n.resolvedLanguage) : ''}
                       </p>
                       {item?.isProtected && (
-                        <Badge variant="destructive" className="w-fit">
+                        <Badge variant="destructive" className="max-w-full whitespace-normal">
                           <ShieldAlert aria-hidden />
                           {t('rules.water.protected')}
                         </Badge>
