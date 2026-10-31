@@ -45,6 +45,8 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      # Fails below 90 % coverage of the fishing rules and the CatchValidator (vitest.config.ts).
+      - run: pnpm --filter @lowisko/shared test:coverage
 
       # Testcontainers starts PostgreSQL on the runner's Docker.
       - run: pnpm --filter api test:e2e
