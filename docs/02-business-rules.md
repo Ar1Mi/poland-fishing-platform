@@ -77,19 +77,44 @@ interface CatchRule {
   check(ctx: CatchContext): RuleViolation | null;
 }
 
+interface CatchInput {
+  speciesId: string;
+  fishingWaterId: string;
+  caughtAt: Date;
+  lengthCm: number;
+  weightG: number | null;
+  kept: boolean;
+}
+
+type PermitSnapshot =                // validFrom, validTo — YYYY-MM-DD, оба дня включительно
+  | { kind: 'PLATFORM'; status: PermitStatus; validFrom; validTo; waterIds: string[] }
+  | { kind: 'EXTERNAL'; validFrom; validTo; waterIds: string[] };
+
 interface CatchContext {
   catch: CatchInput;                 // проверяемый улов
-  permit: PermitSnapshot;            // validFrom, validTo, waterIds, kind
+  permit: PermitSnapshot;
   species: { id: string; isProtected: boolean };
   effectiveRule: EffectiveRule;      // результат слияния уровней
-  sameDayKept: CatchInput[];         // оставленные уловы пользователя за те же сутки, до этого улова
+  sameDayKept: SameDayCatch[];       // оставленные уловы пользователя, идущие в лимиты, кроме проверяемого
   now: Date;                         // передаётся снаружи — тестируемость
 }
 
-function validateCatch(ctx: CatchContext, rules = DEFAULT_RULES): RuleViolation[];
+function validateCatch(ctx: CatchContext, rules = DEFAULT_CATCH_RULES): RuleViolation[];
 function resolveEffectiveRule(rules: SpeciesRuleRow[]): EffectiveRule;
 ```
 
 - Каждое правило — отдельный класс/объект и отдельный файл тестов (паттерн Strategy / Specification).
 - Сервер (`CatchesModule`) загружает контекст из БД и вызывает `validateCatch`; при пакетной синхронизации обрабатывает уловы пользователя **в порядке `caughtAt` в одной транзакции**, чтобы лимиты считались детерминированно.
 - Клиент вызывает ту же функцию с данными из IndexedDB и показывает нарушение сразу; окончательное решение — за сервером (`REJECTED` + коды нарушений).
+
+Уточнения (T-17):
+
+- Код — `packages/shared/src/rules/catch/`: файл и файл тестов на каждое правило (`br-02-min-length.ts` …), `validateCatch` — в `validate-catch.ts`.
+- `validateCatch` возвращает **все** нарушения, а не первое, в порядке `DEFAULT_CATCH_RULES`: BR-01, BR-02 … BR-06, BR-10, BR-11. Пустой список — улов принят. BR-01 — две проверки с одним ID (`PERMIT_NOT_ACTIVE` и `PERMIT_WATER_MISMATCH`), срабатывают обе. BR-02…BR-05 и BR-11 пропускают отпущенную рыбу.
+- **BR-01 — на момент `caughtAt`, а не `now`**: улов, записанный офлайн и отправленный уже после конца срока, принимается. Платформенное разрешение активно, если `effectivePermitStatus(permit, caughtAt)` = `ACTIVE`: `PAID` и варшавская дата улова в `validFrom…validTo`. `REVOKED` неактивно для любого улова, даже пойманного до аннулирования (`revokedAt` не учитывается): аннулированное разрешение — не основание для записи в реестре, а статус вычисляется в одном месте (ADR-0005). У внешнего разрешения проверяются только даты.
+- **Лимиты BR-04/BR-05**: из `sameDayKept` валидатор сам берёт только оставленные уловы того же вида за те же варшавские сутки, что и проверяемый. Какие водоёмы и уловы туда входят («где действует то же правило»), решает вызывающий код (T-18); проверяемый улов туда не передаётся. Улов без веса в сумме BR-05 считается как 0 г — его приняли, когда весового лимита не было.
+- **Границы включительны**: длина, равная `minLengthCm`, — не нарушение; число или вес оставленных вместе с этим уловом, равные лимиту, — не нарушение, сверх — нарушение; `caughtAt` ровно на 5 мин позже `now` (`CATCH_FUTURE_TOLERANCE_MINUTES`) ещё допустимо.
+- **Вес не указан** (`weightG = null`) при весовом лимите: BR-11 требует вес, а BR-05 срабатывает, если лимит достигнут и без этого улова (любая рыба что-то весит) — в том числе всегда при лимите 0 (no-kill). BR-11 действует и при лимите 0.
+- `details`: BR-01 `PERMIT_NOT_ACTIVE` — `{ status, validFrom, validTo }`, `status` — вычисленный на момент улова (`SCHEDULED`, `EXPIRED`, `REVOKED` …; у внешнего — только `SCHEDULED` / `EXPIRED`); BR-02 `{ minLengthCm }`; BR-03 `{ from, to }` — первый период, в который попал день; BR-04 `{ limit, alreadyKept }`; BR-05 `{ limitG, alreadyKeptG }`; BR-10 `{ toleranceMinutes }`.
+- `species.id`, не совпадающий с `catch.speciesId`, — ошибка вызывающего кода: `RangeError`, как у `resolveEffectiveRule` для правил разных видов.
+- BR-07 (окно редактирования) в `validateCatch` не входит: это HTTP-ошибка правки улова (`EDIT_WINDOW_CLOSED`, T-18).
