@@ -3,7 +3,7 @@ import { minLengthRule } from './br-02-min-length.js';
 import {
   CAUGHT_AT,
   catchContext,
-  keptEarlier,
+  otherKept,
   OTHER_WATER,
   PERCH,
   platformPermit,
@@ -25,7 +25,7 @@ const everythingWrong = (kept: boolean) =>
       dailyLimitWeightG: 1000,
       closedPeriods: [{ from: '06-01', to: '06-30' }],
     },
-    sameDayKept: [keptEarlier({ weightG: 1000 })],
+    sameDayKept: [otherKept({ weightG: 1000 })],
     now: new Date(CAUGHT_AT.getTime() - 60 * 60_000),
   });
 
@@ -89,44 +89,56 @@ describe('validateCatch', () => {
     });
 
     it('starts a new daily limit at the Warsaw midnight', () => {
-      const ctx = catchContext({
-        catch: { caughtAt: new Date('2026-10-30T23:00:00.000Z') },
-        permit: platformPermit({ validFrom: '2026-10-01', validTo: '2026-10-31' }),
-        effectiveRule: { dailyLimitCount: 1 },
-        sameDayKept: [keptEarlier({ caughtAt: new Date('2026-10-30T22:59:59.999Z') })],
-      });
+      const checkWith = (other: string, checked: string) =>
+        validateCatch(
+          catchContext({
+            catch: { caughtAt: new Date(checked) },
+            permit: platformPermit({ validFrom: '2026-10-01', validTo: '2026-10-31' }),
+            effectiveRule: { dailyLimitCount: 1 },
+            sameDayKept: [otherKept({ caughtAt: new Date(other) })],
+          }),
+        );
 
-      expect(validateCatch(ctx)).toEqual([]);
+      // 23:59:59.999 on 30 October and 00:00 on 31 October, in either order.
+      expect(checkWith('2026-10-30T22:59:59.999Z', '2026-10-30T23:00:00.000Z')).toEqual([]);
+      expect(checkWith('2026-10-30T23:00:00.000Z', '2026-10-30T22:59:59.999Z')).toEqual([]);
     });
   });
 
   describe('daylight saving time', () => {
     const october = platformPermit({ validFrom: '2026-10-01', validTo: '2026-10-31' });
     const march = platformPermit({ validFrom: '2026-03-01', validTo: '2026-03-31' });
-    const secondOf = (permit: typeof october, first: string, second: string) =>
+    const checkWith = (permit: typeof october, other: string, checked: string) =>
       codes(
         catchContext({
-          catch: { caughtAt: new Date(second) },
+          catch: { caughtAt: new Date(checked) },
           permit,
           effectiveRule: { dailyLimitCount: 1 },
-          sameDayKept: [keptEarlier({ caughtAt: new Date(first) })],
+          sameDayKept: [otherKept({ caughtAt: new Date(other) })],
         }),
       );
 
     // 25 October 2026 lasts 25 hours in Warsaw: 22:00 UTC on the 24th to 23:00 UTC on the 25th.
     it('counts 00:30 and 23:30 of the day winter time starts as one day, 24 hours apart', () => {
-      expect(secondOf(october, '2026-10-24T22:30:00.000Z', '2026-10-25T22:30:00.000Z')).toEqual([
+      expect(checkWith(october, '2026-10-24T22:30:00.000Z', '2026-10-25T22:30:00.000Z')).toEqual([
         'DAILY_COUNT_LIMIT',
       ]);
-      expect(secondOf(october, '2026-10-24T22:30:00.000Z', '2026-10-25T23:00:00.000Z')).toEqual([]);
+      expect(checkWith(october, '2026-10-24T22:30:00.000Z', '2026-10-25T23:00:00.000Z')).toEqual(
+        [],
+      );
+      // A fish of the next day does not count either.
+      expect(checkWith(october, '2026-10-25T23:00:00.000Z', '2026-10-25T22:30:00.000Z')).toEqual(
+        [],
+      );
     });
 
     // 29 March 2026 lasts 23 hours in Warsaw: 23:00 UTC on the 28th to 22:00 UTC on the 29th.
     it('ends the day summer time starts at 22:00 UTC', () => {
-      expect(secondOf(march, '2026-03-28T23:00:00.000Z', '2026-03-29T21:59:59.999Z')).toEqual([
+      expect(checkWith(march, '2026-03-28T23:00:00.000Z', '2026-03-29T21:59:59.999Z')).toEqual([
         'DAILY_COUNT_LIMIT',
       ]);
-      expect(secondOf(march, '2026-03-28T23:00:00.000Z', '2026-03-29T22:00:00.000Z')).toEqual([]);
+      expect(checkWith(march, '2026-03-28T23:00:00.000Z', '2026-03-29T22:00:00.000Z')).toEqual([]);
+      expect(checkWith(march, '2026-03-29T22:00:00.000Z', '2026-03-29T21:00:00.000Z')).toEqual([]);
     });
   });
 

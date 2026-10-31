@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { dailyWeightRule } from './br-05-daily-weight.js';
-import { catchContext, keptEarlier, PERCH } from './catch-context.fixture.js';
+import { catchContext, otherKept, PERCH } from './catch-context.fixture.js';
 import type { SameDayCatch } from './types.js';
 
 const check = (
@@ -19,11 +19,11 @@ const check = (
 
 describe('BR-05 daily weight limit', () => {
   it('accepts the fish that reaches the limit', () => {
-    expect(check(3000, 2000, [keptEarlier({ weightG: 1000 })])).toBe(null);
+    expect(check(3000, 2000, [otherKept({ weightG: 1000 })])).toBe(null);
   });
 
   it('rejects the fish over the limit', () => {
-    expect(check(3000, 2000, [keptEarlier({ weightG: 1001 })])).toEqual({
+    expect(check(3000, 2000, [otherKept({ weightG: 1001 })])).toEqual({
       code: 'DAILY_WEIGHT_LIMIT',
       ruleId: 'BR-05',
       details: { limitG: 3000, alreadyKeptG: 1001 },
@@ -31,15 +31,16 @@ describe('BR-05 daily weight limit', () => {
   });
 
   it('counts an earlier catch without a weight as 0 g', () => {
-    expect(check(2000, 2000, [keptEarlier({ weightG: null })])).toBe(null);
+    expect(check(2000, 2000, [otherKept({ weightG: null })])).toBe(null);
   });
 
   it('counts only kept fish of the species on the same Warsaw day', () => {
     const sameDayKept = [
-      keptEarlier({ weightG: 500 }),
-      keptEarlier({ speciesId: PERCH }),
-      keptEarlier({ kept: false }),
-      keptEarlier({ caughtAt: new Date('2026-06-14T21:59:59.999Z') }),
+      otherKept({ weightG: 500 }),
+      otherKept({ speciesId: PERCH }),
+      otherKept({ kept: false }),
+      otherKept({ caughtAt: new Date('2026-06-14T21:59:59.999Z') }),
+      otherKept({ caughtAt: new Date('2026-06-15T22:00:00.000Z') }),
     ];
 
     expect(check(2500, 2000, sameDayKept)).toBe(null);
@@ -48,11 +49,11 @@ describe('BR-05 daily weight limit', () => {
 
   describe('without the weight of the checked fish', () => {
     it('leaves the fish to BR-11 while the limit is not reached', () => {
-      expect(check(3000, null, [keptEarlier({ weightG: 2999 })])).toBe(null);
+      expect(check(3000, null, [otherKept({ weightG: 2999 })])).toBe(null);
     });
 
     it('rejects the fish once the limit is reached', () => {
-      expect(check(3000, null, [keptEarlier({ weightG: 3000 })])?.code).toBe('DAILY_WEIGHT_LIMIT');
+      expect(check(3000, null, [otherKept({ weightG: 3000 })])?.code).toBe('DAILY_WEIGHT_LIMIT');
     });
 
     it('rejects every kept fish at a limit of 0 (no-kill)', () => {

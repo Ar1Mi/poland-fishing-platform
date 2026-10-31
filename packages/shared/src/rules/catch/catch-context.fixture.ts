@@ -38,8 +38,8 @@ export function externalPermit(fields: Partial<Omit<ExternalPermit, 'kind'>> = {
   };
 }
 
-/** Another kept pike of the user, earlier on the day of `CAUGHT_AT`. */
-export function keptEarlier(fields: Partial<SameDayCatch> = {}): SameDayCatch {
+/** Another kept pike of the user; by default earlier on the day of `CAUGHT_AT`. */
+export function otherKept(fields: Partial<SameDayCatch> = {}): SameDayCatch {
   return {
     speciesId: PIKE,
     caughtAt: new Date('2026-06-15T06:00:00.000Z'),
