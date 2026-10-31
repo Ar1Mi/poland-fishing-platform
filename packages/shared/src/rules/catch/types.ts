@@ -40,7 +40,8 @@ export interface CatchContext {
   effectiveRule: EffectiveRule;
   /**
    * Kept catches of the user that count towards the daily limits, without the checked one.
-   * Only those of the same species and the same Warsaw day are counted.
+   * Only those of the same species and the same Warsaw day are counted — later ones too: the
+   * limit bounds the total of the day, so an accepted catch never becomes a violation.
    */
   sameDayKept: readonly SameDayCatch[];
   /** The moment of the check, passed in: the package never reads the clock. */
