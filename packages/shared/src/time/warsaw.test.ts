@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { assertDateOnly, isInClosedPeriod, warsawDate, warsawDayEnd } from './warsaw.js';
+import {
+  assertDateOnly,
+  fromWarsawDateTimeLocal,
+  isInClosedPeriod,
+  warsawDate,
+  warsawDateTimeLocal,
+  warsawDayEnd,
+} from './warsaw.js';
 
 const utc = (iso: string): Date => new Date(`${iso}Z`);
 
@@ -70,6 +77,55 @@ describe('warsawDayEnd', () => {
 
   it('rejects a malformed date', () => {
     expect(() => warsawDayEnd('2026-7-1')).toThrow(RangeError);
+  });
+});
+
+describe('warsawDateTimeLocal', () => {
+  it('shows the Warsaw wall clock to the minute in winter and summer', () => {
+    expect(warsawDateTimeLocal(utc('2026-01-15T13:20:59.999'))).toBe('2026-01-15T14:20');
+    expect(warsawDateTimeLocal(utc('2026-06-15T13:20:00'))).toBe('2026-06-15T15:20');
+  });
+
+  it('shows midnight as 00:00 of the next Warsaw day', () => {
+    expect(warsawDateTimeLocal(utc('2026-12-31T23:00:00'))).toBe('2027-01-01T00:00');
+  });
+});
+
+describe('fromWarsawDateTimeLocal', () => {
+  it('reads Warsaw wall-clock time in winter (UTC+1) and summer (UTC+2)', () => {
+    expect(fromWarsawDateTimeLocal('2026-01-15T14:20')).toEqual(utc('2026-01-15T13:20:00'));
+    expect(fromWarsawDateTimeLocal('2026-06-15T15:20')).toEqual(utc('2026-06-15T13:20:00'));
+  });
+
+  it('reads the minutes around the switch to summer time and skips the missing hour', () => {
+    expect(fromWarsawDateTimeLocal('2026-03-29T01:59')).toEqual(utc('2026-03-29T00:59:00'));
+    expect(fromWarsawDateTimeLocal('2026-03-29T02:30')).toBe(null);
+    expect(fromWarsawDateTimeLocal('2026-03-29T03:00')).toEqual(utc('2026-03-29T01:00:00'));
+  });
+
+  it('takes the first of the twice-occurring hour of the switch to winter time', () => {
+    expect(fromWarsawDateTimeLocal('2026-10-25T02:30')).toEqual(utc('2026-10-25T00:30:00'));
+    expect(fromWarsawDateTimeLocal('2026-10-25T03:00')).toEqual(utc('2026-10-25T02:00:00'));
+  });
+
+  it('round-trips with warsawDateTimeLocal', () => {
+    for (const text of ['2026-02-28T23:59', '2028-02-29T00:00', '2026-10-25T01:59']) {
+      expect(warsawDateTimeLocal(fromWarsawDateTimeLocal(text)!)).toBe(text);
+    }
+  });
+
+  it('rejects malformed and non-existent dates and times', () => {
+    for (const text of [
+      '',
+      '2026-06-15',
+      '2026-06-15 10:00',
+      '2026-06-15T24:00',
+      '2026-02-29T10:00',
+      '2026-13-01T10:00',
+      '2026-06-15T10:00:00',
+    ]) {
+      expect(fromWarsawDateTimeLocal(text)).toBe(null);
+    }
   });
 });
 
