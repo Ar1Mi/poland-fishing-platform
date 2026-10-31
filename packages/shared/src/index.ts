@@ -9,5 +9,8 @@ export * from './orgs/schemas.js';
 export * from './permits/effective-status.js';
 export * from './permits/permit-types.js';
 export * from './permits/purchase.js';
+export { CATCH_FUTURE_TOLERANCE_MINUTES } from './rules/catch/br-10-catch-in-future.js';
+export * from './rules/catch/types.js';
+export * from './rules/catch/validate-catch.js';
 export * from './rules/species-rules.js';
 export * from './time/warsaw.js';

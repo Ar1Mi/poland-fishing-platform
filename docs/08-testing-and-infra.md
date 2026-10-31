@@ -4,7 +4,7 @@
 
 | Уровень | Инструмент | Где | Что покрываем |
 | --- | --- | --- | --- |
-| Unit | Vitest | `packages/shared` | CatchValidator: каждое правило BR-* отдельно, слияние уровней, границы суток и Нового года |
+| Unit | Vitest | `packages/shared` | CatchValidator: каждое правило BR-* отдельно, слияние уровней, границы суток и Нового года; покрытие `src/rules` ≥ 90 % (`test:coverage`) |
 | Unit | Jest | `apps/api/src/**/*.spec.ts` | Сервисы: цены, статусы, QR-токены, подпись P24 |
 | Интеграционные | Jest + Supertest + Testcontainers | `apps/api/test/*.e2e-spec.ts` | Эндпоинты, guards, IDOR, идемпотентность sync и уведомлений |
 | Компоненты | Vitest + Testing Library | `apps/web/src/**/*.test.tsx` | Формы, офлайн-очередь (fake-indexeddb) |
@@ -54,7 +54,7 @@
 
 1. `pnpm install --frozen-lockfile` (кэш хранилища pnpm по `pnpm-lock.yaml`)
 2. `pnpm format:check` · `pnpm lint` · `pnpm typecheck` — корневые скрипты сами собирают `packages/shared` и типы API-клиента (`pnpm gen:api`)
-3. `pnpm test` (unit)
+3. `pnpm test` (unit), затем `pnpm --filter @lowisko/shared test:coverage` — падает, если покрытие правил ловли и CatchValidator (`packages/shared/src/rules`) ниже 90 % (провайдер `@vitest/coverage-v8`, пороги в `vitest.config.ts`)
 4. `pnpm --filter api test:e2e` (Testcontainers)
 5. `pnpm build`
 6. Playwright E2E (на PR в `main`) — добавляется вместе с первыми сценариями (T-20)
