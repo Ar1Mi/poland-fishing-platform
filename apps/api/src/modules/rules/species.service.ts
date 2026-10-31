@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import type { SpeciesDto } from './dto/species.dto';
 
-/** Owner of the `Species` dictionary; rules per species follow in T-16. */
+/** Owner of the `Species` dictionary (T-09). */
 @Injectable()
 export class SpeciesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -20,5 +20,14 @@ export class SpeciesService {
       },
       orderBy: [{ namePl: 'asc' }, { id: 'asc' }],
     });
+  }
+
+  /** Whether each of `ids` is protected (BR-06), for the known ones. */
+  async findProtection(ids: string[]): Promise<Map<string, boolean>> {
+    const species = await this.prisma.species.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, isProtected: true },
+    });
+    return new Map(species.map(({ id, isProtected }) => [id, isProtected]));
   }
 }

@@ -39,6 +39,14 @@ export class PermitOrganizationDto {
   name!: string;
 }
 
+export class PermitWaterDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ example: 'Zalew Zegrzyński' })
+  name!: string;
+}
+
 /** A permit as its owner sees it, with the QR token while it is valid or scheduled (T-15). */
 export class MyPermitDto {
   @ApiProperty({ format: 'uuid' })
@@ -68,6 +76,12 @@ export class MyPermitDto {
 
   @ApiProperty({ type: PermitOrganizationDto })
   organization!: PermitOrganizationDto;
+
+  @ApiProperty({
+    type: [PermitWaterDto],
+    description: 'Waters of the permit type, which the permit covers (BR-01); by name',
+  })
+  waters!: PermitWaterDto[];
 
   @ApiProperty({ format: 'date-time' })
   createdAt!: string;

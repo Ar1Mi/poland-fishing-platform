@@ -100,6 +100,8 @@ describe('my permits', () => {
       expect(permits[0]).toMatchObject({
         permitType: { id: permitTypeId, name: 'Tygodniowe' },
         organization: { name: 'Koło PZW 7' },
+        // The waters of the type, which the permit covers (BR-01), by name.
+        waters: [{ name: 'Jezioro Łańskie' }, { name: 'Zalew Zegrzyński' }],
       });
     });
 

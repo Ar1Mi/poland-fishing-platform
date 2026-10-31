@@ -129,3 +129,22 @@ export async function createClaim(
     },
   });
 }
+
+/** An accepted kept catch; `userId`, a permit, `fishingWaterId` and `speciesId` are the test's. */
+export function createCatch(
+  prisma: PrismaClient,
+  data: Pick<Prisma.CatchRecordUncheckedCreateInput, 'userId' | 'fishingWaterId' | 'speciesId'> &
+    Partial<Prisma.CatchRecordUncheckedCreateInput>,
+) {
+  return prisma.catchRecord.create({
+    data: {
+      clientId: randomUUID(),
+      caughtAt: new Date('2026-10-06T08:00:00.000Z'),
+      lengthCm: 30,
+      weightG: 500,
+      kept: true,
+      syncStatus: 'ACCEPTED',
+      ...data,
+    },
+  });
+}

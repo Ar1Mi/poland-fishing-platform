@@ -44,6 +44,7 @@ interface MyPermit {
   pricePaidGrosze: number;
   permitType: { id: string; name: string; durationDays: number; discountKind: string };
   organization: { id: string; name: string };
+  waters: { id: string; name: string }[];
   createdAt: string;
   qrToken: string | null;
 }
@@ -173,6 +174,9 @@ describe('permit purchase', () => {
 
       const { permit, paymentUrl } = await buy(type.id, '2026-10-10');
 
+      const water = await prisma.fishingWater.findFirstOrThrow({
+        where: { permitTypes: { some: { id: type.id } } },
+      });
       expect(permit).toEqual({
         id: expect.any(String) as unknown,
         number: expect.stringMatching(/^ZW-2026-\d{6}$/) as unknown,
@@ -182,6 +186,7 @@ describe('permit purchase', () => {
         pricePaidGrosze: 2500,
         permitType: { id: type.id, name: 'Tygodniowe', durationDays: 7, discountKind: 'NONE' },
         organization: { id: organizationId, name: 'Koło PZW 7' },
+        waters: [{ id: water.id, name: water.name }],
         createdAt: FIXED_NOW.toISOString(),
         qrToken: null,
       });

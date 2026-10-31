@@ -1,4 +1,5 @@
 import {
+  type EffectiveRule,
   ErrorCode,
   RULE_PARAMETERS,
   type RuleParameter,
@@ -157,13 +158,9 @@ export class SpeciesRulesService {
    */
   async effectiveForWater(waterId: string): Promise<EffectiveRuleDto[]> {
     const water = await this.waters.get(waterId);
-    const levels: Prisma.SpeciesRuleWhereInput[] = [{ organizationId: null, fishingWaterId: null }];
+    const levels: Prisma.SpeciesRuleWhereInput[] = [GENERAL_LEVEL];
     if (water.status === WaterStatus.CONNECTED && water.organization) {
-      // Rules of a former owner of the water (organizationId of another one) do not apply.
-      levels.push({
-        organizationId: water.organization.id,
-        OR: [{ fishingWaterId: null }, { fishingWaterId: waterId }],
-      });
+      levels.push(ownerLevels(water.organization.id, [waterId]));
     }
     const rows = await this.prisma.speciesRule.findMany({
       where: { OR: levels },
@@ -177,6 +174,43 @@ export class SpeciesRulesService {
           speciesName.get(a.speciesId)!.localeCompare(speciesName.get(b.speciesId)!, 'pl') ||
           a.speciesId.localeCompare(b.speciesId),
       );
+  }
+
+  /**
+   * What a catch on each of `waterIds` is checked against (T-18): the effective rule per species,
+   * merged like `effectiveForWater` — also for unpublished waters, a catch may be on any. Only
+   * species with a rule are in a water's map; for the others no rule restricts anything.
+   */
+  async effectiveOnWaters(waterIds: string[]): Promise<Map<string, Map<string, EffectiveRule>>> {
+    const owners = await this.waters.findOwners(waterIds);
+    const levels: Prisma.SpeciesRuleWhereInput[] = [GENERAL_LEVEL];
+    for (const organizationId of new Set(owners.values())) {
+      levels.push(
+        ownerLevels(
+          organizationId,
+          waterIds.filter((id) => owners.get(id) === organizationId),
+        ),
+      );
+    }
+    const rows = await this.prisma.speciesRule.findMany({ where: { OR: levels } });
+    return new Map(
+      waterIds.map((waterId) => [
+        waterId,
+        resolveEffectiveRules(
+          rows.filter(
+            (row) =>
+              row.organizationId === null ||
+              (row.organizationId === owners.get(waterId) &&
+                (row.fishingWaterId === null || row.fishingWaterId === waterId)),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  /** The general rules only, per species: what a catch on an external permit is checked against. */
+  async effectiveGeneral(): Promise<Map<string, EffectiveRule>> {
+    return resolveEffectiveRules(await this.prisma.speciesRule.findMany({ where: GENERAL_LEVEL }));
   }
 
   /**
@@ -294,10 +328,18 @@ function isAbove(row: SpeciesRule, rule: SpeciesRule): boolean {
   );
 }
 
+const GENERAL_LEVEL: Prisma.SpeciesRuleWhereInput = { organizationId: null, fishingWaterId: null };
+
+/**
+ * Rules of the current owner of `waterIds` (connected to it): its own and those of these waters.
+ * Rules of a former owner (organizationId of another one) do not apply.
+ */
+function ownerLevels(organizationId: string, waterIds: string[]): Prisma.SpeciesRuleWhereInput {
+  return { organizationId, OR: [{ fishingWaterId: null }, { fishingWaterId: { in: waterIds } }] };
+}
+
 function scopeFilter(scope: RuleScope): Prisma.SpeciesRuleWhereInput {
-  return scope.kind === 'general'
-    ? { organizationId: null, fishingWaterId: null }
-    : { organizationId: scope.organizationId };
+  return scope.kind === 'general' ? GENERAL_LEVEL : { organizationId: scope.organizationId };
 }
 
 /** Every parameter, a missing one as `null`. */

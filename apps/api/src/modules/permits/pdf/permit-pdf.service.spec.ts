@@ -16,6 +16,10 @@ const input = (changes: Partial<PermitPdfInput> = {}): PermitPdfInput => ({
       discountKind: DiscountKind.NONE,
     },
     organization: { id: 'org', name: 'PZW Okręg Mazowiecki' },
+    waters: [
+      { id: 'water-1', name: 'Jezioro Łańskie' },
+      { id: 'water-2', name: 'Zalew Zegrzyński' },
+    ],
     createdAt: '2026-10-06T15:20:00.000Z',
     qrToken: 'token',
   },
