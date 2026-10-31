@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { fromWarsawDateTimeLocal } from '../time/warsaw.js';
+import { fromWarsawDateTimeLocal, warsawDate } from '../time/warsaw.js';
 
 // Data of a catch (FR-11) as the API and the catch form accept it. Input checks, not BR-*:
 // `validateCatch` takes them for granted (docs/02-business-rules.md → «Уточнения (T-18)»).
@@ -12,6 +12,22 @@ export const CATCH_WEIGHT_MAX_G = 300_000;
 
 /** Catches in one `POST /catches/sync` (docs/05-api.md). */
 export const CATCH_SYNC_MAX_ITEMS = 100;
+
+/**
+ * Seasons (Warsaw calendar years) a catch may fall into: the ones `GET /me/catches` can list. A
+ * catch outside them could be neither seen nor deleted — and year 10000 breaks the date helpers.
+ */
+export const CATCH_SEASONS = { FIRST: 2000, LAST: 2100 } as const;
+
+/** Whether the Warsaw year of `caughtAt` is one of `CATCH_SEASONS`. */
+export function isInCatchSeasons(caughtAt: Date): boolean {
+  if (Number.isNaN(caughtAt.getTime())) {
+    return false;
+  }
+  // `split`, not `slice(0, 4)`: after 9999 the year has five digits.
+  const year = Number(warsawDate(caughtAt).split('-')[0]);
+  return year >= CATCH_SEASONS.FIRST && year <= CATCH_SEASONS.LAST;
+}
 
 const WEIGHT_KG_PATTERN = /^(\d{1,3})(?:[.,](\d{1,3}))?$/;
 
@@ -52,7 +68,7 @@ export const catchFormSchema = z
       .transform((text) => (text === '' ? null : text))
       .pipe(z.union([z.null(), z.string().transform(parseWeightKg).pipe(weightG)])),
     fate: z.enum(CatchFate),
-    caughtAt: z.string().transform(fromWarsawDateTimeLocal).pipe(z.date()),
+    caughtAt: z.string().transform(fromWarsawDateTimeLocal).pipe(z.date().refine(isInCatchSeasons)),
   })
   .transform(({ weightKg, fate, ...fields }) => ({
     ...fields,

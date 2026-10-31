@@ -1,6 +1,6 @@
 import { warsawDate } from '@lowisko/shared';
 import { CircleCheck, LoaderCircle, Plus } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router';
 import { formatDayWithWeekday } from '../../../shared/lib/format';
@@ -34,6 +34,13 @@ export function MyCatchesPage() {
   const species = useSpecies();
   const permits = useMyPermits();
   const [notice, setNotice] = useState<string | null>(null);
+  const noticeRef = useRef<HTMLDivElement>(null);
+  // The deleted row took the focused button with it: the notice gets the focus and is read out.
+  useEffect(() => {
+    if (notice) {
+      noticeRef.current?.focus();
+    }
+  }, [notice]);
 
   const days = catches.data ? byDay(catches.data) : [];
 
@@ -65,7 +72,7 @@ export function MyCatchesPage() {
         </SelectField>
       </div>
       {notice && (
-        <Alert variant="success" role="status">
+        <Alert ref={noticeRef} tabIndex={-1} variant="success" className="focus:outline-none">
           <CircleCheck aria-hidden />
           <AlertDescription className="text-body">{notice}</AlertDescription>
         </Alert>

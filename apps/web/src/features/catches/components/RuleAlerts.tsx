@@ -32,7 +32,7 @@ function RuleAlert({ violation }: { violation: RuleViolation }) {
         <ViolationText violation={violation} />
       </AlertDescription>
       <AlertDescription className="font-mono text-label font-medium">
-        {violation.ruleId} · {violation.code}
+        {t('catches.violation.code', { ruleId: violation.ruleId, code: violation.code })}
       </AlertDescription>
     </Alert>
   );

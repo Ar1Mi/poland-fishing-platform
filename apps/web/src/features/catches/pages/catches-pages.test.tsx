@@ -1,7 +1,6 @@
-import { warsawDate } from '@lowisko/shared';
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { jsonResponse, mockApi, noContent, renderRoute, sentBodies } from '../../../test/render';
 import type { MyPermit } from '../../permits/api/usePurchase';
 import type { Species } from '../../rules/api/useRules';
@@ -21,6 +20,17 @@ const session = {
   'GET /api/v1/me': () => jsonResponse(profile),
   'GET /api/v1/me/orgs': () => jsonResponse([]),
 };
+
+// Only the clock is fixed: 6 October 2026, 17:20 in Warsaw. Timers stay real for the UI.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-06T15:20:00.000Z'));
+});
+
+afterEach(() => {
+  vi.useRealTimers();
+  localStorage.clear();
+});
 
 const LAKE = { id: '3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e61', name: 'Zalew Zegrzyński' };
 const RIVER = { id: '3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e62', name: 'Narew' };
@@ -94,7 +104,12 @@ const fillCatch = async ({ water = 'Narew', species = 'Szczupak', length = '62',
 };
 
 describe('new catch page', () => {
-  afterEach(() => localStorage.clear());
+  it('presets the time of the catch to now in Warsaw', async () => {
+    mockApi(forForm);
+    renderRoute('/catch/new', { accessToken: 'access-1' });
+
+    expect(await screen.findByLabelText('Czas połowu')).toHaveValue('2026-10-06T17:20');
+  });
 
   it('records a catch on the chosen water of the permit and shows it was accepted', async () => {
     const fetch = mockApi({ ...forForm, 'POST /api/v1/catches/sync': verdict('ACCEPTED') });
@@ -157,8 +172,16 @@ describe('new catch page', () => {
     expect(
       screen.getByText('Od 1 stycznia do 30 kwietnia tego gatunku nie wolno zabierać.'),
     ).toBeVisible();
-    expect(screen.getByText('Dziś zabrano już 2 szt. z limitu 2 szt.')).toBeVisible();
-    expect(screen.getByText('Dziś zabrano już 4,2 kg z limitu 5 kg.')).toBeVisible();
+    expect(
+      screen.getByText(
+        'Tego dnia zabrano już 2 szt. przy limicie 2 szt. — liczą się ryby ze wszystkich łowisk.',
+      ),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        'Tego dnia zabrano już 4,2 kg przy limicie 5 kg — liczą się ryby ze wszystkich łowisk.',
+      ),
+    ).toBeVisible();
     expect(screen.getByText('BR-02 · BELOW_MIN_LENGTH')).toBeVisible();
     // The window of 6 October closes at midnight after 7 October.
     expect(heading.parentElement).toHaveTextContent('do 8 paź 2026, 00:00');
@@ -212,7 +235,7 @@ describe('new catch page', () => {
     ).toBeVisible();
   });
 
-  it('sends the same catch again with the same clientId after a failed attempt', async () => {
+  it('after no answer sends only the same catch again, with the same clientId', async () => {
     let attempts = 0;
     const fetch = mockApi({
       ...forForm,
@@ -226,7 +249,10 @@ describe('new catch page', () => {
     await fillCatch({});
     await userEvent.click(screen.getByRole('button', { name: 'Zapisz połów' }));
     expect(await screen.findByText('INTERNAL_ERROR')).toBeVisible();
-    await userEvent.click(screen.getByRole('button', { name: 'Zapisz połów' }));
+    // It may be stored already: what was sent cannot be changed before it is sent again.
+    expect(screen.getByLabelText('Długość (cm)')).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Zapisz połów' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Wyślij ponownie' }));
 
     expect(
       await screen.findByRole('heading', { name: 'Połów zapisany w rejestrze' }),
@@ -235,7 +261,62 @@ describe('new catch page', () => {
       items: { clientId: string }[];
     }[];
     expect(bodies).toHaveLength(2);
-    expect(bodies[1]!.items[0]!.clientId).toBe(bodies[0]!.items[0]!.clientId);
+    expect(bodies[1]).toEqual(bodies[0]);
+  });
+
+  it('keeps the form open to corrections when the server refused the catch', async () => {
+    let attempts = 0;
+    const fetch = mockApi({
+      ...forForm,
+      'POST /api/v1/catches/sync': (request) =>
+        ++attempts === 1
+          ? jsonResponse({ code: 'VALIDATION_FAILED', message: 'Request validation failed' }, 400)
+          : verdict('ACCEPTED')(request),
+    });
+    renderRoute('/catch/new', { accessToken: 'access-1' });
+
+    await fillCatch({});
+    await userEvent.click(screen.getByRole('button', { name: 'Zapisz połów' }));
+    expect(await screen.findByText('VALIDATION_FAILED')).toBeVisible();
+    await userEvent.clear(screen.getByLabelText('Długość (cm)'));
+    await userEvent.type(screen.getByLabelText('Długość (cm)'), '63');
+    await userEvent.click(screen.getByRole('button', { name: 'Zapisz połów' }));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Połów zapisany w rejestrze' }),
+    ).toBeVisible();
+    const bodies = (await sentBodies(fetch, 'POST /api/v1/catches/sync')) as {
+      items: { clientId: string; lengthCm: number }[];
+    }[];
+    expect(bodies.map(({ items }) => items[0]!.lengthCm)).toEqual([62, 63]);
+  });
+
+  it('does not promise a correction of a rejected catch whose window has closed', async () => {
+    mockApi({
+      ...forForm,
+      'POST /api/v1/catches/sync': verdict('REJECTED', [
+        {
+          code: 'PERMIT_NOT_ACTIVE',
+          ruleId: 'BR-01',
+          details: { status: 'SCHEDULED', validFrom: '2026-10-01', validTo: '2026-10-31' },
+        },
+      ]),
+    });
+    renderRoute('/catch/new', { accessToken: 'access-1' });
+
+    await fillCatch({});
+    fireEvent.change(screen.getByLabelText('Czas połowu'), {
+      target: { value: '2025-10-02T10:00' },
+    });
+    await userEvent.click(screen.getByRole('button', { name: 'Zapisz połów' }));
+
+    const heading = await screen.findByRole('heading', { name: 'Połów odrzucony' });
+    expect(heading.parentElement).toHaveTextContent('Czas na jego zmianę już minął.');
+    expect(
+      screen.getByText(
+        'W chwili połowu zezwolenie nie było ważne (Zaplanowane). Ważne od 1 paź 2026 do 31 paź 2026 włącznie.',
+      ),
+    ).toBeVisible();
   });
 
   it('explains that a catch needs an active permit', async () => {
@@ -280,7 +361,8 @@ const caught = (changes: Partial<Catch>): Catch => ({
   lng: null,
   status: 'REJECTED',
   violations: [{ code: 'WEIGHT_REQUIRED', ruleId: 'BR-11' }],
-  editableUntil: '2099-01-01T00:00:00.000Z',
+  // 6 October ends at 22:00 UTC; the window a day later.
+  editableUntil: '2026-10-07T22:00:00.000Z',
   createdAt: '2026-10-06T08:01:00.000Z',
   ...changes,
 });
@@ -380,20 +462,72 @@ describe('my catches page', () => {
     expect(await screen.findByText('Połów został usunięty z rejestru.')).toBeVisible();
     expect(await screen.findByText('W tym sezonie nie zapisano jeszcze połowów.')).toBeVisible();
     expect(fetch.mock.calls.some(([request]) => request.method === 'DELETE')).toBe(true);
+    // The row with the focused button is gone: the notice takes the focus.
+    expect(
+      screen.getByText('Połów został usunięty z rejestru.').closest('[tabindex]'),
+    ).toHaveFocus();
+  });
+
+  it('keeps the focus within the row while correcting or deleting', async () => {
+    mockApi(forRegister(() => [rejected]));
+    renderRoute('/me/catches', { accessToken: 'access-1' });
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Popraw połów: Leszcz, 10:00' }),
+    );
+    expect(screen.getByRole('heading', { name: 'Popraw połów' })).toHaveFocus();
+    await userEvent.click(screen.getByRole('button', { name: 'Anuluj' }));
+    expect(screen.getByRole('button', { name: 'Popraw połów: Leszcz, 10:00' })).toHaveFocus();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Usuń połów: Leszcz, 10:00' }));
+    expect(screen.getByRole('button', { name: 'Anuluj' })).toHaveFocus();
+    await userEvent.click(screen.getByRole('button', { name: 'Anuluj' }));
+    expect(screen.getByRole('button', { name: 'Usuń połów: Leszcz, 10:00' })).toHaveFocus();
+  });
+
+  it('keeps the reason of a refused deletion when the row closes', async () => {
+    let list = [rejected];
+    mockApi({
+      ...forRegister(() => list),
+      [`DELETE /api/v1/catches/${rejected.id}`]: () => {
+        list = [{ ...rejected, editableUntil: '2026-10-06T15:00:00.000Z' }];
+        return jsonResponse(
+          {
+            code: 'EDIT_WINDOW_CLOSED',
+            message: 'Closed',
+            details: { editableUntil: list[0]!.editableUntil },
+          },
+          422,
+        );
+      },
+    });
+    renderRoute('/me/catches', { accessToken: 'access-1' });
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Usuń połów: Leszcz, 10:00' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Tak, usuń' }));
+
+    expect(await screen.findByText('Czas na zmianę tego wpisu minął.')).toBeVisible();
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /Usuń połów/ })).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('Czas na zmianę tego wpisu minął.')).toBeVisible();
   });
 
   it('asks for an earlier season and keeps it in the address', async () => {
     const fetch = mockApi(forRegister(() => []));
     renderRoute('/me/catches', { accessToken: 'access-1' });
-    const previous = String(Number(warsawDate(new Date()).slice(0, 4)) - 1);
-
-    await userEvent.selectOptions(await screen.findByLabelText('Sezon'), previous);
+    await userEvent.selectOptions(await screen.findByLabelText('Sezon'), '2025');
 
     await waitFor(() =>
       expect(fetch.mock.calls.map(([request]) => new URL(request.url).search)).toContain(
-        `?season=${previous}`,
+        '?season=2025',
       ),
     );
+    expect(
+      within(screen.getByLabelText('Sezon'))
+        .getAllByRole('option')
+        .map((option) => option.textContent),
+    ).toEqual(['2026', '2025', '2024', '2023', '2022']);
   });
 });
 

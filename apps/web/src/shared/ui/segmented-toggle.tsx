@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { type Ref, useId } from 'react';
 import { cn } from '../lib/cn';
 import { FieldError } from './form-field';
 
@@ -9,6 +9,8 @@ interface SegmentedToggleProps<T extends string> {
   value: T | '';
   onChange: (value: T) => void;
   error?: string;
+  /** Gets the first button: where a form moves the focus to show the error (React Hook Form). */
+  focusRef?: Ref<HTMLButtonElement>;
 }
 
 /**
@@ -21,6 +23,7 @@ export function SegmentedToggle<T extends string>({
   value,
   onChange,
   error,
+  focusRef,
 }: SegmentedToggleProps<T>) {
   const labelId = useId();
   const errorId = useId();
@@ -38,9 +41,10 @@ export function SegmentedToggle<T extends string>({
           error && 'outline-2 outline-destructive',
         )}
       >
-        {options.map((option) => (
+        {options.map((option, index) => (
           <button
             key={option.value}
+            ref={index === 0 ? focusRef : undefined}
             type="button"
             aria-pressed={value === option.value}
             onClick={() => onChange(option.value)}

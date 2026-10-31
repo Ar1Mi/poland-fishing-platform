@@ -1,9 +1,11 @@
 import {
   CATCH_LENGTH_MAX_CM,
+  CATCH_SEASONS,
   CATCH_SYNC_MAX_ITEMS,
   CATCH_WEIGHT_MAX_G,
   CatchErrorCode,
   CatchSyncStatus,
+  isInCatchSeasons,
 } from '@lowisko/shared';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
@@ -19,6 +21,7 @@ import {
   IsUUID,
   Max,
   Min,
+  ValidateBy,
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
@@ -35,14 +38,31 @@ const IfSet = (): PropertyDecorator =>
 const IsInstant = (): PropertyDecorator => (target, key) => {
   IsRFC3339({ message: `${String(key)} must be a date-time with an offset` })(target, key);
   IsISO8601({ strict: true, strictSeparator: true })(target, key);
+  // A catch outside the seasons the register lists could be neither seen nor deleted.
+  ValidateBy({
+    name: 'isInCatchSeasons',
+    validator: {
+      validate: (value) => typeof value === 'string' && isInCatchSeasons(new Date(value)),
+      defaultMessage: () =>
+        `${String(key)} must be in the years ${CATCH_SEASONS.FIRST}–${CATCH_SEASONS.LAST} (Warsaw)`,
+    },
+  })(target, key);
 };
+
+/** UUIDs are compared as text in the register (maps, idempotency): lower case, as Postgres returns them. */
+const LowerCase = (): PropertyDecorator =>
+  Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.toLowerCase() : value,
+  );
 
 const nullable = { nullable: true, required: false };
 
 const caughtAtApi = {
   format: 'date-time',
   example: '2026-10-06T15:20:00Z',
-  description: 'With an offset (RFC 3339); at most 5 minutes ahead of the server (BR-10)',
+  description:
+    `With an offset (RFC 3339), in the years ${CATCH_SEASONS.FIRST}–${CATCH_SEASONS.LAST}; ` +
+    'at most 5 minutes ahead of the server (BR-10)',
 };
 const lengthCmApi = { minimum: 1, maximum: CATCH_LENGTH_MAX_CM, example: 42 };
 const weightGApi = {
@@ -64,6 +84,7 @@ export class SyncCatchItemDto {
     format: 'uuid',
     description: 'Generated on the device; the same clientId again returns the stored result',
   })
+  @LowerCase()
   @IsUUID()
   clientId!: string;
 
@@ -73,6 +94,7 @@ export class SyncCatchItemDto {
     format: 'uuid',
     description: 'My platform permit; exactly one of permitId and externalPermitId',
   })
+  @LowerCase()
   @IfSet()
   @IsUUID()
   permitId?: string | null;
@@ -83,15 +105,18 @@ export class SyncCatchItemDto {
     format: 'uuid',
     description: 'My external permit (FR-26); exactly one of permitId and externalPermitId',
   })
+  @LowerCase()
   @IfSet()
   @IsUUID()
   externalPermitId?: string | null;
 
   @ApiProperty({ format: 'uuid' })
+  @LowerCase()
   @IsUUID()
   fishingWaterId!: string;
 
   @ApiProperty({ format: 'uuid' })
+  @LowerCase()
   @IsUUID()
   speciesId!: string;
 
@@ -255,11 +280,12 @@ export class MyCatchesQueryDto {
   )
   @IfPresent()
   @IsInt()
-  @Min(2000)
-  @Max(2100)
+  @Min(CATCH_SEASONS.FIRST)
+  @Max(CATCH_SEASONS.LAST)
   season?: number;
 
   @ApiPropertyOptional({ format: 'uuid', description: 'Only catches on this platform permit' })
+  @LowerCase()
   @IfPresent()
   @IsUUID()
   permitId?: string;
@@ -271,11 +297,13 @@ export class MyCatchesQueryDto {
  */
 export class UpdateCatchDto {
   @ApiPropertyOptional({ format: 'uuid' })
+  @LowerCase()
   @IfPresent()
   @IsUUID()
   speciesId?: string;
 
   @ApiPropertyOptional({ format: 'uuid' })
+  @LowerCase()
   @IfPresent()
   @IsUUID()
   fishingWaterId?: string;

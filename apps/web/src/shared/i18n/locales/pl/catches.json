@@ -29,7 +29,7 @@
     },
     "weight": {
       "label": "Waga (kg)",
-      "hint": "Np. 1,25. Wymagana dla zabranej ryby, gdy obowiązuje dzienny limit wagi.",
+      "hint": "Np. 1,25",
       "error": "Podaj wagę w kilogramach, np. 1,25 — do 300 kg."
     },
     "caughtAt": {
@@ -45,7 +45,9 @@
     },
     "submit": "Zapisz połów",
     "save": "Zapisz zmiany",
-    "cancel": "Anuluj"
+    "cancel": "Anuluj",
+    "unknownOutcome": "Nie wiadomo, czy połów dotarł do rejestru. Wyślij go ponownie — nie zapisze się dwa razy. Poprawić go możesz potem w rejestrze.",
+    "retry": "Wyślij ponownie"
   },
   "result": {
     "accepted": "Połów zapisany w rejestrze",
@@ -53,7 +55,8 @@
     "rejected": "Połów odrzucony",
     "rejectedText": "Wpis jest w rejestrze jako odrzucony. Możesz go poprawić lub usunąć do {{until}}.",
     "another": "Dodaj kolejny połów",
-    "toRegister": "Przejdź do rejestru"
+    "toRegister": "Przejdź do rejestru",
+    "rejectedClosed": "Wpis jest w rejestrze jako odrzucony. Czas na jego zmianę już minął."
   },
   "register": {
     "title": "Rejestr połowów",
@@ -68,7 +71,8 @@
     "deleteConfirm": "Usunąć ten połów z rejestru?",
     "deleteConfirmYes": "Tak, usuń",
     "deleteConfirmNo": "Anuluj",
-    "deleted": "Połów został usunięty z rejestru."
+    "deleted": "Połów został usunięty z rejestru.",
+    "fateAndTime": "{{fate}} · {{time}}"
   },
   "fate": {
     "KEPT": "Zabrana",
@@ -97,11 +101,11 @@
     },
     "DAILY_COUNT_LIMIT": {
       "title": "Dzienny limit sztuk",
-      "text": "Dziś zabrano już {{kept}} szt. z limitu {{limit}} szt."
+      "text": "Tego dnia zabrano już {{kept}} szt. przy limicie {{limit}} szt. — liczą się ryby ze wszystkich łowisk."
     },
     "DAILY_WEIGHT_LIMIT": {
       "title": "Dzienny limit wagi",
-      "text": "Dziś zabrano już {{kept}} z limitu {{limit}}."
+      "text": "Tego dnia zabrano już {{kept}} przy limicie {{limit}} — liczą się ryby ze wszystkich łowisk."
     },
     "PROTECTED_SPECIES": {
       "title": "Gatunek chroniony",
@@ -114,6 +118,7 @@
     "WEIGHT_REQUIRED": {
       "title": "Brak wagi",
       "text": "Dla tego gatunku obowiązuje dzienny limit wagi — podaj wagę zabranej ryby."
-    }
+    },
+    "code": "{{ruleId}} · {{code}}"
   }
 }

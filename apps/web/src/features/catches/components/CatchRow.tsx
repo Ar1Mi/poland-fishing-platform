@@ -1,6 +1,6 @@
 import { CatchFate, warsawDateTimeLocal } from '@lowisko/shared';
 import { CircleCheck, CircleX, Pencil, Trash2 } from 'lucide-react';
-import { useId, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatDateTime, formatTime } from '../../../shared/lib/format';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
@@ -33,7 +33,8 @@ export function CatchRow({
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? 'pl';
   const confirmId = useId();
-  const [mode, setMode] = useState<'view' | 'edit' | 'confirmDelete'>('view');
+  const [mode, setMode] = useState<Mode>('view');
+  const focus = useModeFocus(mode);
   const update = useUpdateCatch();
   const remove = useDeleteCatch();
   const kind = species.find((item) => item.id === fish.speciesId);
@@ -64,7 +65,9 @@ export function CatchRow({
     };
     return (
       <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
-        <h3 className="text-h2">{t('catches.form.titleEdit')}</h3>
+        <h3 ref={focus.editHeading} tabIndex={-1} className="text-h2 focus:outline-none">
+          {t('catches.form.titleEdit')}
+        </h3>
         <CatchForm
           places={editPlaces(fish, permits)}
           species={species}
@@ -95,7 +98,10 @@ export function CatchRow({
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <span className="text-body font-semibold">{name}</span>
           <span className="text-small">
-            {t(`catches.fate.${fish.kept ? 'KEPT' : 'RELEASED'}`)} · {time}
+            {t('catches.register.fateAndTime', {
+              fate: t(`catches.fate.${fish.kept ? 'KEPT' : 'RELEASED'}`),
+              time,
+            })}
           </span>
           <span className="text-small text-muted-foreground">{fish.water.name}</span>
         </div>
@@ -129,7 +135,7 @@ export function CatchRow({
                 >
                   {t('catches.register.deleteConfirmYes')}
                 </Button>
-                <Button variant="ghost" onClick={() => setMode('view')}>
+                <Button ref={focus.confirmNo} variant="ghost" onClick={() => setMode('view')}>
                   {t('catches.register.deleteConfirmNo')}
                 </Button>
               </div>
@@ -137,6 +143,7 @@ export function CatchRow({
           ) : (
             <div className="flex flex-wrap gap-3">
               <Button
+                ref={focus.editButton}
                 variant="secondary"
                 aria-label={t('catches.register.editLabel', { name, time })}
                 onClick={() => setMode('edit')}
@@ -145,6 +152,7 @@ export function CatchRow({
                 {t('catches.register.edit')}
               </Button>
               <Button
+                ref={focus.deleteButton}
                 variant="destructive"
                 aria-label={t('catches.register.deleteLabel', { name, time })}
                 onClick={() => setMode('confirmDelete')}
@@ -154,11 +162,43 @@ export function CatchRow({
               </Button>
             </div>
           )}
-          {remove.isError && <ApiErrorAlert error={remove.error} />}
         </>
       )}
+      {/* Outside the window check: after EDIT_WINDOW_CLOSED the list shows the row closed. */}
+      {remove.isError && <ApiErrorAlert error={remove.error} />}
     </div>
   );
+}
+
+type Mode = 'view' | 'edit' | 'confirmDelete';
+
+/**
+ * Where the focus goes when the row changes, so it never falls back to the page: into the form
+ * or onto «Anuluj» of the confirmation, and back to the button that opened them.
+ */
+function useModeFocus(mode: Mode) {
+  const editHeading = useRef<HTMLHeadingElement>(null);
+  const confirmNo = useRef<HTMLButtonElement>(null);
+  const editButton = useRef<HTMLButtonElement>(null);
+  const deleteButton = useRef<HTMLButtonElement>(null);
+  const previous = useRef(mode);
+  useEffect(() => {
+    const from = previous.current;
+    previous.current = mode;
+    if (from === mode) {
+      return;
+    }
+    const target =
+      mode === 'edit'
+        ? editHeading
+        : mode === 'confirmDelete'
+          ? confirmNo
+          : from === 'edit'
+            ? editButton
+            : deleteButton;
+    target.current?.focus();
+  }, [mode]);
+  return { editHeading, confirmNo, editButton, deleteButton };
 }
 
 const placeKeyOf = (fish: Catch) =>

@@ -346,6 +346,82 @@ describe('catches', () => {
       ]);
     });
 
+    it('applies to each water the rules of its own organization only', async () => {
+      // The owner of the lake and the river: no pike may be kept on any of its waters.
+      await rule({ speciesId: species.pike, organizationId, dailyLimitCount: 0 });
+      // Another organization with a water of its own and a rule on the lake from when it owned it.
+      const otherOrganizationId = (await createOrganization(prisma, { status: 'ACTIVE' })).id;
+      const canal = await createWater(prisma, {
+        status: 'CONNECTED',
+        organizationId: otherOrganizationId,
+      });
+      await rule({
+        speciesId: species.perch,
+        organizationId: otherOrganizationId,
+        fishingWaterId: lakeId,
+        dailyLimitCount: 0,
+      });
+      const canalPermit = await createPermit(prisma, {
+        userId: angler.id,
+        permitTypeId: (
+          await createPermitType(prisma, {
+            organizationId: otherOrganizationId,
+            waters: { connect: [{ id: canal.id }] },
+          })
+        ).id,
+        status: 'PAID',
+        validFrom: new Date('2026-10-06'),
+        validTo: new Date('2026-10-06'),
+      });
+      const pike = (fields: Record<string, unknown>) =>
+        item({ speciesId: species.pike, lengthCm: 60, ...fields });
+
+      const results = await syncOk([
+        pike({ permitId: canalPermit.id, fishingWaterId: canal.id, caughtAt: onOctober6(8) }),
+        pike({ fishingWaterId: riverId, caughtAt: onOctober6(9) }),
+        pike({ permitId: canalPermit.id, fishingWaterId: canal.id, caughtAt: onOctober6(10) }),
+        item({ fishingWaterId: lakeId, caughtAt: onOctober6(11) }),
+      ]);
+
+      expect(results.map((result) => result.violations.map((v) => v.code))).toEqual([
+        [],
+        ['DAILY_COUNT_LIMIT'],
+        [],
+        [],
+      ]);
+    });
+
+    it('answers a whole batch sent again with the stored results', async () => {
+      const sent = [
+        item({ speciesId: species.eel, caughtAt: onOctober6(8) }),
+        item({ speciesId: species.eel, caughtAt: onOctober6(9) }),
+        item({ speciesId: species.eel, caughtAt: onOctober6(10) }),
+      ];
+      const first = await syncOk(sent);
+
+      const again = await syncOk(sent);
+
+      expect(again).toEqual(first);
+      expect(await prisma.catchRecord.count()).toBe(3);
+    });
+
+    it('recognizes a clientId sent again in upper case', async () => {
+      const sent = item();
+      const [first] = await syncOk([sent]);
+
+      const [again] = await syncOk([
+        {
+          ...sent,
+          clientId: sent.clientId.toUpperCase(),
+          permitId: permitId.toUpperCase(),
+          speciesId: species.perch.toUpperCase(),
+        },
+      ]);
+
+      expect(again).toEqual(first);
+      expect(await prisma.catchRecord.count()).toBe(1);
+    });
+
     it('requires and sums the weight under a daily weight limit', async () => {
       const results = await syncOk([
         item({ speciesId: species.bream, weightG: 3000, caughtAt: onOctober6(8) }),
@@ -499,6 +575,9 @@ describe('catches', () => {
     it.each([
       ['caughtAt', { caughtAt: '2026-10-06T10:00:00' }],
       ['caughtAt', { caughtAt: '2026-02-30T10:00:00Z' }],
+      // Year 10000 in Warsaw, and 31 December 1999 23:59 there: outside the seasons 2000–2100.
+      ['caughtAt', { caughtAt: '9999-12-31T23:30:00Z' }],
+      ['caughtAt', { caughtAt: '1999-12-31T22:59:00Z' }],
       ['lengthCm', { lengthCm: 0 }],
       ['lengthCm', { lengthCm: 401 }],
       ['lengthCm', { lengthCm: 42.5 }],
@@ -652,6 +731,74 @@ describe('catches', () => {
       const response = await patch(results[1]!.id, { lengthCm: 55 }).expect(200);
 
       expect((response.body as Catch).status).toBe('ACCEPTED');
+    });
+
+    it('checks a catch moved to another day against the limit of that day', async () => {
+      for (const hour of [8, 9]) {
+        await createCatch(prisma, {
+          userId: angler.id,
+          permitId,
+          fishingWaterId: lakeId,
+          speciesId: species.eel,
+          caughtAt: new Date(Date.UTC(2026, 9, 5, hour - 2)),
+        });
+      }
+      const [eel] = await syncOk([item({ speciesId: species.eel })]);
+      expect(eel!.status).toBe('ACCEPTED');
+
+      // 5 October is still open until 6 October 24:00.
+      const response = await patch(eel!.id, { caughtAt: '2026-10-05T10:00:00Z' }).expect(200);
+
+      expect((response.body as Catch).violations).toEqual([
+        { code: 'DAILY_COUNT_LIMIT', ruleId: 'BR-04', details: { limit: 2, alreadyKept: 2 } },
+      ]);
+    });
+
+    it('checks a catch on an external permit against the general rules only', async () => {
+      await rule({
+        speciesId: species.pike,
+        organizationId,
+        fishingWaterId: lakeId,
+        dailyLimitCount: 0,
+      });
+      const external = await createExternalPermit(prisma, {
+        userId: angler.id,
+        waters: { connect: [{ id: lakeId }] },
+      });
+      const [stored] = await syncOk([
+        item({ permitId: null, externalPermitId: external.id, speciesId: species.perch }),
+      ]);
+
+      const response = await patch(stored!.id, { speciesId: species.pike, lengthCm: 60 }).expect(
+        200,
+      );
+
+      expect(response.body).toMatchObject({ externalPermitId: external.id, status: 'ACCEPTED' });
+      await patch(stored!.id, { lengthCm: 44 }).expect(200);
+      const rejected = await prisma.catchRecord.findUniqueOrThrow({ where: { id: stored!.id } });
+      expect(rejected.violations).toEqual([
+        { code: 'BELOW_MIN_LENGTH', ruleId: 'BR-02', details: { minLengthCm: 50 } },
+      ]);
+    });
+
+    it('keeps both of two changes of one catch sent at the same time', async () => {
+      const [stored] = await syncOk([item()]);
+
+      await Promise.all([
+        patch(stored!.id, { weightG: 900 }).expect(200),
+        patch(stored!.id, { kept: false }).expect(200),
+      ]);
+
+      const row = await prisma.catchRecord.findUniqueOrThrow({ where: { id: stored!.id } });
+      expect(row).toMatchObject({ weightG: 900, kept: false });
+    });
+
+    it('rejects a time outside the seasons the register lists', async () => {
+      const [stored] = await syncOk([item()]);
+
+      const response = await patch(stored!.id, { caughtAt: '9999-12-31T23:30:00Z' }).expect(400);
+
+      expect((response.body as ErrorBody).details?.fields).toHaveProperty('caughtAt');
     });
 
     it('changes species, water, time and whether kept, but not the permit', async () => {

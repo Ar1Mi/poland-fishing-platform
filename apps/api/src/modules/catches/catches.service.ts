@@ -145,8 +145,29 @@ export class CatchesService {
   /**
    * Changes a catch within the BR-07 window and checks it again (docs/02-business-rules.md →
    * «Уточнения (T-18)»): the verdict replaces the stored one, the other catches stay as they are.
+   * The references are loaded before the transaction, so the write is conditional on the row it
+   * was built from: a change of the same catch committed in between (another phone) makes it
+   * start over from the new row instead of overwriting that change with stale fields.
    */
   async update(userId: string, id: string, dto: UpdateCatchDto): Promise<CatchDto> {
+    for (let attempt = 1; ; attempt++) {
+      const updated = await this.tryUpdate(userId, id, dto);
+      if (updated) {
+        const [changed] = await this.toDtos([updated]);
+        return changed!;
+      }
+      if (attempt === UPDATE_ATTEMPTS) {
+        throw new Error(`Catch ${id} kept changing during ${UPDATE_ATTEMPTS} updates`);
+      }
+    }
+  }
+
+  /** One attempt of `update`; `null` when the row changed since it was read. */
+  private async tryUpdate(
+    userId: string,
+    id: string,
+    dto: UpdateCatchDto,
+  ): Promise<CatchRecord | null> {
     const current = await this.find(userId, id);
     const now = this.clock.now();
     assertEditable(current.caughtAt, now);
@@ -162,30 +183,32 @@ export class CatchesService {
     const loaded = await this.contexts.load(userId, [next]);
     assertKnown(loaded, (_, field) => field);
 
-    const updated = await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       await lockRegister(tx, userId);
       const kept = await keptOnDays(tx, userId, [next.caughtAt], id);
       const violations = validateCatch({ ...loaded.contextOf(0), sameDayKept: kept, now });
       const { syncStatus, violations: stored } = verdict(violations);
       const { count } = await tx.catchRecord.updateMany({
-        where: { id, userId },
+        where: { id, userId, updatedAt: current.updatedAt },
         data: { ...next, syncStatus, violations: stored ?? Prisma.DbNull },
       });
-      // Deleted meanwhile from another device.
-      if (count === 0) {
-        throw notFound();
-      }
-      return tx.catchRecord.findUniqueOrThrow({ where: { id } });
+      // Changed or deleted meanwhile: the next attempt reads it again (or answers NOT_FOUND).
+      return count === 0 ? null : tx.catchRecord.findUniqueOrThrow({ where: { id } });
     });
-    const [changed] = await this.toDtos([updated]);
-    return changed!;
   }
 
   /** Deletes a catch within the BR-07 window. */
   async remove(userId: string, id: string): Promise<void> {
-    const current = await this.find(userId, id);
-    assertEditable(current.caughtAt, this.clock.now());
-    await this.prisma.catchRecord.deleteMany({ where: { id, userId } });
+    await this.prisma.$transaction(async (tx) => {
+      // Like every write to the register: a sync running meanwhile sees the catch or its absence.
+      await lockRegister(tx, userId);
+      const current = await tx.catchRecord.findFirst({ where: { id, userId } });
+      if (!current) {
+        throw notFound();
+      }
+      assertEditable(current.caughtAt, this.clock.now());
+      await tx.catchRecord.delete({ where: { id } });
+    });
   }
 
   /** A catch of someone else is as unknown as a missing one. */
@@ -219,6 +242,9 @@ export class CatchesService {
     }));
   }
 }
+
+/** Attempts of `update` while other changes of the same catch keep being committed. */
+const UPDATE_ATTEMPTS = 3;
 
 /**
  * Serializes the writes to one user's register (transaction-scoped advisory lock): two phones
