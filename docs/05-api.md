@@ -114,7 +114,7 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 // ответ 200 — всегда по каждому элементу
 { "results": [ { "clientId": "uuid", "status": "ACCEPTED", "id": "uuid" },
                { "clientId": "uuid", "status": "REJECTED",
-                 "violations": [ { "code": "DAILY_COUNT_LIMIT", "ruleId": "BR-04", "details": { "limit": 2 } } ] } ] }
+                 "violations": [ { "code": "DAILY_COUNT_LIMIT", "ruleId": "BR-04", "details": { "limit": 2, "alreadyKept": 2 } } ] } ] }
 ```
 
 Повторная отправка того же `clientId` возвращает сохранённый результат (идемпотентность).

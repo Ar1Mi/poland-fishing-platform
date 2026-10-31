@@ -34,7 +34,7 @@
 | BR-02 | Оставленная рыба не короче `minLengthCm` | Запись, `kept=true` | `BELOW_MIN_LENGTH` |
 | BR-03 | Оставлять рыбу в запретный период нельзя | Запись, `kept=true` | `CLOSED_SEASON` |
 | BR-04 | Число оставленных рыб вида за сутки ≤ `dailyLimitCount` | Запись, `kept=true` | `DAILY_COUNT_LIMIT` |
-| BR-05 | Общий вес оставленных рыб за сутки ≤ `dailyLimitWeightG` | Запись, `kept=true` | `DAILY_WEIGHT_LIMIT` |
+| BR-05 | Общий вес оставленных рыб вида за сутки ≤ `dailyLimitWeightG` | Запись, `kept=true` | `DAILY_WEIGHT_LIMIT` |
 | BR-06 | Охраняемый вид (`Species.isProtected`) можно только отпустить | Запись | `PROTECTED_SPECIES` |
 | BR-07 | Улов редактируется до конца суток улова + 24 ч | Редактирование | `EDIT_WINDOW_CLOSED` |
 | BR-08 | Льготный тип требует возраста: JUNIOR < 16 лет, SENIOR ≥ 65 лет на `validFrom` | Покупка | `DISCOUNT_NOT_ELIGIBLE` |
@@ -116,5 +116,5 @@ function resolveEffectiveRule(rules: SpeciesRuleRow[]): EffectiveRule;
 - **Границы включительны**: длина, равная `minLengthCm`, — не нарушение; число или вес оставленных вместе с этим уловом, равные лимиту, — не нарушение, сверх — нарушение; `caughtAt` ровно на 5 мин позже `now` (`CATCH_FUTURE_TOLERANCE_MINUTES`) ещё допустимо.
 - **Вес не указан** (`weightG = null`) при весовом лимите: BR-11 требует вес, а BR-05 срабатывает, если лимит достигнут и без этого улова (любая рыба что-то весит) — в том числе всегда при лимите 0 (no-kill). BR-11 действует и при лимите 0.
 - `details`: BR-01 `PERMIT_NOT_ACTIVE` — `{ status, validFrom, validTo }`, `status` — вычисленный на момент улова (`SCHEDULED`, `EXPIRED`, `REVOKED` …; у внешнего — только `SCHEDULED` / `EXPIRED`); BR-02 `{ minLengthCm }`; BR-03 `{ from, to }` — первый период, в который попал день; BR-04 `{ limit, alreadyKept }`; BR-05 `{ limitG, alreadyKeptG }`; BR-10 `{ toleranceMinutes }`.
-- `species.id`, не совпадающий с `catch.speciesId`, — ошибка вызывающего кода: `RangeError`, как у `resolveEffectiveRule` для правил разных видов.
+- `species.id`, не совпадающий с `catch.speciesId`, — ошибка вызывающего кода: `RangeError`, как у `resolveEffectiveRule` для правил разных видов. `RangeError` дают и неверные данные контекста: даты разрешения не `YYYY-MM-DD` (у `PAID` и внешнего), период не `MM-DD`, `caughtAt` — `Invalid Date`. Их отсекает проверка на входе (DTO и схемы правил, разрешения, улова), поэтому валидатор не превращает их в нарушения.
 - BR-07 (окно редактирования) в `validateCatch` не входит: это HTTP-ошибка правки улова (`EDIT_WINDOW_CLOSED`, T-18).
