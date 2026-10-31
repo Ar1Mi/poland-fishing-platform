@@ -1,10 +1,11 @@
 import type { EffectivePermitStatus } from '@lowisko/shared';
-import { ChevronRight, LoaderCircle } from 'lucide-react';
+import { ChevronRight, LoaderCircle, NotebookPen, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { formatDate } from '../../../shared/lib/format';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Badge } from '../../../shared/ui/badge';
+import { Button } from '../../../shared/ui/button';
 import type { MyPermit } from '../api/usePurchase';
 import { useMyPermits } from '../api/useMyPermits';
 import { PermitStatusBadge } from '../components/PermitStatusBadge';
@@ -33,6 +34,25 @@ export function MyPermitsPage() {
         </Badge>
       )}
       {permits.isError && <ApiErrorAlert error={permits.error} />}
+      {/* The register lives with the permits it is kept on (FR-11). */}
+      {permits.data && permits.data.length > 0 && (
+        <div className="flex flex-wrap gap-3">
+          {permits.data.some((permit) => permit.status === 'ACTIVE') && (
+            <Button asChild variant="accent">
+              <Link to="/catch/new">
+                <Plus aria-hidden />
+                {t('catches.links.add')}
+              </Link>
+            </Button>
+          )}
+          <Button asChild variant="secondary">
+            <Link to="/me/catches">
+              <NotebookPen aria-hidden />
+              {t('catches.links.register')}
+            </Link>
+          </Button>
+        </div>
+      )}
       {permits.data?.length === 0 && (
         <>
           <p className="text-body">{t('permits.mine.empty')}</p>

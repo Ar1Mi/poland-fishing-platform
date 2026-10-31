@@ -6,6 +6,8 @@ import { RegisterPage } from '../features/auth/pages/RegisterPage';
 import { ResetPasswordPage } from '../features/auth/pages/ResetPasswordPage';
 import { VerifyEmailPage } from '../features/auth/pages/VerifyEmailPage';
 import { CatalogPage } from '../features/catalog/pages/CatalogPage';
+import { MyCatchesPage } from '../features/catches/pages/MyCatchesPage';
+import { NewCatchPage } from '../features/catches/pages/NewCatchPage';
 import { WaterPage } from '../features/catalog/pages/WaterPage';
 import { AdminClaimsPage } from '../features/claims/pages/AdminClaimsPage';
 import { OrgClaimsPage } from '../features/claims/pages/OrgClaimsPage';
@@ -80,6 +82,22 @@ export const routes: RouteObject[] = [
         element: (
           <RequireAuth>
             <MyPermitPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'catch/new',
+        element: (
+          <RequireAuth>
+            <NewCatchPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'me/catches',
+        element: (
+          <RequireAuth>
+            <MyCatchesPage />
           </RequireAuth>
         ),
       },

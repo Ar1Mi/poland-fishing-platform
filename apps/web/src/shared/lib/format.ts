@@ -19,3 +19,29 @@ export function formatPriceInput(grosze: number, locale: string): string {
     useGrouping: false,
   }).format(grosze / 100);
 }
+
+/** Wall-clock time of an instant in Warsaw, e.g. `14:05`. */
+export function formatTime(iso: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { timeStyle: 'short', timeZone: 'Europe/Warsaw' }).format(
+    new Date(iso),
+  );
+}
+
+/** Date and wall-clock time of an instant in Warsaw, e.g. `7 paź 2026, 23:59`. */
+export function formatDateTime(iso: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Europe/Warsaw',
+  }).format(new Date(iso));
+}
+
+/** The Warsaw calendar day of an instant with its weekday, e.g. `wtorek, 6 października`. */
+export function formatDayWithWeekday(iso: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    timeZone: 'Europe/Warsaw',
+  }).format(new Date(iso));
+}

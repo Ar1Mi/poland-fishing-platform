@@ -1,4 +1,4 @@
-import { Download, LoaderCircle } from 'lucide-react';
+import { Download, LoaderCircle, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { formatPrice } from '../../../shared/lib/format';
@@ -32,6 +32,14 @@ export function MyPermitPage() {
       {permit.data && (
         <>
           <PermitTicket permit={permit.data} />
+          {permit.data.status === 'ACTIVE' && (
+            <Button asChild variant="accent" className="w-fit">
+              <Link to="/catch/new">
+                <Plus aria-hidden />
+                {t('catches.links.add')}
+              </Link>
+            </Button>
+          )}
           <Card>
             <CardContent>
               <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">

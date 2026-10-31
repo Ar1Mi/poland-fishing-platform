@@ -1,0 +1,119 @@
+{
+  "links": {
+    "add": "Dodaj połów",
+    "register": "Rejestr połowów"
+  },
+  "form": {
+    "title": "Dodaj połów",
+    "titleEdit": "Popraw połów",
+    "loading": "Ładowanie zezwoleń i gatunków…",
+    "noPermit": "Połów zapiszesz na aktywnym zezwoleniu. Teraz żadne z Twoich zezwoleń nie jest ważne.",
+    "toPermits": "Przejdź do zezwoleń",
+    "toCatalog": "Znajdź łowisko na mapie",
+    "place": {
+      "label": "Łowisko",
+      "withPermit": "{{water}} — {{permit}}"
+    },
+    "species": {
+      "label": "Gatunek",
+      "placeholder": "Wybierz gatunek",
+      "error": "Wybierz gatunek."
+    },
+    "fate": {
+      "legend": "Ryba",
+      "error": "Zaznacz, czy rybę zabrano, czy wypuszczono."
+    },
+    "length": {
+      "label": "Długość (cm)",
+      "error": "Podaj długość w pełnych centymetrach, od 1 do 400."
+    },
+    "weight": {
+      "label": "Waga (kg)",
+      "hint": "Np. 1,25. Wymagana dla zabranej ryby, gdy obowiązuje dzienny limit wagi.",
+      "error": "Podaj wagę w kilogramach, np. 1,25 — do 300 kg."
+    },
+    "caughtAt": {
+      "label": "Czas połowu",
+      "error": "Podaj istniejącą datę i godzinę."
+    },
+    "location": {
+      "add": "Dodaj moją lokalizację",
+      "locating": "Ustalanie lokalizacji…",
+      "added": "Lokalizacja zostanie zapisana z połowem.",
+      "remove": "Usuń lokalizację",
+      "failed": "Nie udało się ustalić lokalizacji — połów zapiszesz i bez niej."
+    },
+    "submit": "Zapisz połów",
+    "save": "Zapisz zmiany",
+    "cancel": "Anuluj"
+  },
+  "result": {
+    "accepted": "Połów zapisany w rejestrze",
+    "acceptedText": "Połów spełnia zasady łowiska.",
+    "rejected": "Połów odrzucony",
+    "rejectedText": "Wpis jest w rejestrze jako odrzucony. Możesz go poprawić lub usunąć do {{until}}.",
+    "another": "Dodaj kolejny połów",
+    "toRegister": "Przejdź do rejestru"
+  },
+  "register": {
+    "title": "Rejestr połowów",
+    "season": "Sezon",
+    "loading": "Ładowanie rejestru…",
+    "empty": "W tym sezonie nie zapisano jeszcze połowów.",
+    "editableUntil": "Zmiana możliwa do {{until}}",
+    "edit": "Popraw",
+    "editLabel": "Popraw połów: {{name}}, {{time}}",
+    "delete": "Usuń",
+    "deleteLabel": "Usuń połów: {{name}}, {{time}}",
+    "deleteConfirm": "Usunąć ten połów z rejestru?",
+    "deleteConfirmYes": "Tak, usuń",
+    "deleteConfirmNo": "Anuluj",
+    "deleted": "Połów został usunięty z rejestru."
+  },
+  "fate": {
+    "KEPT": "Zabrana",
+    "RELEASED": "Wypuszczona"
+  },
+  "status": {
+    "ACCEPTED": "Przyjęty",
+    "REJECTED": "Odrzucony"
+  },
+  "violation": {
+    "PERMIT_NOT_ACTIVE": {
+      "title": "Zezwolenie nieważne",
+      "text": "W chwili połowu zezwolenie nie było ważne ({{status}}). Ważne od {{from}} do {{to}} włącznie."
+    },
+    "PERMIT_WATER_MISMATCH": {
+      "title": "Inne łowisko",
+      "text": "Zezwolenie nie obejmuje tego łowiska."
+    },
+    "BELOW_MIN_LENGTH": {
+      "title": "Poniżej wymiaru ochronnego",
+      "text": "Zabrać można rybę od {{cm}} cm — tę trzeba wypuścić."
+    },
+    "CLOSED_SEASON": {
+      "title": "Okres ochronny",
+      "text": "Od {{from}} do {{to}} tego gatunku nie wolno zabierać."
+    },
+    "DAILY_COUNT_LIMIT": {
+      "title": "Dzienny limit sztuk",
+      "text": "Dziś zabrano już {{kept}} szt. z limitu {{limit}} szt."
+    },
+    "DAILY_WEIGHT_LIMIT": {
+      "title": "Dzienny limit wagi",
+      "text": "Dziś zabrano już {{kept}} z limitu {{limit}}."
+    },
+    "PROTECTED_SPECIES": {
+      "title": "Gatunek chroniony",
+      "text": "Ten gatunek można tylko wypuścić."
+    },
+    "CATCH_IN_FUTURE": {
+      "title": "Czas w przyszłości",
+      "text": "Czas połowu jest późniejszy niż teraz — sprawdź zegar w telefonie."
+    },
+    "WEIGHT_REQUIRED": {
+      "title": "Brak wagi",
+      "text": "Dla tego gatunku obowiązuje dzienny limit wagi — podaj wagę zabranej ryby."
+    }
+  }
+}

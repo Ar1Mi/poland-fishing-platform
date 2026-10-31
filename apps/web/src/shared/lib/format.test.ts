@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { parsePriceGrosze } from '@lowisko/shared';
-import { formatDate, formatPrice, formatPriceInput } from './format';
+import {
+  formatDate,
+  formatDateTime,
+  formatDayWithWeekday,
+  formatPrice,
+  formatPriceInput,
+  formatTime,
+} from './format';
 
 describe('formatDate', () => {
   it('uses the calendar day in Warsaw, not in UTC', () => {
@@ -35,5 +42,23 @@ describe('formatPriceInput', () => {
 
   it('uses the decimal comma in Polish', () => {
     expect(formatPriceInput(2550, 'pl')).toBe('25,50');
+  });
+});
+
+describe('formatTime and formatDateTime', () => {
+  it('show the Warsaw wall clock in summer and winter time', () => {
+    expect(formatTime('2026-10-06T08:05:00Z', 'pl')).toBe('10:05');
+    expect(formatTime('2026-12-06T08:05:00Z', 'pl')).toBe('09:05');
+  });
+
+  it('show the date of the Warsaw day with the time', () => {
+    expect(formatDateTime('2026-10-07T21:59:00Z', 'pl')).toBe('7 paź 2026, 23:59');
+    expect(formatDateTime('2026-10-07T22:00:00Z', 'pl')).toBe('8 paź 2026, 00:00');
+  });
+});
+
+describe('formatDayWithWeekday', () => {
+  it('names the Warsaw day of an instant late in the UTC evening', () => {
+    expect(formatDayWithWeekday('2026-10-06T22:30:00Z', 'pl')).toBe('środa, 7 października');
   });
 });
