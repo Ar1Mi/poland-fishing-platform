@@ -20,6 +20,10 @@ const WITH_QR: ReadonlySet<EffectivePermitStatus> = new Set([
   EffectivePermitStatus.ACTIVE,
 ]);
 
+const WITH_TYPE = { permitType: { include: { waters: { select: { id: true } } } } } as const;
+
+type PermitWithType = Permit & { permitType: PermitType & { waters: { id: string }[] } };
+
 export interface PermitPdf {
   fileName: string;
   content: Buffer;
@@ -47,15 +51,22 @@ export class MyPermitsService {
   async list(userId: string): Promise<MyPermitDto[]> {
     const permits = await this.prisma.permit.findMany({
       where: { userId },
-      include: { permitType: true },
+      include: WITH_TYPE,
       orderBy: [{ validFrom: 'desc' }, { createdAt: 'desc' }, { id: 'asc' }],
     });
-    const organizations = await this.organizations.findSummaries([
-      ...new Set(permits.map((permit) => permit.permitType.organizationId)),
+    const [organizations, waterNames] = await Promise.all([
+      this.organizations.findSummaries([
+        ...new Set(permits.map((permit) => permit.permitType.organizationId)),
+      ]),
+      this.waterNames(permits),
     ]);
     return Promise.all(
       permits.map((permit) =>
-        this.toDto(permit, organizations.get(permit.permitType.organizationId)?.name ?? ''),
+        this.toDto(
+          permit,
+          organizations.get(permit.permitType.organizationId)?.name ?? '',
+          waterNames,
+        ),
       ),
     );
   }
@@ -63,11 +74,12 @@ export class MyPermitsService {
   /** A permit of someone else is as unknown as a missing one. */
   async get(userId: string, id: string): Promise<MyPermitDto> {
     const permit = await this.find(userId, id);
-    const organization = await this.organizations.findPublicProfile(
-      permit.permitType.organizationId,
-    );
+    const [organization, waterNames] = await Promise.all([
+      this.organizations.findPublicProfile(permit.permitType.organizationId),
+      this.waterNames([permit]),
+    ]);
     // The type keeps its organization (FK), so the profile always exists.
-    return this.toDto(permit, organization?.name ?? '');
+    return this.toDto(permit, organization?.name ?? '', waterNames);
   }
 
   /** The printable permit with its QR code; only while the QR is valid (SCHEDULED or ACTIVE). */
@@ -80,17 +92,10 @@ export class MyPermitsService {
         'Only a scheduled or active permit has a PDF',
       );
     }
-    const [holder, type] = await Promise.all([
-      this.users.findById(userId),
-      this.prisma.permitType.findUniqueOrThrow({
-        where: { id: permit.permitType.id },
-        select: { waters: { select: { id: true } } },
-      }),
-    ]);
+    const holder = await this.users.findById(userId);
     if (!holder) {
       throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'Permit not found');
     }
-    const waterNames = await this.waters.findNames(type.waters.map((water) => water.id));
     const content = await this.pdfs.render({
       permit,
       holder: {
@@ -99,7 +104,7 @@ export class MyPermitsService {
         birthDate: fromDbDate(holder.birthDate),
         anglerCardNo: holder.anglerCardNo,
       },
-      waterNames: [...waterNames.values()].sort((a, b) => a.localeCompare(b, 'pl')),
+      waterNames: permit.waters.map((water) => water.name),
       verifyUrl: `${this.webUrl}/verify/${permit.qrToken}`,
       generatedAt: this.clock.now(),
     });
@@ -109,7 +114,7 @@ export class MyPermitsService {
   private async find(userId: string, id: string) {
     const permit = await this.prisma.permit.findFirst({
       where: { id, userId },
-      include: { permitType: true },
+      include: WITH_TYPE,
     });
     if (!permit) {
       throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'Permit not found');
@@ -117,9 +122,17 @@ export class MyPermitsService {
     return permit;
   }
 
+  /** Names of the waters of the permits' types, which the permits cover (BR-01). */
+  private waterNames(permits: PermitWithType[]): Promise<Map<string, string>> {
+    return this.waters.findNames([
+      ...new Set(permits.flatMap((permit) => permit.permitType.waters.map((water) => water.id))),
+    ]);
+  }
+
   private async toDto(
-    permit: Permit & { permitType: PermitType },
+    permit: PermitWithType,
     organizationName: string,
+    waterNames: Map<string, string>,
   ): Promise<MyPermitDto> {
     const validFrom = fromDbDate(permit.validFrom);
     const validTo = fromDbDate(permit.validTo);
@@ -142,6 +155,9 @@ export class MyPermitsService {
         discountKind: type.discountKind,
       },
       organization: { id: type.organizationId, name: organizationName },
+      waters: type.waters
+        .map((water) => ({ id: water.id, name: waterNames.get(water.id) ?? '' }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'pl') || a.id.localeCompare(b.id)),
       createdAt: permit.createdAt.toISOString(),
       qrToken: WITH_QR.has(status) ? await this.qrTokens.sign(permit.id, validTo) : null,
     };

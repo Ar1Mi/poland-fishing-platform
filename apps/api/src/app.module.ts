@@ -9,6 +9,7 @@ import { StorageModule } from './common/storage/storage.module';
 import { validateEnv } from './config/env';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CatchesModule } from './modules/catches/catches.module';
 import { HealthModule } from './modules/health/health.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { PermitsModule } from './modules/permits/permits.module';
@@ -38,6 +39,7 @@ import { WatersModule } from './modules/waters/waters.module';
     WatersModule,
     RulesModule,
     PermitsModule,
+    CatchesModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: HttpExceptionFilter },

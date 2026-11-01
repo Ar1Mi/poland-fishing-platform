@@ -44,7 +44,7 @@ docs/
 | `WatersModule` | Каталог, импорт CSV, геокодирование, claim | Organizations |
 | `RulesModule` | Виды, `SpeciesRule`, слияние уровней | Waters |
 | `PermitsModule` | Типы разрешений (T-12), покупка и оплата (T-13: `PaymentProvider` P24/Fake, таблица `Payment`, уведомления, отмена брошенных оплат — `permits/payments/`, ADR-0012), статусы, PDF, QR-токен; внешние разрешения | Waters, Organizations, Users, Audit |
-| `CatchesModule` | Реестр, `/catches/sync`, вызов CatchValidator, PDF-реестр | Permits, Rules |
+| `CatchesModule` | Реестр, `/catches/sync`, вызов CatchValidator, PDF-реестр. Контекст проверки собирает `CatchContextLoader` из экспортированных сервисов: разрешения — `CatchPermitsService`, правила — `SpeciesRulesService.effectiveOnWaters` / `effectiveGeneral`, виды, водоёмы (T-18) | Permits, Rules, Waters |
 | `InspectionsModule` | Проверка QR-токена, протоколы | Permits, Catches |
 | `ReportsModule` | Статистика, CSV | Permits, Catches |
 | `NotificationsModule` | Email-шаблоны (pl/en/ru), планировщик напоминаний | — |
