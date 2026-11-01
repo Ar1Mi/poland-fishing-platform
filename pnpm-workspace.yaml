@@ -9,6 +9,8 @@ catalog:
   vitest: 5.0.4
   # Coverage provider of vitest: its version follows vitest exactly (peer dependency).
   '@vitest/coverage-v8': 5.0.4
+  # Node types of the API and of the Playwright code of web: the Node version of .nvmrc.
+  '@types/node': 24.19.2
 
 # Install scripts are denied unless a package cannot work without them:
 # prebuilt binaries come as optional dependencies, the rest is telemetry,

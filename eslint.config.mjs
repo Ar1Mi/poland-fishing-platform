@@ -11,6 +11,8 @@ export default defineConfig(
     '**/dist-openapi/',
     '**/build/',
     '**/coverage/',
+    '**/playwright-report/',
+    '**/test-results/',
     'apps/api/src/generated/',
     'apps/web/src/shared/api/schema.d.ts',
   ]),
