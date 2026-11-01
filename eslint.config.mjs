@@ -9,8 +9,11 @@ export default defineConfig(
   globalIgnores([
     '**/dist/',
     '**/dist-openapi/',
+    '**/dist-e2e/',
     '**/build/',
     '**/coverage/',
+    '**/playwright-report/',
+    '**/test-results/',
     'apps/api/src/generated/',
     'apps/web/src/shared/api/schema.d.ts',
   ]),

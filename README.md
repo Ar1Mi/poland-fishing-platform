@@ -47,6 +47,7 @@ pnpm install         # зависимости + git-хук pre-commit (Husky) + 
 | `pnpm typecheck` | сборка `packages/shared` и `pnpm gen:api`, затем `tsc --noEmit` в каждом пакете |
 | `pnpm test` | unit-тесты всех пакетов |
 | `pnpm --filter api test:e2e` | интеграционные тесты API (нужен Docker: Testcontainers) |
+| `pnpm e2e` | сценарии Playwright (нужен Docker; первый раз — `pnpm --filter web exec playwright install chromium`) |
 | `pnpm gen:api` | типы API-клиента web из OpenAPI-документа API |
 | `pnpm format` | Prettier (`pnpm format:check` — только проверка) |
 
@@ -64,3 +65,19 @@ pnpm --filter api test:e2e                        # интеграционные
 ```
 
 Клиент Prisma генерируется при `pnpm install` в `apps/api/src/generated` (не коммитится).
+
+### Демо-данные
+
+`SEED_DEMO=true pnpm --filter api prisma db seed` добавляет к видам и правилам демо-данные (`apps/api/prisma/demo-data.ts`): две организации с подключёнными водоёмами, типами разрешений и правилами, рыбаков, инспектора и суперадмина. Пароль всех демо-аккаунтов — значение `SEED_DEMO_PASSWORD` (8–128 символов, без него seed с `SEED_DEMO=true` не запускается). Повторный запуск восстанавливает настройку и пароль и завершает сессии демо-аккаунтов, а разрешения, уловы и протоколы не дублирует. На публичном сервере (`NODE_ENV=production`) пароль — не короче 16 символов.
+
+| E-mail | Роль |
+| --- | --- |
+| `superadmin@lowisko.test` | суперадмин |
+| `admin.sielawa@lowisko.test` | админ «Koło PZW „Sielawa” (demo)» (Jezioro Srebrne, Starorzecze Narwi) |
+| `admin.lipowy@lowisko.test` | админ «Gospodarstwo Rybackie „Lipowy Staw” (demo)» (Staw Lipowy) |
+| `straznik@lowisko.test` | инспектор «Sielawy» |
+| `jan.kowalski@lowisko.test` | рыбак: годовое разрешение и уловы за последние дни |
+| `anna.nowak@lowisko.test` | рыбак без разрешений (покупает в сценарии MVP) |
+| `kacper.wisniewski@lowisko.test` | рыбак младше 16 лет (льготное разрешение) |
+
+`pnpm e2e` своих данных не требует: он поднимает API на отдельной БД в контейнере с этим seed и случайным паролем, `pnpm dev` и его базу не трогает.

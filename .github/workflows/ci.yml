@@ -1,5 +1,5 @@
-# Checks every push and pull request (docs/08-testing-and-infra.md → «CI»).
-# Playwright E2E joins with the first scenarios (T-20).
+# Checks every push and pull request (docs/08-testing-and-infra.md → «CI»);
+# the Playwright scenarios run on pull requests.
 name: CI
 
 # Task branches are checked through their pull request; a push to main checks the merge.
@@ -52,3 +52,38 @@ jobs:
       - run: pnpm --filter api test:e2e
 
       - run: pnpm build
+
+  e2e:
+    name: Playwright E2E
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Chromium and the system libraries it needs on the runner.
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+
+      # playwright.config.ts builds and starts the API (PostgreSQL in Testcontainers on the
+      # runner's Docker, demo seed) and the production build of web, with PAYMENTS_PROVIDER=fake.
+      - run: pnpm e2e
+
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report/
+            apps/web/test-results/
+          retention-days: 7

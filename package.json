@@ -22,7 +22,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky && pnpm --filter @lowisko/shared run build",
-    "gen:api": "pnpm --filter api run openapi:export && pnpm --filter web run gen:api"
+    "gen:api": "pnpm --filter api run openapi:export && pnpm --filter web run gen:api",
+    "e2e": "pnpm --filter web run e2e"
   },
   "lint-staged": {
     "*.{ts,tsx,mts,cts,js,mjs,cjs}": [
