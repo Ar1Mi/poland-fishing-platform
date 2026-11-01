@@ -5,6 +5,7 @@ export * from './catches/catch-input.js';
 export * from './claims/claims.js';
 export * from './enums.js';
 export * from './errors.js';
+export * from './inspections/inspection-input.js';
 export * from './orgs/nip.js';
 export * from './orgs/schemas.js';
 export * from './permits/effective-status.js';
