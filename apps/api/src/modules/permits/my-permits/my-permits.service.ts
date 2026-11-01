@@ -12,6 +12,7 @@ import { WatersService } from '../../waters/waters.service';
 import type { MyPermitDto } from '../dto/permit.dto';
 import { PermitPdfService } from '../pdf/permit-pdf.service';
 import { fromDbDate } from '../permit-dates';
+import { permitWaters } from '../permit-waters';
 import { QrTokenService } from '../qr/qr-token.service';
 
 /** Statuses in which the permit can be shown to an inspector: it has a QR token and a PDF. */
@@ -155,9 +156,7 @@ export class MyPermitsService {
         discountKind: type.discountKind,
       },
       organization: { id: type.organizationId, name: organizationName },
-      waters: type.waters
-        .map((water) => ({ id: water.id, name: waterNames.get(water.id) ?? '' }))
-        .sort((a, b) => a.name.localeCompare(b.name, 'pl') || a.id.localeCompare(b.id)),
+      waters: permitWaters(type.waters, waterNames),
       createdAt: permit.createdAt.toISOString(),
       qrToken: WITH_QR.has(status) ? await this.qrTokens.sign(permit.id, validTo) : null,
     };

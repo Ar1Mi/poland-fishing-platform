@@ -41,6 +41,15 @@ export class UsersService {
     return db.user.findFirst({ where: { id, deletedAt: null } });
   }
 
+  /** First and last names of active users for lists of other modules (inspections), keyed by id. */
+  async findNames(ids: string[]): Promise<Map<string, Pick<User, 'firstName' | 'lastName'>>> {
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: ids }, deletedAt: null },
+      select: { id: true, firstName: true, lastName: true },
+    });
+    return new Map(users.map(({ id, ...name }) => [id, name]));
+  }
+
   findByEmail(email: string, db: Db = this.prisma): Promise<User | null> {
     return db.user.findFirst({ where: { email: normalizeEmail(email), deletedAt: null } });
   }

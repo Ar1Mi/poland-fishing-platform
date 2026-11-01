@@ -8,11 +8,13 @@ import { CatchesService } from './catches.service';
 
 /**
  * The register of catches (T-18): batch sync with the CatchValidator of `packages/shared`
- * (ADR-0009), the angler's register, changes within the BR-07 window.
+ * (ADR-0009), the angler's register, changes within the BR-07 window. Exports the service for
+ * the catches of today that an inspection shows (T-19).
  */
 @Module({
   imports: [PermitsModule, RulesModule, WatersModule],
   controllers: [CatchesController, MyCatchesController],
   providers: [CatchesService, CatchContextLoader],
+  exports: [CatchesService],
 })
 export class CatchesModule {}

@@ -29,7 +29,8 @@ import type {
 
 /**
  * The register of catches (FR-11, FR-12): recording them in batches from the device, checked by
- * the CatchValidator of `packages/shared`; the angler's list; changes within the BR-07 window.
+ * the CatchValidator of `packages/shared`; the angler's list; changes within the BR-07 window;
+ * the catches of a permit for an inspection (FR-17).
  */
 @Injectable()
 export class CatchesService {
@@ -137,6 +138,18 @@ export class CatchesService {
         permitId,
         caughtAt: { gte: dayStart(`${year}-01-01`), lt: warsawDayEnd(`${year}-12-31`) },
       },
+      orderBy: [{ caughtAt: 'desc' }, { createdAt: 'desc' }, { id: 'asc' }],
+    });
+    return this.toDtos(rows);
+  }
+
+  /**
+   * Catches recorded on a platform permit during the Warsaw day `date`, accepted and rejected,
+   * latest first: what an inspector of the permit's organization sees (T-19).
+   */
+  async listForPermitOnDay(permitId: string, date: DateOnly): Promise<CatchDto[]> {
+    const rows = await this.prisma.catchRecord.findMany({
+      where: { permitId, caughtAt: { gte: dayStart(date), lt: warsawDayEnd(date) } },
       orderBy: [{ caughtAt: 'desc' }, { createdAt: 'desc' }, { id: 'asc' }],
     });
     return this.toDtos(rows);

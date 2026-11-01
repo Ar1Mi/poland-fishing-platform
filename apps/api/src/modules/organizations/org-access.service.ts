@@ -14,7 +14,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Lookups behind RolesGuard and OrgScopeGuard. Memoised per request object, so a route
- * guarded by both reads the membership once.
+ * guarded by both reads the membership once. `find` serves a route whose organization is known
+ * only from its data (the owner of a checked permit, T-19).
  */
 @Injectable()
 export class OrgAccessService {
@@ -33,7 +34,7 @@ export class OrgAccessService {
     }
     let access = perRequest.get(organizationId);
     if (!access) {
-      access = this.load(userId, organizationId);
+      access = this.find(userId, organizationId);
       perRequest.set(organizationId, access);
     }
     return access;
@@ -44,7 +45,8 @@ export class OrgAccessService {
     return (await this.users.findById(userId))?.isSuperAdmin === true;
   }
 
-  private async load(userId: string, organizationId: string): Promise<OrgAccess | null> {
+  /** Uncached; null when the user is not a member (or there is no such organization). */
+  async find(userId: string, organizationId: string): Promise<OrgAccess | null> {
     // Not a UUID cannot name an organization; the column type would reject the query.
     if (!UUID.test(organizationId)) {
       return null;

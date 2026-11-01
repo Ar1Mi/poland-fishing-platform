@@ -11,6 +11,7 @@ import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CatchesModule } from './modules/catches/catches.module';
 import { HealthModule } from './modules/health/health.module';
+import { InspectionsModule } from './modules/inspections/inspections.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { PermitsModule } from './modules/permits/permits.module';
 import { RulesModule } from './modules/rules/rules.module';
@@ -40,6 +41,7 @@ import { WatersModule } from './modules/waters/waters.module';
     RulesModule,
     PermitsModule,
     CatchesModule,
+    InspectionsModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
