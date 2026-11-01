@@ -26,7 +26,7 @@ export function OrgInspectionsPage() {
     Number.isInteger(asked) && asked > currentSeason - SEASONS_SHOWN && asked < currentSeason
       ? asked
       : currentSeason;
-  const inspections = useOrgInspections(orgId, season === currentSeason ? undefined : season);
+  const inspections = useOrgInspections(orgId, season);
 
   return (
     <>
@@ -88,8 +88,9 @@ function InspectionRow({ inspection }: { inspection: Inspection }) {
       </div>
       <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
         <dt className="caption text-muted-foreground">{t('inspections.list.permit')}</dt>
-        <dd className="text-body">
-          <span className="font-mono">{permit.number}</span> · {permit.permitType.name}
+        <dd className="flex flex-col text-body">
+          <span className="font-mono">{permit.number}</span>
+          <span>{permit.permitType.name}</span>
         </dd>
         <dt className="caption text-muted-foreground">{t('inspections.list.holder')}</dt>
         <dd className="text-body">

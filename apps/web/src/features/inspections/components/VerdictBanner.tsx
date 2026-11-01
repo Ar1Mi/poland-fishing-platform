@@ -1,5 +1,5 @@
 import { ShieldCheck, ShieldX } from 'lucide-react';
-import type { ReactNode, Ref } from 'react';
+import type { ReactNode } from 'react';
 import { cn } from '../../../shared/lib/cn';
 
 /**
@@ -10,12 +10,10 @@ export function VerdictBanner({
   valid,
   title,
   children,
-  headingRef,
 }: {
   valid: boolean;
   title: string;
   children?: ReactNode;
-  headingRef?: Ref<HTMLHeadingElement>;
 }) {
   const Icon = valid ? ShieldCheck : ShieldX;
   return (
@@ -27,9 +25,7 @@ export function VerdictBanner({
     >
       <Icon aria-hidden className="size-14 shrink-0" />
       <div className="flex min-w-0 flex-col gap-1">
-        <h1 ref={headingRef} tabIndex={-1} className="text-h1 focus:outline-none">
-          {title}
-        </h1>
+        <h1 className="text-h1">{title}</h1>
         {children && <div className="text-body">{children}</div>}
       </div>
     </div>

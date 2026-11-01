@@ -8,12 +8,18 @@ import type { Catch } from '../api/useCatches';
 import { formatLength } from '../lib/catch-form';
 import { RuleAlerts } from './RuleAlerts';
 
+/** The fields of a catch that the summary shows: the register's and the inspection's. */
+export type CatchFacts = Pick<
+  Catch,
+  'speciesId' | 'caughtAt' | 'kept' | 'water' | 'lengthCm' | 'weightG' | 'status' | 'violations'
+>;
+
 /**
  * What `CatchRow` shows of a catch (docs/10-design-system.md): species, kept or released and
  * time, length and weight on the right, the water, the status and the reasons of a rejection.
  * Also the read-only list of an inspection (T-19).
  */
-export function CatchSummary({ fish, species }: { fish: Catch; species: Species[] }) {
+export function CatchSummary({ fish, species }: { fish: CatchFacts; species: Species[] }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? 'pl';
   const kind = species.find((item) => item.id === fish.speciesId);

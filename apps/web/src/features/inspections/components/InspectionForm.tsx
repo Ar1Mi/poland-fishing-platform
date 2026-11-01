@@ -97,7 +97,13 @@ export function InspectionForm({ orgId, permitId }: { orgId: string; permitId: s
         />
       )}
       {create.isError && <ApiErrorAlert error={create.error} />}
-      <Button type="submit" variant="accent" className="w-fit" disabled={create.isPending}>
+      {/* Saving now would drop the position the inspector asked for. */}
+      <Button
+        type="submit"
+        variant="accent"
+        className="w-fit"
+        disabled={create.isPending || location.state.status === 'locating'}
+      >
         {create.isPending && <LoaderCircle aria-hidden className="animate-spin" />}
         {t('inspections.form.submit')}
       </Button>
@@ -118,9 +124,9 @@ function Saved({ inspection }: { inspection: Inspection }) {
           time: formatTime(inspection.performedAt, i18n.resolvedLanguage ?? 'pl'),
         })}
       </AlertTitle>
-      <AlertDescription className="text-body">
-        {t(`inspections.result.${inspection.result}`)}
-        {inspection.notes && ` — ${inspection.notes}`}
+      <AlertDescription className="flex flex-col gap-1 text-body">
+        <p>{t(`inspections.result.${inspection.result}`)}</p>
+        {inspection.notes && <p className="whitespace-pre-line">{inspection.notes}</p>}
       </AlertDescription>
     </Alert>
   );

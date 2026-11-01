@@ -1,8 +1,9 @@
-import { LoaderCircle, LogIn } from 'lucide-react';
+import { CloudOff, LoaderCircle, LogIn } from 'lucide-react';
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useParams } from 'react-router';
-import { formatDate } from '../../../shared/lib/format';
+import { formatDate, formatTime } from '../../../shared/lib/format';
+import { Alert, AlertDescription } from '../../../shared/ui/alert';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Badge } from '../../../shared/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/ui/card';
@@ -21,25 +22,43 @@ import { VerdictBanner } from '../components/VerdictBanner';
  * organization also the holder, today's catches and the protocol form.
  */
 export function VerifyPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { token = '' } = useParams();
   const verification = useVerification(token);
   const session = useSessionStatus();
 
-  if (verification.isError) {
-    return <ApiErrorAlert error={verification.error} />;
-  }
   if (!verification.data) {
     return (
-      <Badge variant="neutral" role="status">
-        <LoaderCircle aria-hidden className="animate-spin" />
-        {t('inspections.verify.loading')}
-      </Badge>
+      <>
+        <h1 className="text-h1">{t('inspections.verify.title')}</h1>
+        {verification.isError ? (
+          <ApiErrorAlert error={verification.error} />
+        ) : (
+          <Badge variant="neutral" role="status">
+            <LoaderCircle aria-hidden className="animate-spin" />
+            {t('inspections.verify.loading')}
+          </Badge>
+        )}
+      </>
     );
   }
   const { valid, permit, inspection } = verification.data;
   return (
     <>
+      {/* A failed refetch (no signal on the shore) keeps the check and a protocol being written. */}
+      {verification.isError && (
+        <Alert variant="warning" role="alert">
+          <CloudOff aria-hidden />
+          <AlertDescription className="text-body">
+            {t('inspections.verify.stale', {
+              time: formatTime(
+                new Date(verification.dataUpdatedAt).toISOString(),
+                i18n.resolvedLanguage ?? 'pl',
+              ),
+            })}
+          </AlertDescription>
+        </Alert>
+      )}
       <VerdictBanner
         valid={valid}
         title={t(valid ? 'inspections.verify.valid' : 'inspections.verify.invalid')}
@@ -47,7 +66,9 @@ export function VerifyPage() {
         {permit ? <Reason permit={permit} /> : t('inspections.verify.notGenuine')}
       </VerdictBanner>
       {permit && <PermitCard permit={permit} />}
-      {inspection && permit && <InspectorView permit={permit} inspection={inspection} />}
+      {inspection && permit && (
+        <InspectorView key={inspection.permitId} permit={permit} inspection={inspection} />
+      )}
       {permit && !inspection && (session === 'guest' ? <InspectorLogin /> : <PublicOnly />)}
     </>
   );

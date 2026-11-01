@@ -4,6 +4,7 @@
     "VIOLATION": "Naruszenie"
   },
   "verify": {
+    "title": "Sprawdzenie zezwolenia",
     "loading": "Sprawdzanie zezwolenia…",
     "valid": "Zezwolenie ważne",
     "invalid": "Zezwolenie nieważne",
@@ -17,7 +18,8 @@
     },
     "inspectorHint": "Kontrolujesz w imieniu organizacji, która wydała zezwolenie?",
     "login": "Zaloguj się jako strażnik",
-    "publicOnly": "Dane posiadacza, dzisiejsze połowy i protokół widzą tylko strażnicy i administratorzy organizacji, która wydała zezwolenie."
+    "publicOnly": "Dane posiadacza, dzisiejsze połowy i protokół widzą tylko strażnicy i administratorzy organizacji, która wydała zezwolenie.",
+    "stale": "Nie udało się odświeżyć sprawdzenia. Widać dane z {{time}}."
   },
   "permit": {
     "organization": "Wydane przez",

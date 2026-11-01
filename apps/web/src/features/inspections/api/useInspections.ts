@@ -14,7 +14,9 @@ const orgInspectionsKey = (orgId: string) => ['orgs', orgId, 'inspections'] as c
 /**
  * The check of a scanned QR code (ADR-0006). Waits for the session to be restored: the answer of
  * an inspector of the issuing organization holds more, and it is fetched again when the user
- * logs in or out on the page.
+ * logs in or out on the page. Not refetched on focus — the inspector switches to the camera and
+ * back with a protocol half written — and dropped from the cache once the page is left, so the
+ * holder's data never outlive the session that was allowed to see them.
  */
 export function useVerification(token: string) {
   const status = useSessionStatus();
@@ -23,6 +25,8 @@ export function useVerification(token: string) {
     queryFn: ({ signal }) =>
       request(() => api.GET('/api/v1/verify/{token}', { params: { path: { token } }, signal })),
     enabled: status !== 'restoring',
+    refetchOnWindowFocus: false,
+    gcTime: 0,
   });
 }
 
@@ -37,14 +41,14 @@ export function useCreateInspection(orgId: string) {
   });
 }
 
-/** Protocols of a season (Warsaw year); the current one when `season` is not given. */
-export function useOrgInspections(orgId: string, season?: number) {
+/** Protocols of a season (Warsaw year): always the year on the screen, not the server's. */
+export function useOrgInspections(orgId: string, season: number) {
   return useQuery({
-    queryKey: [...orgInspectionsKey(orgId), season ?? 'current'],
+    queryKey: [...orgInspectionsKey(orgId), season],
     queryFn: ({ signal }) =>
       request(() =>
         api.GET('/api/v1/orgs/{orgId}/inspections', {
-          params: { path: { orgId }, query: season === undefined ? {} : { season } },
+          params: { path: { orgId }, query: { season } },
           signal,
         }),
       ),

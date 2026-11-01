@@ -1,10 +1,10 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { onlineManager } from '@tanstack/react-query';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { jsonResponse, mockApi, renderRoute, sentBodies } from '../../../test/render';
-import type { Catch } from '../../catches/api/useCatches';
 import type { Species } from '../../rules/api/useRules';
-import type { Inspection, Verification } from '../api/useInspections';
+import type { Inspection, InspectionView, Verification } from '../api/useInspections';
 
 const profile = {
   id: '6f1c2c9e-0000-4000-8000-000000000001',
@@ -59,23 +59,16 @@ const publicCheck: Verification = {
   inspection: null,
 };
 
-const rejected: Catch = {
+const rejected: InspectionView['catchesToday'][number] = {
   id: '9a0b1c2d-0000-4000-8000-000000000001',
-  clientId: '9a0b1c2d-0000-4000-8000-000000000011',
-  permitId: PERMIT_ID,
-  externalPermitId: null,
   water: LAKE,
   speciesId: PIKE.id,
   caughtAt: '2026-10-06T08:00:00.000Z',
   lengthCm: 40,
   weightG: 900,
   kept: true,
-  lat: null,
-  lng: null,
   status: 'REJECTED',
   violations: [{ code: 'BELOW_MIN_LENGTH', ruleId: 'BR-02', details: { minLengthCm: 50 } }],
-  editableUntil: '2026-10-07T22:00:00.000Z',
-  createdAt: '2026-10-06T08:00:05.000Z',
 };
 
 const inspectorCheck: Verification = {
@@ -210,6 +203,97 @@ describe('verify page', () => {
     ]);
   });
 
+  it('keeps the check and the protocol being written when a refetch fails', async () => {
+    let offline = false;
+    mockApi({
+      ...session,
+      [VERIFY]: () =>
+        offline
+          ? jsonResponse({ code: 'INTERNAL_ERROR', message: 'Unavailable' }, 503)
+          : jsonResponse(inspectorCheck),
+      'GET /api/v1/species': () => jsonResponse([PIKE]),
+    });
+    renderRoute(`/verify/${TOKEN}`, { accessToken: 'access-1' });
+    const notes = await screen.findByLabelText('Uwagi');
+    await userEvent.type(notes, 'Brak karty wędkarskiej');
+
+    offline = true;
+    // Back online: TanStack Query refetches, and the refetch fails.
+    act(() => onlineManager.setOnline(false));
+    act(() => onlineManager.setOnline(true));
+
+    expect(
+      await screen.findByText('Nie udało się odświeżyć sprawdzenia. Widać dane z 17:20.'),
+    ).toBeVisible();
+    expect(screen.getByRole('heading', { level: 1, name: 'Zezwolenie ważne' })).toBeVisible();
+    expect(screen.getByText('Łukasz Żółć')).toBeVisible();
+    expect(screen.getByLabelText('Uwagi')).toHaveValue('Brak karty wędkarskiej');
+  });
+
+  it('sends the position the inspector added', async () => {
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition: (success: PositionCallback) =>
+          success({
+            coords: { latitude: 52.4312345, longitude: 21.0298765 },
+          } as GeolocationPosition),
+      },
+    });
+    const fetch = mockApi({
+      ...session,
+      [VERIFY]: () => jsonResponse(inspectorCheck),
+      'GET /api/v1/species': () => jsonResponse([PIKE]),
+      [`POST /api/v1/orgs/${ORG_ID}/inspections`]: () =>
+        jsonResponse({ ...saved, result: 'OK' }, 201),
+    });
+    try {
+      renderRoute(`/verify/${TOKEN}`, { accessToken: 'access-1' });
+      const form = await screen.findByRole('form', { name: 'Protokół kontroli' });
+      await userEvent.click(within(form).getByRole('button', { name: 'Bez zastrzeżeń' }));
+      await userEvent.click(within(form).getByRole('button', { name: 'Dodaj moją lokalizację' }));
+      expect(within(form).getByText('Lokalizacja zostanie zapisana z protokołem.')).toBeVisible();
+      await userEvent.click(within(form).getByRole('button', { name: 'Zapisz protokół' }));
+
+      await screen.findByText('Protokół zapisany o 17:20');
+      expect(await sentBodies(fetch, `POST /api/v1/orgs/${ORG_ID}/inspections`)).toEqual([
+        { permitId: PERMIT_ID, result: 'OK', notes: null, lat: 52.43123, lng: 21.02988 },
+      ]);
+    } finally {
+      Reflect.deleteProperty(navigator, 'geolocation');
+    }
+  });
+
+  it('checks again with the token after the inspector logs in from the page', async () => {
+    let loggedIn = false;
+    const fetch = mockApi({
+      ...session,
+      [VERIFY]: (sent) =>
+        jsonResponse(sent.headers.get('Authorization') ? inspectorCheck : publicCheck),
+      'GET /api/v1/species': () => jsonResponse([PIKE]),
+      'POST /api/v1/auth/login': () => {
+        loggedIn = true;
+        return jsonResponse({ accessToken: 'access-2' });
+      },
+    });
+    renderRoute(`/verify/${TOKEN}`);
+
+    await userEvent.click(await screen.findByRole('link', { name: 'Zaloguj się jako strażnik' }));
+    await userEvent.type(await screen.findByLabelText('E-mail'), 'irena@example.test');
+    await userEvent.type(screen.getByLabelText('Hasło'), 'correct horse battery');
+    await userEvent.click(screen.getByRole('button', { name: 'Zaloguj się' }));
+
+    expect(await screen.findByText('Łukasz Żółć')).toBeVisible();
+    expect(loggedIn).toBe(true);
+    const checks = fetch.mock.calls
+      .map(([sent]) => sent)
+      .filter((sent) => new URL(sent.url).pathname === `/api/v1/verify/${TOKEN}`);
+    expect(checks.map((sent) => sent.headers.get('Authorization'))).toEqual([
+      null,
+      'Bearer access-2',
+    ]);
+  });
+
   it('says when no catch was recorded today', async () => {
     mockApi({
       ...session,
@@ -267,8 +351,10 @@ describe('organization inspections page', () => {
     expect(await screen.findByText('W tym sezonie nie zapisano protokołów.')).toBeVisible();
     await userEvent.selectOptions(screen.getByLabelText('Sezon'), '2025');
 
+    // Always the year on the screen, also the current one.
     await waitFor(() =>
       expect(fetch.mock.calls.map(([sent]) => new URL(sent.url).search).filter(Boolean)).toEqual([
+        '?season=2026',
         '?season=2025',
       ]),
     );
