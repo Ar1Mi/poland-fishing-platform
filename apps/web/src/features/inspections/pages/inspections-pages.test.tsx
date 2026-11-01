@@ -73,7 +73,7 @@ const rejected: Catch = {
   lat: null,
   lng: null,
   status: 'REJECTED',
-  violations: [{ code: 'BELOW_MIN_LENGTH', ruleId: 'BR-03', details: { minLengthCm: 50 } }],
+  violations: [{ code: 'BELOW_MIN_LENGTH', ruleId: 'BR-02', details: { minLengthCm: 50 } }],
   editableUntil: '2026-10-07T22:00:00.000Z',
   createdAt: '2026-10-06T08:00:05.000Z',
 };
@@ -185,7 +185,7 @@ describe('verify page', () => {
     const catches = screen.getByRole('region', { name: 'Połowy dzisiaj' });
     expect(await within(catches).findByText('Szczupak')).toBeVisible();
     expect(within(catches).getByText('Odrzucony')).toBeVisible();
-    expect(within(catches).getByText('BR-03 · BELOW_MIN_LENGTH')).toBeVisible();
+    expect(within(catches).getByText('BR-02 · BELOW_MIN_LENGTH')).toBeVisible();
     expect(fetch.mock.calls[0]![0].headers.get('Authorization')).toBe('Bearer access-1');
 
     const form = screen.getByRole('form', { name: 'Protokół kontroli' });

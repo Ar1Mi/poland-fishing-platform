@@ -71,7 +71,7 @@ function PermitCard({ permit }: { permit: VerifiedPermit }) {
   const locale = i18n.resolvedLanguage ?? 'pl';
   return (
     <Card>
-      <CardHeader className="flex flex-wrap items-center justify-between gap-2">
+      <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
         <CardTitle>{permit.permitType.name}</CardTitle>
         <PermitStatusBadge status={permit.status} />
       </CardHeader>
@@ -80,7 +80,7 @@ function PermitCard({ permit }: { permit: VerifiedPermit }) {
           <dt className="caption text-muted-foreground">{t('inspections.permit.organization')}</dt>
           <dd className="text-body">{permit.organization.name}</dd>
           <dt className="caption text-muted-foreground">{t('inspections.permit.validity')}</dt>
-          <dd className="font-mono text-body">
+          <dd className="text-body">
             {t('permits.validity', {
               from: formatDate(permit.validFrom, locale),
               to: formatDate(permit.validTo, locale),

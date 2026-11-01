@@ -202,7 +202,7 @@ describe('inspections', () => {
         fishingWaterId: lakeId,
         speciesId,
         syncStatus: 'REJECTED',
-        violations: [{ code: 'BELOW_MIN_LENGTH', ruleId: 'BR-03' }],
+        violations: [{ code: 'BELOW_MIN_LENGTH', ruleId: 'BR-02' }],
         caughtAt: warsawOctober(6, 0),
       });
       // The day before (23:59 in Warsaw), and a catch of today on another permit.
