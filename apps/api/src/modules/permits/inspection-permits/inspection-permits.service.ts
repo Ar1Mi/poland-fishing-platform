@@ -46,12 +46,13 @@ export class InspectionPermitsService {
    * The permit of a genuine, unexpired QR token (ADR-0006); null for a forged, malformed or
    * expired one. The status is read from the database: the token does not know of a revocation.
    */
-  async findByQrToken(token: string): Promise<InspectedPermit | null> {
+  async findByQrToken(token: string, now: Date): Promise<InspectedPermit | null> {
     const id = await this.qrTokens.verify(token);
-    return id === null ? null : this.find(id);
+    return id === null ? null : this.find(id, now);
   }
 
-  async find(id: string): Promise<InspectedPermit | null> {
+  /** The status is computed at `now`: the caller uses the same instant for «today». */
+  async find(id: string, now: Date = this.clock.now()): Promise<InspectedPermit | null> {
     const permit = await this.prisma.permit.findUnique({
       where: { id },
       include: { permitType: { include: { waters: { select: { id: true } } } } },
@@ -70,10 +71,7 @@ export class InspectionPermitsService {
       id: permit.id,
       number: permit.number,
       userId: permit.userId,
-      status: effectivePermitStatus(
-        { status: permit.status, validFrom, validTo },
-        this.clock.now(),
-      ),
+      status: effectivePermitStatus({ status: permit.status, validFrom, validTo }, now),
       validFrom,
       validTo,
       permitType: { name: type.name },

@@ -17,6 +17,10 @@ describe('holderInitials', () => {
     expect(holderInitials('  Jan', '𝒜dam')).toBe('J. 𝒜.');
   });
 
+  it('composes a decomposed letter before taking it', () => {
+    expect(holderInitials('Jan', 'Żółć'.normalize('NFD'))).toBe('J. Ż.');
+  });
+
   it('leaves out an empty name', () => {
     expect(holderInitials('Jan', '')).toBe('J.');
   });

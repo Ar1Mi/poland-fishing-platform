@@ -2,8 +2,9 @@
 export function holderInitials(firstName: string, lastName: string): string {
   return [firstName, lastName]
     .map((name) => {
-      // The first code point, not UTF-16 unit, and Polish casing (`ł` → `Ł`).
-      const [first = ''] = name.trim();
+      // NFC first: a decomposed «Ż» is «Z» plus a combining dot. Then the first code point, not
+      // UTF-16 unit, and Polish casing (`ł` → `Ł`).
+      const [first = ''] = name.normalize('NFC').trim();
       return first ? `${first.toLocaleUpperCase('pl')}.` : '';
     })
     .filter(Boolean)

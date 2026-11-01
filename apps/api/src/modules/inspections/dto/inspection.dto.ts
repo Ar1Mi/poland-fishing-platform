@@ -1,5 +1,6 @@
 import {
   CATCH_SEASONS,
+  CatchSyncStatus,
   EffectivePermitStatus,
   INSPECTION_NOTES_MAX_LENGTH,
   InspectionResult,
@@ -17,7 +18,7 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
-import { CatchDto } from '../../catches/dto/catch.dto';
+import { CatchWaterDto, RuleViolationDto } from '../../catches/dto/catch.dto';
 import { PermitOrganizationDto, PermitWaterDto } from '../../permits/dto/permit.dto';
 import { IfPresent } from '../../users/dto/profile.dto';
 
@@ -71,6 +72,39 @@ export class PermitHolderDto {
   birthYear!: number;
 }
 
+/**
+ * A catch of today as the inspector sees it: what was caught and the verdict, without the
+ * angler's position or the device's data (minimisation, docs/07-security.md).
+ */
+export class InspectedCatchDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ type: CatchWaterDto })
+  water!: CatchWaterDto;
+
+  @ApiProperty({ format: 'uuid' })
+  speciesId!: string;
+
+  @ApiProperty({ format: 'date-time' })
+  caughtAt!: string;
+
+  @ApiProperty({ example: 42 })
+  lengthCm!: number;
+
+  @ApiProperty({ type: Number, nullable: true, example: 900 })
+  weightG!: number | null;
+
+  @ApiProperty()
+  kept!: boolean;
+
+  @ApiProperty({ enum: Object.values(CatchSyncStatus), enumName: 'CatchSyncStatus' })
+  status!: CatchSyncStatus;
+
+  @ApiProperty({ type: [RuleViolationDto], description: 'Empty when ACCEPTED' })
+  violations!: RuleViolationDto[];
+}
+
 /** What an inspector or admin of the issuing organization sees in addition (FR-17). */
 export class InspectionViewDto {
   @ApiProperty({ format: 'uuid', description: 'For the protocol' })
@@ -83,11 +117,11 @@ export class InspectionViewDto {
   holder!: PermitHolderDto;
 
   @ApiProperty({
-    type: [CatchDto],
+    type: [InspectedCatchDto],
     description:
       'Catches recorded on this permit today (Europe/Warsaw), accepted and rejected, latest first',
   })
-  catchesToday!: CatchDto[];
+  catchesToday!: InspectedCatchDto[];
 }
 
 export class VerificationDto {

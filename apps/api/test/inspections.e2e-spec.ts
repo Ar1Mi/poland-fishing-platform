@@ -71,6 +71,7 @@ describe('inspections', () => {
   let db: TestDatabase;
   let prisma: PrismaService;
   let app: NestExpressApplication;
+  let now: Date;
   let organizationId: string;
   let permitTypeId: string;
   let lakeId: string;
@@ -79,8 +80,8 @@ describe('inspections', () => {
   let anglerId: string;
   /** ACTIVE today, on the lake. */
   let permit: { id: string; number: string };
-  let inspector: { id: string; accessToken: string };
-  let admin: { id: string; accessToken: string };
+  let inspector: { id: string; email: string; accessToken: string };
+  let admin: { id: string; email: string; accessToken: string };
 
   const server = () => app.getHttpServer();
   const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -110,7 +111,11 @@ describe('inspections', () => {
       lastName: role === 'INSPECTOR' ? 'Strażnik' : 'Zarządca',
     });
     await prisma.membership.create({ data: { userId: user.id, organizationId, role } });
-    return { id: user.id, accessToken: (await login(app, user.email)).accessToken };
+    return {
+      id: user.id,
+      email: user.email,
+      accessToken: (await login(app, user.email)).accessToken,
+    };
   };
 
   const createInspection = (accessToken: string, body: object, orgId = organizationId) =>
@@ -122,7 +127,8 @@ describe('inspections', () => {
   beforeEach(async () => {
     db = await createTestDatabase();
     prisma = prismaServiceFor(db.url);
-    app = await createTestApp({ prisma });
+    now = FIXED_NOW;
+    app = await createTestApp({ prisma, now: () => now });
     organizationId = (await createOrganization(prisma, { status: 'ACTIVE', name: 'Koło PZW 7' }))
       .id;
     const waters = await Promise.all(
@@ -205,13 +211,20 @@ describe('inspections', () => {
         violations: [{ code: 'BELOW_MIN_LENGTH', ruleId: 'BR-02' }],
         caughtAt: warsawOctober(6, 0),
       });
-      // The day before (23:59 in Warsaw), and a catch of today on another permit.
+      // The day before (23:59 in Warsaw), the next day (00:00), a catch of today on another permit.
       await createCatch(prisma, {
         userId: anglerId,
         permitId: permit.id,
         fishingWaterId: lakeId,
         speciesId,
         caughtAt: warsawOctober(5, 23 + 59 / 60),
+      });
+      await createCatch(prisma, {
+        userId: anglerId,
+        permitId: permit.id,
+        fishingWaterId: lakeId,
+        speciesId,
+        caughtAt: warsawOctober(7, 0),
       });
       await createCatch(prisma, {
         userId: anglerId,
@@ -233,12 +246,60 @@ describe('inspections', () => {
         { id: late.id, status: 'ACCEPTED' },
         { id: rejected.id, status: 'REJECTED' },
       ]);
+      // Not the angler's position nor the device's data.
+      expect(Object.keys(body.inspection!.catchesToday[1]!).sort()).toEqual([
+        'caughtAt',
+        'id',
+        'kept',
+        'lengthCm',
+        'speciesId',
+        'status',
+        'violations',
+        'water',
+        'weightG',
+      ]);
+      expect(body.inspection!.catchesToday[1]).toMatchObject({
+        water: { id: lakeId, name: 'Jezioro Łańskie' },
+        violations: [{ code: 'BELOW_MIN_LENGTH', ruleId: 'BR-02' }],
+      });
+    });
+
+    it('takes all 25 hours of the day the clocks go back as today', async () => {
+      // 25 October 2026, 23:50 in Warsaw (CET, UTC+1); the day began at 00:00 CEST.
+      now = new Date('2026-10-25T22:50:00.000Z');
+      const weekly = await paidPermit('2026-10-20', '2026-10-26');
+      const at = (iso: string) =>
+        createCatch(prisma, {
+          userId: anglerId,
+          permitId: weekly.id,
+          fishingWaterId: lakeId,
+          speciesId,
+          caughtAt: new Date(iso),
+        });
+      const first = await at('2026-10-24T22:00:00.000Z'); // 00:00 CEST
+      const last = await at('2026-10-25T22:45:00.000Z'); // 23:45 CET
+      await at('2026-10-24T21:59:00.000Z'); // 23:59 CEST of the 24th
+      await at('2026-10-25T23:00:00.000Z'); // 00:00 CET of the 26th
+      const { accessToken } = await login(app, inspector.email);
+
+      const body = await verify(await qrToken(weekly.id, '2026-10-26'), accessToken);
+
+      expect(body.inspection!.catchesToday.map(({ id }) => id)).toEqual([last.id, first.id]);
     });
 
     it('shows an admin of the issuing organization the full check too', async () => {
       const body = await verify(await qrToken(permit.id, '2026-10-11'), admin.accessToken);
 
       expect(body.inspection).toMatchObject({ permitId: permit.id, catchesToday: [] });
+    });
+
+    it('shows a super admin who is not a member only the public part', async () => {
+      const superAdmin = await createVerifiedUser(prisma, { isSuperAdmin: true });
+      const { accessToken } = await login(app, superAdmin.email);
+
+      const body = await verify(await qrToken(permit.id, '2026-10-11'), accessToken);
+
+      expect(body).toMatchObject({ valid: true, permit: publicPart, inspection: null });
     });
 
     it('shows an inspector of another organization only the public part', async () => {
@@ -343,6 +404,27 @@ describe('inspections', () => {
 
       expect((response.body as ErrorBody).code).toBe('UNAUTHENTICATED');
     });
+
+    it('answers TOKEN_EXPIRED to an expired access token, so the web refreshes it', async () => {
+      const token = await qrToken(permit.id, '2026-10-11');
+      now = new Date(FIXED_NOW.getTime() + 16 * 60_000);
+
+      const response = await request(server())
+        .get(`/api/v1/verify/${token}`)
+        .set(bearer(inspector.accessToken))
+        .expect(401);
+
+      expect((response.body as ErrorBody).code).toBe('TOKEN_EXPIRED');
+    });
+
+    it('answers 401 to an Authorization header that is not a bearer token', async () => {
+      const response = await request(server())
+        .get(`/api/v1/verify/${await qrToken(permit.id, '2026-10-11')}`)
+        .set('Authorization', 'Basic dXNlcjpwYXNz')
+        .expect(401);
+
+      expect((response.body as ErrorBody).code).toBe('UNAUTHENTICATED');
+    });
   });
 
   describe('POST /orgs/:orgId/inspections', () => {
@@ -376,6 +458,20 @@ describe('inspections', () => {
         inspectorId: inspector.id,
         permitId: permit.id,
       });
+    });
+
+    it('accepts the organization id in upper case', async () => {
+      const response = await createInspection(
+        inspector.accessToken,
+        { permitId: permit.id, result: 'OK' },
+        organizationId.toUpperCase(),
+      ).expect(201);
+
+      expect(
+        await prisma.inspection.findUniqueOrThrow({
+          where: { id: (response.body as Inspection).id },
+        }),
+      ).toMatchObject({ organizationId });
     });
 
     it('lets an admin save a protocol, without notes or a position', async () => {

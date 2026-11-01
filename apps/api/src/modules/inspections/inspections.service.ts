@@ -53,7 +53,9 @@ export class InspectionsService {
    * (forged, malformed, expired) answers the same as one of an unknown permit.
    */
   async verify(token: string, userId: string | undefined): Promise<VerificationDto> {
-    const permit = await this.permits.findByQrToken(token);
+    // One instant for the status and for «today»: at midnight they would disagree.
+    const now = this.clock.now();
+    const permit = await this.permits.findByQrToken(token, now);
     // An anonymised holder (RODO) has no permit to show.
     const holder = permit && (await this.users.findById(permit.userId));
     if (!permit || !holder) {
@@ -72,7 +74,7 @@ export class InspectionsService {
         waters: permit.waters,
         holderInitials: holderInitials(holder.firstName, holder.lastName),
       },
-      inspection: inspects ? await this.inspectionView(permit, holder) : null,
+      inspection: inspects ? await this.inspectionView(permit, holder, now) : null,
     };
   }
 
@@ -86,14 +88,15 @@ export class InspectionsService {
     dto: CreateInspectionDto,
   ): Promise<InspectionDto> {
     const permit = await this.permits.find(dto.permitId);
-    if (!permit || permit.organization.id !== organizationId) {
+    // The guards accept `:orgId` in any letter case, as Postgres compares UUIDs.
+    if (!permit || permit.organization.id !== organizationId.toLowerCase()) {
       throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'Permit not found');
     }
     const inspection = await this.prisma.inspection.create({
       data: {
         inspectorId,
         permitId: permit.id,
-        organizationId,
+        organizationId: permit.organization.id,
         performedAt: this.clock.now(),
         result: dto.result,
         notes: dto.notes ?? null,
@@ -127,7 +130,12 @@ export class InspectionsService {
     );
   }
 
-  private async inspectionView(permit: InspectedPermit, holder: User): Promise<InspectionViewDto> {
+  private async inspectionView(
+    permit: InspectedPermit,
+    holder: User,
+    now: Date,
+  ): Promise<InspectionViewDto> {
+    const catches = await this.catches.listForPermitOnDay(permit.id, warsawDate(now));
     return {
       permitId: permit.id,
       number: permit.number,
@@ -137,7 +145,20 @@ export class InspectionsService {
         // `@db.Date`: UTC midnight of the birthday.
         birthYear: holder.birthDate.getUTCFullYear(),
       },
-      catchesToday: await this.catches.listForPermitOnDay(permit.id, warsawDate(this.clock.now())),
+      // Not the angler's positions nor the device's data: what was caught and the verdict.
+      catchesToday: catches.map(
+        ({ id, water, speciesId, caughtAt, lengthCm, weightG, kept, status, violations }) => ({
+          id,
+          water,
+          speciesId,
+          caughtAt,
+          lengthCm,
+          weightG,
+          kept,
+          status,
+          violations,
+        }),
+      ),
     };
   }
 
