@@ -1,0 +1,73 @@
+{
+  "result": {
+    "OK": "Bez zastrzeżeń",
+    "VIOLATION": "Naruszenie"
+  },
+  "verify": {
+    "title": "Sprawdzenie zezwolenia",
+    "loading": "Sprawdzanie zezwolenia…",
+    "valid": "Zezwolenie ważne",
+    "invalid": "Zezwolenie nieważne",
+    "notGenuine": "Kod jest nieprawidłowy, podrobiony albo zezwolenie już wygasło.",
+    "reason": {
+      "SCHEDULED": "Zezwolenie obowiązuje dopiero od {{from}}.",
+      "EXPIRED": "Zezwolenie wygasło {{to}}.",
+      "REVOKED": "Zezwolenie zostało unieważnione przez organizację.",
+      "CANCELLED": "Zezwolenie nie zostało opłacone.",
+      "PENDING_PAYMENT": "Zezwolenie czeka na potwierdzenie płatności."
+    },
+    "inspectorHint": "Kontrolujesz w imieniu organizacji, która wydała zezwolenie?",
+    "login": "Zaloguj się jako strażnik",
+    "publicOnly": "Dane posiadacza, dzisiejsze połowy i protokół widzą tylko strażnicy i administratorzy organizacji, która wydała zezwolenie.",
+    "stale": "Nie udało się odświeżyć sprawdzenia. Widać dane z {{time}}."
+  },
+  "permit": {
+    "organization": "Wydane przez",
+    "validity": "Ważność",
+    "holder": "Posiadacz",
+    "waters": "Łowiska"
+  },
+  "holder": {
+    "title": "Dane do kontroli",
+    "compare": "Porównaj z dokumentem tożsamości wędkarza.",
+    "name": "Imię i nazwisko",
+    "birthYear": "Rok urodzenia",
+    "number": "Numer zezwolenia"
+  },
+  "catches": {
+    "title": "Połowy dzisiaj",
+    "empty": "Dziś nie zapisano połowów na tym zezwoleniu.",
+    "onlineOnly": "Widać tylko połowy już wysłane z telefonu wędkarza."
+  },
+  "form": {
+    "title": "Protokół kontroli",
+    "result": {
+      "label": "Wynik kontroli",
+      "error": "Wybierz wynik kontroli."
+    },
+    "notes": {
+      "label": "Uwagi",
+      "hint": "Nieobowiązkowe, do {{max}} znaków.",
+      "error": "Uwagi są za długie."
+    },
+    "location": {
+      "add": "Dodaj moją lokalizację",
+      "locating": "Ustalanie lokalizacji…",
+      "added": "Lokalizacja zostanie zapisana z protokołem.",
+      "remove": "Usuń lokalizację",
+      "failed": "Nie udało się ustalić lokalizacji — protokół zapiszesz i bez niej."
+    },
+    "submit": "Zapisz protokół",
+    "saved": "Protokół zapisany o {{time}}"
+  },
+  "list": {
+    "title": "Protokoły kontroli",
+    "season": "Sezon",
+    "loading": "Wczytywanie protokołów…",
+    "empty": "W tym sezonie nie zapisano protokołów.",
+    "permit": "Zezwolenie",
+    "holder": "Posiadacz",
+    "inspector": "Kontrolujący",
+    "anonymised": "Konto usunięte"
+  }
+}

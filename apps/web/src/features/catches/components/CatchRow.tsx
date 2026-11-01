@@ -1,18 +1,17 @@
 import { CatchFate, warsawDateTimeLocal } from '@lowisko/shared';
-import { CircleCheck, CircleX, Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatDateTime, formatTime } from '../../../shared/lib/format';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
-import { Badge } from '../../../shared/ui/badge';
 import { Button } from '../../../shared/ui/button';
 import type { MyPermit } from '../../permits/api/usePurchase';
 import type { Species } from '../../rules/api/useRules';
-import { formatWeight, speciesName } from '../../rules/lib/format-rule';
+import { speciesName } from '../../rules/lib/format-rule';
 import { type Catch, useDeleteCatch, useUpdateCatch } from '../api/useCatches';
-import { type CatchPlace, catchPlaces, formatLength, formatWeightInput } from '../lib/catch-form';
+import { type CatchPlace, catchPlaces, formatWeightInput } from '../lib/catch-form';
 import { CatchForm, type CatchFormSubmit } from './CatchForm';
-import { RuleAlerts } from './RuleAlerts';
+import { CatchSummary } from './CatchSummary';
 
 /**
  * A catch of the register (docs/10-design-system.md → `CatchRow`): species, kept or released
@@ -42,7 +41,6 @@ export function CatchRow({
   const time = formatTime(fish.caughtAt, locale);
   // The server decides; this only hides buttons that would fail.
   const editable = Date.parse(fish.editableUntil) > Date.now();
-  const accepted = fish.status === 'ACCEPTED';
 
   if (mode === 'edit') {
     const shownTime = warsawDateTimeLocal(new Date(fish.caughtAt));
@@ -94,27 +92,7 @@ export function CatchRow({
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
-      <div className="flex items-start gap-3">
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <span className="text-body font-semibold">{name}</span>
-          <span className="text-small">
-            {t('catches.register.fateAndTime', {
-              fate: t(`catches.fate.${fish.kept ? 'KEPT' : 'RELEASED'}`),
-              time,
-            })}
-          </span>
-          <span className="text-small text-muted-foreground">{fish.water.name}</span>
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-1 font-mono text-body">
-          <span>{formatLength(fish.lengthCm, locale)}</span>
-          {fish.weightG !== null && <span>{formatWeight(fish.weightG, locale)}</span>}
-        </div>
-      </div>
-      <Badge variant={accepted ? 'success' : 'destructive'}>
-        {accepted ? <CircleCheck aria-hidden /> : <CircleX aria-hidden />}
-        {t(`catches.status.${fish.status}`)}
-      </Badge>
-      {!accepted && <RuleAlerts violations={fish.violations} />}
+      <CatchSummary fish={fish} species={species} />
       {editable && (
         <>
           <p className="text-small text-muted-foreground">

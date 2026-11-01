@@ -6,6 +6,8 @@
     "claims": "Wnioski o łowiska",
     "permitTypes": "Rodzaje zezwoleń",
     "rules": "Zasady połowu",
+    "inspections": "Protokoły kontroli",
+    "inspectorHint": "Aby skontrolować wędkarza, zeskanuj aparatem telefonu kod QR z jego zezwolenia.",
     "status": {
       "PENDING": "Organizacja czeka na aktywację przez administratora serwisu.",
       "BLOCKED": "Organizacja jest zablokowana. Skontaktuj się z administratorem serwisu."

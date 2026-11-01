@@ -6,7 +6,7 @@ import { buildLoggerOptions } from './logger.options';
 
 interface LogLine {
   level: number;
-  req: { id: string; headers: Record<string, string> };
+  req: { id: string; url: string; headers: Record<string, string> };
   res: { headers: Record<string, string> };
 }
 
@@ -59,6 +59,19 @@ describe('buildLoggerOptions', () => {
     expect(lines[0]?.req.headers.cookie).toBe('[Redacted]');
     expect(lines[0]?.res.headers['set-cookie']).toBe('[Redacted]');
     expect(JSON.stringify(lines)).not.toMatch(/access-secret|refresh-secret/);
+  });
+
+  it('keeps the QR token of a permit check out of the logged URL', async () => {
+    const { server, lines } = createLoggedServer('production');
+
+    await request(server).get('/api/v1/verify/eyJhbGciOiJFZERTQSJ9.payload.signature?x=1');
+    await request(server).get('/api/v1/auth/verify-email');
+
+    expect(lines.map(({ req }) => req.url)).toEqual([
+      '/api/v1/verify/[Redacted]?x=1',
+      '/api/v1/auth/verify-email',
+    ]);
+    expect(JSON.stringify(lines)).not.toMatch(/payload\.signature/);
   });
 
   it('is silent under NODE_ENV=test', async () => {

@@ -36,6 +36,8 @@ function OrganizationCard({ organization }: { organization: MyOrganization }) {
   const { t } = useTranslation();
   const titleId = `org-${organization.id}`;
   const isAdmin = organization.roles.includes('ORG_ADMIN');
+  // The check starts from the angler's QR code (scenario В), not from this page.
+  const isInspector = organization.roles.includes('INSPECTOR');
   return (
     <Card aria-labelledby={titleId}>
       <CardHeader>
@@ -46,19 +48,25 @@ function OrganizationCard({ organization }: { organization: MyOrganization }) {
       </CardHeader>
       <CardContent>
         {organization.status === 'ACTIVE' ? (
-          isAdmin && (
-            <nav aria-label={organization.name} className="flex flex-col">
-              <Link to={`/org/${organization.id}/claims`} className={sectionLink}>
-                {t('orgs.mine.claims')}
-              </Link>
-              <Link to={`/org/${organization.id}/permit-types`} className={sectionLink}>
-                {t('orgs.mine.permitTypes')}
-              </Link>
-              <Link to={`/org/${organization.id}/rules`} className={sectionLink}>
-                {t('orgs.mine.rules')}
-              </Link>
-            </nav>
-          )
+          <>
+            {isAdmin && (
+              <nav aria-label={organization.name} className="flex flex-col">
+                <Link to={`/org/${organization.id}/claims`} className={sectionLink}>
+                  {t('orgs.mine.claims')}
+                </Link>
+                <Link to={`/org/${organization.id}/permit-types`} className={sectionLink}>
+                  {t('orgs.mine.permitTypes')}
+                </Link>
+                <Link to={`/org/${organization.id}/rules`} className={sectionLink}>
+                  {t('orgs.mine.rules')}
+                </Link>
+                <Link to={`/org/${organization.id}/inspections`} className={sectionLink}>
+                  {t('orgs.mine.inspections')}
+                </Link>
+              </nav>
+            )}
+            {isInspector && <p className="text-body">{t('orgs.mine.inspectorHint')}</p>}
+          </>
         ) : (
           <p className="text-body">{t(`orgs.mine.status.${organization.status}`)}</p>
         )}
