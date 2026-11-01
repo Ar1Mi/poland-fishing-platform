@@ -118,6 +118,7 @@ model Organization {
   claims      WaterClaim[]
   permitTypes PermitType[]
   rules       SpeciesRule[]
+  inspections Inspection[]
 }
 
 enum OrganizationKind {
@@ -411,18 +412,21 @@ enum CatchSyncStatus {
 // ---------- Контроль и аудит ----------
 
 model Inspection {
-  id          String           @id @default(uuid()) @db.Uuid
-  inspectorId String           @db.Uuid
-  permitId    String           @db.Uuid
-  performedAt DateTime         @default(now()) @db.Timestamptz(3)
-  result      InspectionResult
-  notes       String?
-  lat         Float?
-  lng         Float?
-  inspector   User             @relation("InspectorInspections", fields: [inspectorId], references: [id])
-  permit      Permit           @relation(fields: [permitId], references: [id])
+  id             String           @id @default(uuid()) @db.Uuid
+  inspectorId    String           @db.Uuid
+  permitId       String           @db.Uuid
+  organizationId String           @db.Uuid // владелец типа разрешения: протоколы организации без join в таблицы PermitsModule
+  performedAt    DateTime         @default(now()) @db.Timestamptz(3)
+  result         InspectionResult
+  notes          String?
+  lat            Float?
+  lng            Float?
+  inspector      User             @relation("InspectorInspections", fields: [inspectorId], references: [id])
+  permit         Permit           @relation(fields: [permitId], references: [id])
+  organization   Organization     @relation(fields: [organizationId], references: [id])
 
   @@index([permitId])
+  @@index([organizationId, performedAt])
 }
 
 enum InspectionResult {
@@ -507,3 +511,4 @@ CREATE UNIQUE INDEX claim_one_pending ON "WaterClaim" ("fishingWaterId", "organi
 - Таймаут оплаты раз в минуту ищет `Payment` по `status` и `createdAt` без индекса — на объёмах диплома это просмотр небольшой таблицы; частичный индекс `WHERE status = 'PENDING'` — кандидат для T-29 (изменение схемы).
 - Запись уловов (T-18) — без изменения схемы. Синхронизация пакета, правка и удаление одного пользователя идут друг за другом: транзакция сначала берёт `pg_advisory_xact_lock(hashtextextended('catches:' || userId, 0))`, затем читает принятые уловы суток (удаление — сам улов) и пишет. Без этого два телефона, синхронизирующие одновременно, каждый видели бы старый реестр и вместе превышали лимит (проверено тестом: без блокировки 4 угря из 2 принято). Ключ, а не строка `User`: таблица принадлежит `UsersModule`, а `FOR UPDATE` строки ещё и мешал бы внешним ключам других таблиц. Совпадение хешей двух пользователей лишь заставит их ждать друг друга. Справочники (разрешения, правила, виды, водоёмы) читаются до транзакции — она держит одно соединение и не ждёт другие модули. Поэтому правка собирает новый улов из строки, прочитанной до блокировки, и пишет условно — `UPDATE … WHERE "updatedAt" = <прочитанное>`: если тот же улов успели изменить с другого телефона, правка начинается заново с новой строки (до 3 попыток), а не затирает чужое изменение старыми полями (тест одновременных `{ weightG }` и `{ kept }`; без условия одно из изменений терялось 3 раза из 3).
 - Отклонённый улов хранится (`syncStatus = REJECTED`, `violations` — JSON `RuleViolation[]`, у принятого `NULL`): рыбак видит причину и, пока открыто окно BR-07, может поправить улов. Улов, синхронизированный уже после окна, остаётся отклонённым без правки и удаления (буквальный BR-07; см. ROADMAP T-21). В лимиты идут только принятые оставленные. `clientId` уникален глобально: повтор своего возвращает сохранённый результат, чужой → 400 без раскрытия владельца.
+- `Inspection.organizationId` (T-19, миграция `inspection_organization`) — организация-владелец типа разрешения на момент протокола. Её можно вывести через `Permit → PermitType`, но тогда список протоколов (`GET /orgs/:orgId/inspections`) читал бы таблицы `PermitsModule` в обход его сервиса (`03-architecture.md` → правило зависимостей); своя колонка позволяет фильтровать по `organizationId`, как все данные организации, с индексом `(organizationId, performedAt)`. Тип разрешения не переходит в другую организацию, поэтому значение не расходится с разрешением. Миграция заполняет колонку из разрешения для старых строк (их не было: протокол до T-19 создать было нельзя) и только потом ставит `NOT NULL`.

@@ -133,10 +133,17 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 | Метод | Путь | Доступ | Назначение |
 | --- | --- | --- | --- |
 | GET | `/verify/:token` | public / инспектор | Публично: `valid`, тип, срок, инициалы. Инспектор организации-владельца: + имя, год рождения, уловы за сегодня, `permitId` |
-| POST | `/inspections` | INSPECTOR своей орг. | `{ permitId, result, notes, lat?, lng? }` |
-| GET | `/orgs/:orgId/inspections` | ORG_ADMIN | Протоколы |
+| POST | `/orgs/:orgId/inspections` | INSPECTOR, ORG_ADMIN своей орг. | `{ permitId, result, notes?, lat?, lng? }` |
+| GET | `/orgs/:orgId/inspections?season=` | ORG_ADMIN | Протоколы |
 
 Фронтенд-маршрут `/verify/:token` (то, что открывает камера телефона) вызывает `GET /api/v1/verify/:token`.
+
+Детали (T-19):
+
+- **Доступ к проверке:** маршрут открыт гостям (`@OptionalAuth()`): без заголовка `Authorization` — гость; с заголовком токен проверяется как везде (неверный → 401 `UNAUTHENTICATED`, истёкший → 401 `TOKEN_EXPIRED`, веб обновляет его и повторяет запрос), а не молча превращает запрос в гостевой. Расширенная часть — `INSPECTOR` или `ORG_ADMIN` организации-владельца типа разрешения (`01-requirements.md` → роли), только пока она `ACTIVE`; инспектор другой организации, суперадмин без членства и член заблокированной организации видят публичную часть. Ответ всегда 200 и `Cache-Control: no-store`.
+- **Ответ:** `{ valid, permit, inspection }`. `valid` — токен подлинный и вычисленный статус `ACTIVE` сейчас. `permit` (публично): `status` (ADR-0005), `validFrom`, `validTo`, `permitType: { name }`, `organization: { id, name }`, `waters: [{ id, name }]` (водоёмы типа — что покрывает разрешение, BR-01; не персональные данные, без них проверяющий не знает, действует ли разрешение здесь), `holderInitials` (`Ł. Ż.`). `permit = null` — токен поддельный, повреждённый, истёкший (`exp` — конец последнего дня) или указывает на неизвестное разрешение или анонимизированного владельца: ответы неразличимы. Аннулированное разрешение с подлинным токеном → `valid: false`, `status: REVOKED`. `inspection` (расширенно): `permitId`, `number`, `holder: { firstName, lastName, birthYear }`, `catchesToday` — уловы **этого разрешения** за текущие варшавские сутки, `ACCEPTED` и `REJECTED` с `violations`, новые сверху, в формате `GET /me/catches`; уловы на других разрешениях и водоёмах организация не видит (минимизация RODO).
+- **Протокол:** `permitId` — разрешение организации `:orgId` в любом статусе (протокол `VIOLATION` по аннулированному — обычный случай); разрешение другой организации неотличимо от несуществующего → 404 `NOT_FOUND`. `result` — `OK` / `VIOLATION`; `notes` — до 2000 символов (`INSPECTION_NOTES_MAX_LENGTH`), обрезается, пустые → `null`; `lat`/`lng` — оба или ни одного. `performedAt` — `ClockService`, `inspectorId` — из токена, `organizationId` — `:orgId`. Ответ 201 — протокол в формате списка.
+- **Список:** `season` — варшавский год `performedAt` (2000–2100, по умолчанию текущий), без пагинации, по `performedAt` убыв. Элемент: `{ id, permit: { id, number, permitType: { name }, holder: { firstName, lastName } | null }, inspector: { id, firstName, lastName } | null, performedAt, result, notes, lat, lng }`; `null` — аккаунт анонимизирован. `INSPECTOR` без роли админа → 403 `FORBIDDEN`.
 
 ### Организация (`OrgScopeGuard`)
 

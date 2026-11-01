@@ -19,7 +19,7 @@
 | Input border | `--input` | `#9DB0AD` | Рамка полей и неактивных чипов |
 | Background | `--background` | `#F3F6F4` | Фон экрана |
 | Surface | `--card` | `#FFFFFF` | Карточки, поля, нижняя навигация |
-| Success | `--success` / `--success-tint` | `#1B6E45` / `#DDF0E5` | Разрешение активно, улов принят |
+| Success | `--success` / `--success-tint` | `#1B6E45` / `#DDF0E5` | Разрешение активно, улов принят; белый текст на заливке — `--success-foreground` (`VerdictBanner`) |
 | Warning | `--warning` / `--warning-tint` | `#8A5300` / `#FBEBCB` | Ожидание оплаты, нет сети |
 | Danger | `--destructive` / `--destructive-tint` | `#A8261D` / `#F8DEDB` | Нарушение правила, недействительно, удаление |
 
