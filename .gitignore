@@ -2,6 +2,7 @@
 node_modules/
 dist/
 dist-openapi/
+dist-e2e/
 build/
 .turbo/
 coverage/

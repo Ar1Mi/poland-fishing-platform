@@ -22,6 +22,7 @@ type WaterKey = 'srebrne' | 'narew' | 'lipowy';
 
 export interface DemoOrganization {
   key: OrgKey;
+  id: string;
   name: string;
   /** Valid checksum (isValidNip) in the 999 prefix, which no tax office issues. */
   nip: string;
@@ -32,6 +33,7 @@ export interface DemoOrganization {
 export const DEMO_ORGANIZATIONS: readonly DemoOrganization[] = [
   {
     key: 'sielawa',
+    id: demoId(1, 1),
     name: 'Koło PZW „Sielawa” (demo)',
     nip: '9990000008',
     kind: 'PZW',
@@ -39,6 +41,7 @@ export const DEMO_ORGANIZATIONS: readonly DemoOrganization[] = [
   },
   {
     key: 'lipowy',
+    id: demoId(1, 2),
     name: 'Gospodarstwo Rybackie „Lipowy Staw” (demo)',
     nip: '9990000014',
     kind: 'PRIVATE',
@@ -247,8 +250,11 @@ export const DEMO_PERMIT_TYPES: readonly DemoPermitType[] = [
 
 export interface DemoRule {
   latinName: string;
-  /** The organization's own level, or one of its waters (general rules: reference-data.ts). */
-  organization: OrgKey;
+  /**
+   * Exactly one level: the whole organization or one water, which brings its owner along
+   * (general rules: reference-data.ts).
+   */
+  organization?: OrgKey;
   water?: WaterKey;
   minLengthCm?: number;
   dailyLimitCount?: number;
@@ -261,15 +267,9 @@ export const DEMO_RULES: readonly DemoRule[] = [
   // No general rule for carp: the organization adds a size and a daily limit.
   { latinName: 'Cyprinus carpio', organization: 'sielawa', minLengthCm: 35, dailyLimitCount: 2 },
   // Pike: 50 cm on this water instead of the general 45 cm.
-  { latinName: 'Esox lucius', organization: 'sielawa', water: 'srebrne', minLengthCm: 50 },
+  { latinName: 'Esox lucius', water: 'srebrne', minLengthCm: 50 },
   // A weight limit (BR-05, BR-11) on the private pond.
-  {
-    latinName: 'Cyprinus carpio',
-    organization: 'lipowy',
-    water: 'lipowy',
-    minLengthCm: 40,
-    dailyLimitWeightG: 5000,
-  },
+  { latinName: 'Cyprinus carpio', water: 'lipowy', minLengthCm: 40, dailyLimitWeightG: 5000 },
 ];
 
 export interface DemoPermit {

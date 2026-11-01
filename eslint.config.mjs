@@ -9,6 +9,7 @@ export default defineConfig(
   globalIgnores([
     '**/dist/',
     '**/dist-openapi/',
+    '**/dist-e2e/',
     '**/build/',
     '**/coverage/',
     '**/playwright-report/',

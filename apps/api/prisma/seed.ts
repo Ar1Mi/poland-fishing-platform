@@ -15,7 +15,7 @@ async function main(): Promise<void> {
   const password = process.env.SEED_DEMO_PASSWORD;
   // Before any write: a demo run without its password must not leave half the data.
   if (demo) {
-    assertDemoPassword(password);
+    assertDemoPassword(password, { production: process.env.NODE_ENV === 'production' });
   }
 
   const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });

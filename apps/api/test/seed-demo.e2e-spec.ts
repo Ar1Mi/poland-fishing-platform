@@ -1,3 +1,6 @@
+import { spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
+import path from 'node:path';
 import { PasswordHasher } from '../src/modules/auth/password-hasher';
 import {
   DEMO_CATCHES,
@@ -6,7 +9,7 @@ import {
   DEMO_USERS,
   DEMO_WATERS,
 } from '../prisma/demo-data';
-import { seedDemoData } from '../prisma/seed-demo';
+import { assertDemoPassword, seedDemoData } from '../prisma/seed-demo';
 import { seedReferenceData } from '../prisma/seed-reference';
 import { createTestDatabase, type TestDatabase } from './db/test-database';
 
@@ -137,10 +140,11 @@ describe('seedDemoData', () => {
         validFrom: permit.validFrom.toISOString().slice(0, 10),
         validTo: permit.validTo.toISOString().slice(0, 10),
         status: permit.status,
-        payments: permit.payments.map(({ provider, status, amountGrosze }) => ({
+        payments: permit.payments.map(({ provider, status, amountGrosze, providerOrderId }) => ({
           provider,
           status,
           amountGrosze,
+          confirmedByProvider: providerOrderId?.startsWith('FAKE-'),
         })),
       })),
     ).toEqual([
@@ -150,7 +154,9 @@ describe('seedDemoData', () => {
         validFrom: '2026-09-05',
         validTo: '2026-09-05',
         status: 'PAID',
-        payments: [{ provider: 'FAKE', status: 'SUCCEEDED', amountGrosze: 4000 }],
+        payments: [
+          { provider: 'FAKE', status: 'SUCCEEDED', amountGrosze: 4000, confirmedByProvider: true },
+        ],
       },
       {
         holder: 'jan.kowalski@lowisko.test',
@@ -158,7 +164,9 @@ describe('seedDemoData', () => {
         validFrom: '2026-09-15',
         validTo: '2027-09-14',
         status: 'PAID',
-        payments: [{ provider: 'FAKE', status: 'SUCCEEDED', amountGrosze: 30000 }],
+        payments: [
+          { provider: 'FAKE', status: 'SUCCEEDED', amountGrosze: 30000, confirmedByProvider: true },
+        ],
       },
     ]);
     // From the sequence of the year, so later purchases continue the numbering.
@@ -266,4 +274,189 @@ describe('seedDemoData', () => {
       expect(await db.prisma.user.count()).toBe(0);
     },
   );
+  it('dates the run from the Warsaw day, not the UTC one', async () => {
+    // 00:30 on 16 October in Warsaw.
+    await seed(new Date('2026-10-15T22:30:00.000Z'));
+
+    const yearly = await db.prisma.permit.findFirstOrThrow({
+      where: { permitType: { name: 'Roczne' } },
+    });
+    expect(yearly.validFrom.toISOString().slice(0, 10)).toBe('2026-09-16');
+  });
+
+  it('numbers each permit in the year it was bought', async () => {
+    // The yearly permit starts on 6 January, the day permit on 27 December.
+    await seed(new Date('2027-02-05T10:00:00.000Z'));
+
+    const permits = await db.prisma.permit.findMany({ include: { permitType: true } });
+    expect(
+      Object.fromEntries(permits.map((permit) => [permit.permitType.name, permit.number])),
+    ).toEqual({ Roczne: 'ZW-2027-000001', Dzienne: 'ZW-2026-000001' });
+  });
+
+  it('keeps Warsaw wall-clock times across the change to winter time', async () => {
+    // Summer time ended on 25 October 2026.
+    await seed(new Date('2026-10-27T10:00:00.000Z'));
+
+    const inspection = await db.prisma.inspection.findFirstOrThrow();
+    // 24 October, 09:40 CEST.
+    expect(inspection.performedAt).toEqual(new Date('2026-10-24T07:40:00.000Z'));
+    const bream = await db.prisma.catchRecord.findUniqueOrThrow({
+      where: { clientId: demoCatch('Abramis brama', 38) },
+    });
+    // 26 October, 18:20 CET.
+    expect(bream.caughtAt).toEqual(new Date('2026-10-26T17:20:00.000Z'));
+  });
+
+  it('signs the demo accounts out on every run, as a password change does', async () => {
+    await seed();
+    const jan = await db.prisma.user.findUniqueOrThrow({
+      where: { email: 'jan.kowalski@lowisko.test' },
+    });
+    await db.prisma.refreshToken.create({
+      data: {
+        userId: jan.id,
+        familyId: randomUUID(),
+        tokenHash: 'refresh-before-reseed',
+        expiresAt: new Date('2026-10-22T10:00:00.000Z'),
+      },
+    });
+    await db.prisma.oneTimeToken.create({
+      data: {
+        userId: jan.id,
+        purpose: 'PASSWORD_RESET',
+        tokenHash: 'reset-before-reseed',
+        expiresAt: new Date('2026-10-15T11:00:00.000Z'),
+      },
+    });
+    const later = new Date('2026-10-16T10:00:00.000Z');
+
+    await seed(later, 'another-password');
+
+    const token = await db.prisma.refreshToken.findUniqueOrThrow({
+      where: { tokenHash: 'refresh-before-reseed' },
+    });
+    expect(token.revokedAt).toEqual(later);
+    expect(await db.prisma.oneTimeToken.count()).toBe(0);
+  });
+
+  it('refuses to take over an organization that applied with a demo NIP', async () => {
+    const applicant = await db.prisma.organization.create({
+      data: {
+        name: 'Wnioskodawca',
+        nip: '9990000008',
+        kind: 'PZW',
+        contactEmail: 'wniosek@example.test',
+      },
+    });
+
+    await expect(seed()).rejects.toThrow('9990000008');
+
+    expect(
+      await db.prisma.organization.findUniqueOrThrow({ where: { id: applicant.id } }),
+    ).toMatchObject({ name: 'Wnioskodawca', status: 'PENDING' });
+    expect(await db.prisma.user.count()).toBe(0);
+    expect(await db.prisma.fishingWater.count()).toBe(0);
+  });
+
+  it('checks catches against the rules the API applies on their water', async () => {
+    await seed();
+    // A rule of Jezioro Srebrne left by an organization that no longer owns it does not apply
+    // (SpeciesRulesService.effectiveOnWaters).
+    const srebrne = await db.prisma.fishingWater.findFirstOrThrow({
+      where: { name: 'Jezioro Srebrne' },
+    });
+    const pike = await db.prisma.species.findUniqueOrThrow({
+      where: { latinName: 'Esox lucius' },
+    });
+    await db.prisma.speciesRule.create({
+      data: {
+        speciesId: pike.id,
+        organizationId: DEMO_ORGANIZATIONS[1]!.id,
+        fishingWaterId: srebrne.id,
+        minLengthCm: 70,
+      },
+    });
+    const clientId = demoCatch('Esox lucius', 62);
+    await db.prisma.catchRecord.delete({ where: { clientId } });
+
+    // The deleted catch comes back and is checked again.
+    await seed();
+
+    expect(await db.prisma.catchRecord.findUniqueOrThrow({ where: { clientId } })).toMatchObject({
+      syncStatus: 'ACCEPTED',
+    });
+  });
+
+  it('leaves the terms of a sold permit type alone and restores those of an unsold one', async () => {
+    await seed();
+    const [sold, unsold] = ['sielawaYear', 'sielawaWeek'].map((key) =>
+      DEMO_PERMIT_TYPES.find((type) => type.key === key)!,
+    );
+    for (const type of [sold!, unsold!]) {
+      await db.prisma.permitType.update({
+        where: { id: type.id },
+        data: { name: 'x', priceGrosze: 1, durationDays: 30, waters: { set: [] } },
+      });
+    }
+
+    await seed();
+
+    const types = await db.prisma.permitType.findMany({
+      where: { id: { in: [sold!.id, unsold!.id] } },
+      include: { waters: true },
+    });
+    const byId = new Map(types.map((type) => [type.id, type]));
+    expect(byId.get(sold!.id)).toMatchObject({
+      name: 'Roczne',
+      priceGrosze: 30000,
+      durationDays: 30,
+    });
+    expect(byId.get(sold!.id)?.waters).toHaveLength(0);
+    expect(byId.get(unsold!.id)).toMatchObject({
+      name: 'Tygodniowe',
+      priceGrosze: 9000,
+      durationDays: 7,
+    });
+    expect(byId.get(unsold!.id)?.waters).toHaveLength(2);
+  });
+});
+
+describe('assertDemoPassword', () => {
+  it.each([[undefined], [''], ['seven77']])('refuses %p', (password) => {
+    expect(() => assertDemoPassword(password)).toThrow('SEED_DEMO_PASSWORD');
+  });
+
+  it('asks for 16 characters in production', () => {
+    expect(() => assertDemoPassword('fifteen-chars15', { production: true })).toThrow('16–128');
+    expect(() => assertDemoPassword('sixteen-chars-16', { production: true })).not.toThrow();
+    expect(() => assertDemoPassword('eight888')).not.toThrow();
+  });
+});
+
+describe('prisma db seed with SEED_DEMO=true', () => {
+  let db: TestDatabase;
+
+  beforeEach(async () => {
+    db = await createTestDatabase();
+  });
+
+  afterEach(async () => {
+    await db.drop();
+  });
+
+  it('stops without a password before seeding anything', async () => {
+    const env: NodeJS.ProcessEnv = { ...process.env, DATABASE_URL: db.url, SEED_DEMO: 'true' };
+    delete env.SEED_DEMO_PASSWORD;
+
+    const run = spawnSync('pnpm', ['exec', 'tsx', 'prisma/seed.ts'], {
+      cwd: path.join(__dirname, '..'),
+      env,
+      encoding: 'utf8',
+    });
+
+    expect(run.status).not.toBe(0);
+    expect(run.stderr).toContain('SEED_DEMO_PASSWORD');
+    expect(await db.prisma.species.count()).toBe(0);
+  }, 60_000);
 });

@@ -12,7 +12,7 @@
     "test:e2e": "node --experimental-vm-modules --disable-warning=ExperimentalWarning node_modules/jest/bin/jest.js --config test/jest-e2e.json",
     "import:waters": "tsx src/cli/import-waters.ts",
     "keys:qr": "tsx src/cli/generate-qr-keys.ts",
-    "e2e:server": "nest build && tsx test/e2e-server.ts",
+    "e2e:server": "rm -rf dist-e2e && tsc -p tsconfig.build.json --outDir dist-e2e && tsx test/e2e-server.ts",
     "postinstall": "prisma generate",
     "openapi:export": "rm -rf dist-openapi && tsc -p tsconfig.build.json --outDir dist-openapi --sourceMap false && node dist-openapi/openapi/export-openapi.js dist-openapi/openapi.json"
   },

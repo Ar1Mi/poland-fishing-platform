@@ -42,12 +42,13 @@ export default defineConfig({
       name: 'api',
       command: 'pnpm --filter api e2e:server',
       url: `${API_URL}/api/v1/health`,
-      // nest build, a PostgreSQL container, migrations and seed.
+      // tsc build, a PostgreSQL container, migrations and seed.
       timeout: 240_000,
       // Lets the server stop its database container (otherwise the reaper does, later).
       gracefulShutdown: { signal: 'SIGTERM', timeout: 15_000 },
       env: {
-        // `test` also keeps the API from reading the developer's .env.
+        // `test` also keeps the API from reading the developer's .env; its logs are silent, so a
+        // failed run is read from the trace and the HTML report (network included).
         NODE_ENV: 'test',
         API_PORT: '3100',
         API_URL,
