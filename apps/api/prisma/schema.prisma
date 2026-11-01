@@ -92,6 +92,7 @@ model Organization {
   claims      WaterClaim[]
   permitTypes PermitType[]
   rules       SpeciesRule[]
+  inspections Inspection[]
 }
 
 enum OrganizationKind {
@@ -385,18 +386,21 @@ enum CatchSyncStatus {
 // ---------- Контроль и аудит ----------
 
 model Inspection {
-  id          String           @id @default(uuid()) @db.Uuid
-  inspectorId String           @db.Uuid
-  permitId    String           @db.Uuid
-  performedAt DateTime         @default(now()) @db.Timestamptz(3)
-  result      InspectionResult
-  notes       String?
-  lat         Float?
-  lng         Float?
-  inspector   User             @relation("InspectorInspections", fields: [inspectorId], references: [id])
-  permit      Permit           @relation(fields: [permitId], references: [id])
+  id             String           @id @default(uuid()) @db.Uuid
+  inspectorId    String           @db.Uuid
+  permitId       String           @db.Uuid
+  organizationId String           @db.Uuid // владелец типа разрешения: протоколы организации без join в таблицы PermitsModule
+  performedAt    DateTime         @default(now()) @db.Timestamptz(3)
+  result         InspectionResult
+  notes          String?
+  lat            Float?
+  lng            Float?
+  inspector      User             @relation("InspectorInspections", fields: [inspectorId], references: [id])
+  permit         Permit           @relation(fields: [permitId], references: [id])
+  organization   Organization     @relation(fields: [organizationId], references: [id])
 
   @@index([permitId])
+  @@index([organizationId, performedAt])
 }
 
 enum InspectionResult {
