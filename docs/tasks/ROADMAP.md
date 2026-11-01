@@ -192,8 +192,8 @@ FR-11, FR-12.
 
 ### T-19 Проверка QR и протокол
 FR-17, FR-18, FR-28.
-- [x] `GET /verify/:token` с публичным и расширенным ответом, `POST /inspections`, `GET /orgs/:orgId/inspections`. — `modules/inspections`; протокол создаётся `POST /orgs/:orgId/inspections` (под `OrgScopeGuard`, решение пользователя), расширенная часть и протокол — `INSPECTOR` и `ORG_ADMIN` (таблица ролей), `Inspection.organizationId` — миграция `inspection_organization` (`04-data-model.md`); `test/inspections.e2e-spec.ts` (25), полный e2e — 481.
-- [x] Web: `/verify/:token`, форма протокола. — `VerifyPage` (`VerdictBanner`, данные инспектора, уловы за сегодня, `InspectionForm`), `/org/:orgId/inspections`; `inspections-pages.test.tsx` (9); вручную на 375 px против локального API: гость → «Zaloguj się jako strażnik» → вход инспектором → возврат на проверку, протокол `VIOLATION` сохранён с `organizationId`.
+- [x] `GET /verify/:token` с публичным и расширенным ответом, `POST /inspections`, `GET /orgs/:orgId/inspections`. — `modules/inspections`; протокол создаётся `POST /orgs/:orgId/inspections` (под `OrgScopeGuard`, решение пользователя), расширенная часть и протокол — `INSPECTOR` и `ORG_ADMIN` (таблица ролей), `Inspection.organizationId` — миграция `inspection_organization` (`04-data-model.md`); `test/inspections.e2e-spec.ts` (30), полный e2e — 486.
+- [x] Web: `/verify/:token`, форма протокола. — `VerifyPage` (`VerdictBanner`, данные инспектора, уловы за сегодня, `InspectionForm`), `/org/:orgId/inspections`; `inspections-pages.test.tsx` (12); вручную на 375 px против локального API: гость → «Zaloguj się jako strażnik» → вход инспектором → возврат на проверку, протокол `VIOLATION` сохранён с `organizationId`.
 - [x] Тесты: подделка, аннулированное, чужой инспектор. — `inspections.e2e-spec.ts`: подпись другим ключом, подменённый payload, повреждённый и истёкший токен; аннулированное с подлинной подписью → `valid: false`; инспектор другой организации и член заблокированной — только публичная часть; админ чужой организации → 403 на обоих `/orgs/:orgId/inspections`.
 
 ### T-20 MVP-ворота
