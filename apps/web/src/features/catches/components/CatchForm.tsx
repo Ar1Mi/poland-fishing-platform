@@ -5,23 +5,23 @@ import {
   catchFormSchema,
 } from '@lowisko/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { LoaderCircle, LocateFixed, MapPin, X } from 'lucide-react';
+import { LoaderCircle } from 'lucide-react';
 import { useId, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Button } from '../../../shared/ui/button';
 import { FieldError, TextField } from '../../../shared/ui/form-field';
+import {
+  LocationField,
+  type Position,
+  useCurrentPosition,
+} from '../../../shared/ui/location-field';
 import { SegmentedToggle } from '../../../shared/ui/segmented-toggle';
 import { SelectField } from '../../../shared/ui/select';
 import type { Species } from '../../rules/api/useRules';
 import { speciesName } from '../../rules/lib/format-rule';
 import type { CatchPlace } from '../lib/catch-form';
-
-export interface Position {
-  lat: number;
-  lng: number;
-}
 
 export interface CatchFormSubmit extends CatchFormOutput {
   place: CatchPlace;
@@ -87,7 +87,7 @@ export function CatchForm({
     onSubmit({
       ...values,
       place,
-      position: location.state.status === 'added' ? location.state.position : null,
+      position: location.position,
     });
 
   return (
@@ -174,7 +174,18 @@ export function CatchForm({
           error={errors.caughtAt && t('catches.form.caughtAt.error')}
           {...register('caughtAt')}
         />
-        {withLocation && location.supported && <LocationField location={location} />}
+        {withLocation && location.supported && (
+          <LocationField
+            location={location}
+            labels={{
+              add: t('catches.form.location.add'),
+              locating: t('catches.form.location.locating'),
+              added: t('catches.form.location.added'),
+              remove: t('catches.form.location.remove'),
+              failed: t('catches.form.location.failed'),
+            }}
+          />
+        )}
       </fieldset>
       {Boolean(error) && <ApiErrorAlert error={error} />}
       {locked && <p className="text-body">{t('catches.form.unknownOutcome')}</p>}
@@ -197,73 +208,5 @@ export function CatchForm({
         )}
       </div>
     </form>
-  );
-}
-
-type LocationState =
-  { status: 'idle' | 'locating' | 'failed' } | { status: 'added'; position: Position };
-
-/** About a metre: enough to show the place, no more of the angler's position than needed. */
-const round = (degrees: number) => Math.round(degrees * 1e5) / 1e5;
-
-function useCurrentPosition() {
-  const [state, setState] = useState<LocationState>({ status: 'idle' });
-  const supported = typeof navigator !== 'undefined' && 'geolocation' in navigator;
-  const locate = () => {
-    setState({ status: 'locating' });
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) =>
-        setState({
-          status: 'added',
-          position: { lat: round(coords.latitude), lng: round(coords.longitude) },
-        }),
-      () => setState({ status: 'failed' }),
-      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 60_000 },
-    );
-  };
-  return { supported, state, locate, clear: () => setState({ status: 'idle' }) };
-}
-
-function LocationField({ location }: { location: ReturnType<typeof useCurrentPosition> }) {
-  const { t } = useTranslation();
-  const { state } = location;
-  if (state.status === 'added') {
-    return (
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="flex items-center gap-1 text-small" role="status">
-          <MapPin aria-hidden className="size-4 text-primary" />
-          {t('catches.form.location.added')}
-        </p>
-        <Button type="button" variant="ghost" onClick={location.clear}>
-          <X aria-hidden />
-          {t('catches.form.location.remove')}
-        </Button>
-      </div>
-    );
-  }
-  return (
-    <div className="flex flex-col gap-1">
-      <Button
-        type="button"
-        variant="secondary"
-        className="w-fit"
-        disabled={state.status === 'locating'}
-        onClick={location.locate}
-      >
-        {state.status === 'locating' ? (
-          <LoaderCircle aria-hidden className="animate-spin" />
-        ) : (
-          <LocateFixed aria-hidden />
-        )}
-        {state.status === 'locating'
-          ? t('catches.form.location.locating')
-          : t('catches.form.location.add')}
-      </Button>
-      {state.status === 'failed' && (
-        <p className="text-small text-muted-foreground" role="status">
-          {t('catches.form.location.failed')}
-        </p>
-      )}
-    </div>
   );
 }

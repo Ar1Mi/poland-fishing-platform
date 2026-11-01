@@ -7,6 +7,7 @@ import enCatches from './locales/en/catches.json';
 import enClaims from './locales/en/claims.json';
 import enCommon from './locales/en/common.json';
 import enErrors from './locales/en/errors.json';
+import enInspections from './locales/en/inspections.json';
 import enLegal from './locales/en/legal.json';
 import enOrgs from './locales/en/orgs.json';
 import enPermits from './locales/en/permits.json';
@@ -17,6 +18,7 @@ import plCatches from './locales/pl/catches.json';
 import plClaims from './locales/pl/claims.json';
 import plCommon from './locales/pl/common.json';
 import plErrors from './locales/pl/errors.json';
+import plInspections from './locales/pl/inspections.json';
 import plLegal from './locales/pl/legal.json';
 import plOrgs from './locales/pl/orgs.json';
 import plPermits from './locales/pl/permits.json';
@@ -27,6 +29,7 @@ import ruCatches from './locales/ru/catches.json';
 import ruClaims from './locales/ru/claims.json';
 import ruCommon from './locales/ru/common.json';
 import ruErrors from './locales/ru/errors.json';
+import ruInspections from './locales/ru/inspections.json';
 import ruLegal from './locales/ru/legal.json';
 import ruOrgs from './locales/ru/orgs.json';
 import ruPermits from './locales/ru/permits.json';
@@ -47,6 +50,7 @@ export const resources = {
       orgs: plOrgs,
       permits: plPermits,
       catches: plCatches,
+      inspections: plInspections,
       rules: plRules,
       legal: plLegal,
       errors: plErrors,
@@ -61,6 +65,7 @@ export const resources = {
       orgs: enOrgs,
       permits: enPermits,
       catches: enCatches,
+      inspections: enInspections,
       rules: enRules,
       legal: enLegal,
       errors: enErrors,
@@ -75,6 +80,7 @@ export const resources = {
       orgs: ruOrgs,
       permits: ruPermits,
       catches: ruCatches,
+      inspections: ruInspections,
       rules: ruRules,
       legal: ruLegal,
       errors: ruErrors,

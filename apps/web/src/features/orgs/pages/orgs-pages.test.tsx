@@ -42,6 +42,10 @@ describe('my organizations page', () => {
       'href',
       '/org/a1/permit-types',
     );
+    expect(within(active).getByRole('link', { name: 'Protokoły kontroli' })).toHaveAttribute(
+      'href',
+      '/org/a1/inspections',
+    );
     expect(within(active).getByText('Administrator')).toBeVisible();
     const pending = screen.getByRole('region', { name: 'Gospodarstwo' });
     expect(
@@ -51,6 +55,11 @@ describe('my organizations page', () => {
     const inspector = screen.getByRole('region', { name: 'Koło 7' });
     expect(within(inspector).getByText('Strażnik')).toBeVisible();
     expect(within(inspector).queryByRole('link')).toBeNull();
+    expect(
+      within(inspector).getByText(
+        'Aby skontrolować wędkarza, zeskanuj aparatem telefonu kod QR z jego zezwolenia.',
+      ),
+    ).toBeVisible();
     expect(screen.getByRole('link', { name: 'Moje organizacje' })).toHaveAttribute('href', '/org');
   });
 

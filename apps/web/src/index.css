@@ -24,6 +24,7 @@
   --card-foreground: #0f2a2e;
   --ring: #0b5d66;
   --success: #1b6e45;
+  --success-foreground: #ffffff;
   --success-tint: #ddf0e5;
   --success-tint-foreground: #14532f;
   --warning: #8a5300;
@@ -54,6 +55,7 @@
   --color-card-foreground: var(--card-foreground);
   --color-ring: var(--ring);
   --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
   --color-success-tint: var(--success-tint);
   --color-success-tint-foreground: var(--success-tint-foreground);
   --color-warning: var(--warning);

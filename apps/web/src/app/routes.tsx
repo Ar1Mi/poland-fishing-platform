@@ -9,6 +9,8 @@ import { CatalogPage } from '../features/catalog/pages/CatalogPage';
 import { MyCatchesPage } from '../features/catches/pages/MyCatchesPage';
 import { NewCatchPage } from '../features/catches/pages/NewCatchPage';
 import { WaterPage } from '../features/catalog/pages/WaterPage';
+import { OrgInspectionsPage } from '../features/inspections/pages/OrgInspectionsPage';
+import { VerifyPage } from '../features/inspections/pages/VerifyPage';
 import { AdminClaimsPage } from '../features/claims/pages/AdminClaimsPage';
 import { OrgClaimsPage } from '../features/claims/pages/OrgClaimsPage';
 import { PrivacyPolicyPage } from '../features/legal/pages/PrivacyPolicyPage';
@@ -52,6 +54,8 @@ export const routes: RouteObject[] = [
       { path: 'verify-email', element: <VerifyEmailPage /> },
       { path: 'reset-password', element: <ResetPasswordPage /> },
       { path: 'privacy', element: <PrivacyPolicyPage /> },
+      // The phone camera opens it from the QR code: public, an inspector's session shows more.
+      { path: 'verify/:token', element: <VerifyPage /> },
       // Access is decided by the API; the client only sends guests to the login page.
       {
         path: 'buy/:permitTypeId',
@@ -132,6 +136,14 @@ export const routes: RouteObject[] = [
         element: (
           <RequireAuth>
             <OrgRulesPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'org/:orgId/inspections',
+        element: (
+          <RequireAuth>
+            <OrgInspectionsPage />
           </RequireAuth>
         ),
       },
