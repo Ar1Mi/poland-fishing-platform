@@ -17,5 +17,11 @@
   "routeError": {
     "title": "Coś poszło nie tak",
     "reload": "Odśwież stronę"
+  },
+  "nav": {
+    "label": "Nawigacja główna",
+    "waters": "Łowiska",
+    "permits": "Zezwolenia",
+    "catches": "Połowy"
   }
 }

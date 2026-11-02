@@ -12,7 +12,8 @@
     "toCatalog": "Znajdź łowisko na mapie",
     "place": {
       "label": "Łowisko",
-      "withPermit": "{{water}} — {{permit}}"
+      "withPermit": "{{water}} — {{permit}}",
+      "ended": "{{place}} (ważne do {{date}})"
     },
     "species": {
       "label": "Gatunek",
@@ -47,7 +48,15 @@
     "save": "Zapisz zmiany",
     "cancel": "Anuluj",
     "unknownOutcome": "Nie wiadomo, czy połów dotarł do rejestru. Wyślij go ponownie — nie zapisze się dwa razy. Poprawić go możesz potem w rejestrze.",
-    "retry": "Wyślij ponownie"
+    "retry": "Wyślij ponownie",
+    "noDeviceData": "Na tym urządzeniu nie ma jeszcze Twoich zezwoleń. Połącz się z siecią, aby je pobrać.",
+    "fetchDeviceData": "Pobierz zezwolenia",
+    "deviceError": "Nie udało się zapisać połowu na urządzeniu. Sprawdź, czy przeglądarka pozwala stronom zapisywać dane.",
+    "check": {
+      "passed": "Zgodne z zasadami łowiska",
+      "kept": "Ryba wlicza się do limitu dziennego.",
+      "released": "Wypuszczona ryba nie wlicza się do limitu."
+    }
   },
   "result": {
     "accepted": "Połów zapisany w rejestrze",
@@ -56,7 +65,14 @@
     "rejectedText": "Wpis jest w rejestrze jako odrzucony. Możesz go poprawić lub usunąć do {{until}}.",
     "another": "Dodaj kolejny połów",
     "toRegister": "Przejdź do rejestru",
-    "rejectedClosed": "Wpis jest w rejestrze jako odrzucony. Czas na jego zmianę już minął."
+    "rejectedClosed": "Wpis jest w rejestrze jako odrzucony. Czas na jego zmianę już minął.",
+    "saved": "Zapisano na urządzeniu",
+    "savedText": "Połów zostanie wysłany do rejestru, gdy wróci sieć.",
+    "sending": "Wysyłamy połów do rejestru…",
+    "sendNow": "Wyślij teraz",
+    "failed": "Nie udało się wysłać połowu",
+    "failedText": "Serwer nie przyjął tego połowu i nie przyjmie go ponownie. Możesz go usunąć z urządzenia w rejestrze.",
+    "notSent": "Nie udało się teraz wysłać połowu — czeka na urządzeniu. Spróbujemy ponownie po otwarciu aplikacji lub powrocie sieci."
   },
   "register": {
     "title": "Rejestr połowów",
@@ -72,7 +88,8 @@
     "deleteConfirmYes": "Tak, usuń",
     "deleteConfirmNo": "Anuluj",
     "deleted": "Połów został usunięty z rejestru.",
-    "fateAndTime": "{{fate}} · {{time}}"
+    "fateAndTime": "{{fate}} · {{time}}",
+    "offline": "Bez sieci widać tylko połowy zapisane na tym urządzeniu. Pełny rejestr zobaczysz po połączeniu."
   },
   "fate": {
     "KEPT": "Zabrana",
@@ -80,7 +97,9 @@
   },
   "status": {
     "ACCEPTED": "Przyjęty",
-    "REJECTED": "Odrzucony"
+    "REJECTED": "Odrzucony",
+    "PENDING_SYNC": "Do synchronizacji",
+    "FAILED": "Nie wysłano"
   },
   "violation": {
     "PERMIT_NOT_ACTIVE": {
@@ -120,5 +139,23 @@
       "text": "Dla tego gatunku obowiązuje dzienny limit wagi — podaj wagę zabranej ryby."
     },
     "code": "{{ruleId}} · {{code}}"
+  },
+  "offline": {
+    "title": "Brak sieci",
+    "text": "Połowy zapisują się na urządzeniu i wyślą się po powrocie sieci."
+  },
+  "queue": {
+    "title": "Na tym urządzeniu",
+    "waiting_one": "{{count}} połów czeka na wysłanie.",
+    "waiting_few": "{{count}} połowy czekają na wysłanie.",
+    "waiting_many": "{{count}} połowów czeka na wysłanie.",
+    "waiting_other": "{{count}} połowu czeka na wysłanie.",
+    "waitingOffline_one": "{{count}} połów czeka na wysłanie — wyślemy go po powrocie sieci.",
+    "waitingOffline_few": "{{count}} połowy czekają na wysłanie — wyślemy je po powrocie sieci.",
+    "waitingOffline_many": "{{count}} połowów czeka na wysłanie — wyślemy je po powrocie sieci.",
+    "waitingOffline_other": "{{count}} połowu czeka na wysłanie — wyślemy je po powrocie sieci.",
+    "sync": "Synchronizuj",
+    "failedReason": "Serwer odrzucił połów: {{reason}}",
+    "deleteConfirm": "Usunąć ten połów z urządzenia? Nie trafi do rejestru."
   }
 }

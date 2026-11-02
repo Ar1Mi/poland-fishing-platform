@@ -2,13 +2,16 @@ import {
   CatchFate,
   type CatchFormOutput,
   type CatchFormValues,
+  type RuleViolation,
   catchFormSchema,
 } from '@lowisko/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { LoaderCircle } from 'lucide-react';
+import { CircleCheck, LoaderCircle } from 'lucide-react';
 import { useId, useState } from 'react';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { formatDate } from '../../../shared/lib/format';
+import { Alert, AlertDescription, AlertTitle } from '../../../shared/ui/alert';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Button } from '../../../shared/ui/button';
 import { FieldError, TextField } from '../../../shared/ui/form-field';
@@ -22,6 +25,7 @@ import { SelectField } from '../../../shared/ui/select';
 import type { Species } from '../../rules/api/useRules';
 import { speciesName } from '../../rules/lib/format-rule';
 import type { CatchPlace } from '../lib/catch-form';
+import { RuleAlerts } from './RuleAlerts';
 
 export interface CatchFormSubmit extends CatchFormOutput {
   place: CatchPlace;
@@ -41,6 +45,7 @@ export function CatchForm({
   error,
   withLocation = false,
   locked = false,
+  check,
   onSubmit,
   onRetry,
   onCancel,
@@ -58,6 +63,11 @@ export function CatchForm({
    * only the same catch can be sent again (`onRetry`), so the verdict is about what is shown.
    */
   locked?: boolean;
+  /**
+   * The CatchValidator on the device (T-21): its violations show while the catch is entered
+   * and keep it from being saved — usually the fish has to be released.
+   */
+  check?: (values: CatchFormSubmit) => RuleViolation[];
   onSubmit: (values: CatchFormSubmit) => void;
   onRetry?: () => void;
   onCancel?: () => void;
@@ -83,12 +93,17 @@ export function CatchForm({
     defaultValues: initial,
   });
 
-  const submit = (values: CatchFormOutput) =>
-    onSubmit({
-      ...values,
-      place,
-      position: location.position,
-    });
+  const entered = catchFormSchema.safeParse(useWatch({ control }));
+  const checked = check && entered.success ? { ...entered.data, place, position: null } : null;
+  const violations = check && checked ? check(checked) : [];
+
+  const submit = (values: CatchFormOutput) => {
+    const fish = { ...values, place, position: location.position };
+    // Enter in a field submits even while the button is disabled for a violation.
+    if (!check || check(fish).length === 0) {
+      onSubmit(fish);
+    }
+  };
 
   return (
     <form
@@ -102,16 +117,24 @@ export function CatchForm({
           value={place.key}
           onChange={(event) => setPlaceKey(event.target.value)}
         >
-          {places.map((option) => (
-            <option key={option.key} value={option.key}>
-              {option.permitName
-                ? t('catches.form.place.withPermit', {
-                    water: option.waterName,
-                    permit: option.permitName,
-                  })
-                : option.waterName}
-            </option>
-          ))}
+          {places.map((option) => {
+            const name = option.permitName
+              ? t('catches.form.place.withPermit', {
+                  water: option.waterName,
+                  permit: option.permitName,
+                })
+              : option.waterName;
+            return (
+              <option key={option.key} value={option.key}>
+                {option.endedOn
+                  ? t('catches.form.place.ended', {
+                      place: name,
+                      date: formatDate(option.endedOn, language),
+                    })
+                  : name}
+              </option>
+            );
+          })}
         </SelectField>
         <div className="flex flex-col gap-1">
           <SelectField
@@ -187,6 +210,21 @@ export function CatchForm({
           />
         )}
       </fieldset>
+      {check && (
+        // Polite: it changes as the angler types.
+        <div aria-live="polite" className="flex flex-col gap-2">
+          {violations.length > 0 && <RuleAlerts violations={violations} />}
+          {checked && violations.length === 0 && (
+            <Alert variant="success">
+              <CircleCheck aria-hidden />
+              <AlertTitle>{t('catches.form.check.passed')}</AlertTitle>
+              <AlertDescription className="text-body">
+                {checked.kept ? t('catches.form.check.kept') : t('catches.form.check.released')}
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+      )}
       {Boolean(error) && <ApiErrorAlert error={error} />}
       {locked && <p className="text-body">{t('catches.form.unknownOutcome')}</p>}
       <div className="flex flex-wrap gap-3">
@@ -196,7 +234,7 @@ export function CatchForm({
             {t('catches.form.retry')}
           </Button>
         ) : (
-          <Button type="submit" variant="accent" disabled={pending}>
+          <Button type="submit" variant="accent" disabled={pending || violations.length > 0}>
             {pending && <LoaderCircle aria-hidden className="animate-spin" />}
             {submitLabel}
           </Button>

@@ -2,6 +2,7 @@ import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { redirectTo } from '../../../shared/lib/redirect';
+import { refreshAndSync } from '../../../shared/offline/device-data';
 import { jsonResponse, mockApi, renderRoute, sentBodies } from '../../../test/render';
 import type { WaterDetail } from '../../catalog/api/useWaters';
 import type { PermitType } from '../api/usePermitTypes';
@@ -9,6 +10,11 @@ import type { MyPermit } from '../api/usePurchase';
 
 // jsdom does not navigate; the test checks where the page sends the browser.
 vi.mock('../../../shared/lib/redirect', () => ({ redirectTo: vi.fn() }));
+// The device's refresh after payment has its own tests (shared/offline/device-data.test.ts).
+vi.mock('../../../shared/offline/device-data', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../shared/offline/device-data')>()),
+  refreshAndSync: vi.fn(() => Promise.resolve()),
+}));
 
 const WATER_ID = '0b8f6c1e-1c1e-4f43-9a51-0d6c2f0d9a11';
 const PERMIT_ID = '5e1c2c9e-0000-4000-8000-000000000101';
@@ -75,6 +81,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.mocked(redirectTo).mockClear();
+  vi.mocked(refreshAndSync).mockClear();
 });
 
 describe('buy permit page', () => {
@@ -306,6 +313,15 @@ describe('payment return page', () => {
     expect(screen.getByText('Zaplanowane')).toBeVisible();
     expect(screen.getByText('Koło PZW 7')).toBeVisible();
     expect(screen.getByText('Ważne od 10 paź 2026 do 16 paź 2026 włącznie')).toBeVisible();
+    // The new permit and the rules of its waters go to the device for use without network.
+    expect(refreshAndSync).toHaveBeenCalled();
+  });
+
+  it('does not refresh the device while the payment is not confirmed', async () => {
+    show(['PENDING_PAYMENT']);
+
+    expect(await screen.findByText('Czekamy na potwierdzenie płatności…')).toBeVisible();
+    expect(refreshAndSync).not.toHaveBeenCalled();
   });
 
   it('shows the QR code of the paid permit and links to it', async () => {

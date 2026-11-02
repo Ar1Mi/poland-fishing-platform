@@ -1,6 +1,9 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { restoreSession } from '../../../shared/auth/session';
+import { enqueueCatch } from '../../../shared/offline/catch-queue';
+import { type WaterRules, deviceDb } from '../../../shared/offline/db';
 import { jsonResponse, mockApi, noContent, renderRoute, sentBodies } from '../../../test/render';
 import type { MyPermit } from '../../permits/api/usePurchase';
 import type { Species } from '../../rules/api/useRules';
@@ -66,11 +69,43 @@ const PIKE = fish('0b1d4c8e-6f2a-4d3b-9c5e-1a2b3c4d5e61', 'Szczupak');
 const BREAM = fish('0b1d4c8e-6f2a-4d3b-9c5e-1a2b3c4d5e62', 'Leszcz');
 const SALMON = fish('0b1d4c8e-6f2a-4d3b-9c5e-1a2b3c4d5e63', 'Łosoś');
 
+/** Puts the angler's permits, the rules of their waters and species on the device, as a refresh. */
+const onDevice = async ({
+  permits = [permit],
+  waterRules = [],
+  species = [BREAM, PIKE, SALMON],
+}: { permits?: MyPermit[]; waterRules?: WaterRules[]; species?: Species[] } = {}) => {
+  await deviceDb.meta.put({
+    key: 'owner',
+    userId: profile.id,
+    refreshedAt: new Date().toISOString(),
+  });
+  await deviceDb.permits.bulkPut(permits);
+  await deviceDb.rules.bulkPut(permits.map(({ id }) => ({ permitId: id, waterRules })));
+  await deviceDb.species.bulkPut(species);
+};
+
+/** The rule of the pike on the river, as `GET /me/permits/:id/offline-bundle` gives it. */
+const pikeOnRiver = (rule: Partial<WaterRules['rules'][number]>): WaterRules[] => [
+  {
+    waterId: RIVER.id,
+    rules: [
+      {
+        speciesId: PIKE.id,
+        minLengthCm: null,
+        dailyLimitCount: null,
+        dailyLimitWeightG: null,
+        closedPeriods: [],
+        ...rule,
+      },
+    ],
+  },
+];
+
 const forForm = {
   ...session,
-  'GET /api/v1/me/permits': () => jsonResponse([permit]),
-  // In database collation, as the API sends them.
-  'GET /api/v1/species': () => jsonResponse([BREAM, PIKE, SALMON]),
+  // The register on the server: its catches count towards the daily limits too.
+  'GET /api/v1/me/catches': () => jsonResponse([]),
 };
 
 /** What `POST /catches/sync` answers for the one catch sent. */
@@ -103,8 +138,15 @@ const fillCatch = async ({ water = 'Narew', species = 'Szczupak', length = '62',
   });
 };
 
+const withoutNetwork = () => vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+
 describe('new catch page', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('presets the time of the catch to now in Warsaw', async () => {
+    await onDevice();
     mockApi(forForm);
     renderRoute('/catch/new', { accessToken: 'access-1' });
 
@@ -112,6 +154,7 @@ describe('new catch page', () => {
   });
 
   it('records a catch on the chosen water of the permit and shows it was accepted', async () => {
+    await onDevice();
     const fetch = mockApi({ ...forForm, 'POST /api/v1/catches/sync': verdict('ACCEPTED') });
     renderRoute('/catch/new', { accessToken: 'access-1' });
 
@@ -141,13 +184,19 @@ describe('new catch page', () => {
         lng: null,
       },
     ]);
+    // Through the queue on the device, which keeps the verdict.
+    expect(await deviceDb.catchQueue.toArray()).toEqual([
+      expect.objectContaining({ userId: profile.id, status: 'ACCEPTED', item: body!.items[0] }),
+    ]);
     expect(screen.getByRole('link', { name: 'Przejdź do rejestru' })).toHaveAttribute(
       'href',
       '/me/catches',
     );
   });
 
-  it('shows why the catch was rejected and presets the water and species of the next one', async () => {
+  it('shows why the server rejected the catch and presets the water and species of the next one', async () => {
+    // The device knows no rule of the pike: only the server finds the violations.
+    await onDevice();
     mockApi({
       ...forForm,
       'POST /api/v1/catches/sync': verdict('REJECTED', [
@@ -197,46 +246,91 @@ describe('new catch page', () => {
     );
   });
 
-  it('offers the species in the alphabetical order of the language', async () => {
-    mockApi(forForm);
-    renderRoute('/catch/new', { accessToken: 'access-1' });
-
-    const options = within(await screen.findByLabelText('Gatunek')).getAllByRole('option');
-    expect(options.map((option) => option.textContent)).toEqual([
-      'Wybierz gatunek',
-      'Leszcz',
-      'Łosoś',
-      'Szczupak',
-    ]);
-  });
-
-  it('asks for the species, kept or released and the length before sending', async () => {
+  it('shows a violation while the catch is entered and does not let it be saved', async () => {
+    await onDevice({ waterRules: pikeOnRiver({ minLengthCm: 50 }) });
     // No handler for the sync: a request would fail the test.
     mockApi(forForm);
     renderRoute('/catch/new', { accessToken: 'access-1' });
 
-    await userEvent.click(await screen.findByRole('button', { name: 'Zapisz połów' }));
-
-    expect(await screen.findByText('Wybierz gatunek.')).toBeVisible();
-    expect(screen.getByText('Zaznacz, czy rybę zabrano, czy wypuszczono.')).toBeVisible();
-    expect(screen.getByText('Podaj długość w pełnych centymetrach, od 1 do 400.')).toBeVisible();
-    expect(screen.getByLabelText('Czas połowu')).not.toHaveValue('');
-  });
-
-  it('rejects a weight that is not kilograms', async () => {
-    mockApi(forForm);
-    renderRoute('/catch/new', { accessToken: 'access-1' });
-
-    await fillCatch({ weight: '1,2345' });
-    await userEvent.click(screen.getByRole('button', { name: 'Zapisz połów' }));
+    await fillCatch({ length: '45' });
 
     expect(
-      await screen.findByText('Podaj wagę w kilogramach, np. 1,25 — do 300 kg.'),
+      await screen.findByText('Zabrać można rybę od 50 cm — tę trzeba wypuścić.'),
     ).toBeVisible();
+    expect(screen.getByText('BR-02 · BELOW_MIN_LENGTH')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Zapisz połów' })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Wypuszczona' }));
+
+    expect(await screen.findByText('Zgodne z zasadami łowiska')).toBeVisible();
+    expect(screen.getByText('Wypuszczona ryba nie wlicza się do limitu.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Zapisz połów' })).toBeEnabled();
   });
 
-  it('after no answer sends only the same catch again, with the same clientId', async () => {
+  it('counts the kept fish of the day on every water towards the daily limit', async () => {
+    await onDevice({ waterRules: pikeOnRiver({ dailyLimitCount: 1 }) });
+    mockApi({
+      ...forForm,
+      // A pike kept this morning on the lake, from another phone.
+      'GET /api/v1/me/catches': () =>
+        jsonResponse([
+          caught({ speciesId: PIKE.id, status: 'ACCEPTED', violations: [], weightG: 2100 }),
+        ]),
+    });
+    renderRoute('/catch/new', { accessToken: 'access-1' });
+
+    await fillCatch({});
+
+    expect(
+      await screen.findByText(
+        'Tego dnia zabrano już 1 szt. przy limicie 1 szt. — liczą się ryby ze wszystkich łowisk.',
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Zapisz połów' })).toBeDisabled();
+  });
+
+  it('records a catch without network and keeps it on the device', async () => {
+    await onDevice();
+    withoutNetwork();
+    // No sync and no register: nothing may be sent.
+    mockApi(session);
+    renderRoute('/catch/new', { accessToken: 'access-1' });
+
+    expect(
+      await screen.findByText('Połowy zapisują się na urządzeniu i wyślą się po powrocie sieci.'),
+    ).toBeVisible();
+    await fillCatch({});
+    await userEvent.click(screen.getByRole('button', { name: 'Zapisz połów' }));
+
+    expect(await screen.findByRole('heading', { name: 'Zapisano na urządzeniu' })).toHaveFocus();
+    expect(screen.getByText('Połów zostanie wysłany do rejestru, gdy wróci sieć.')).toBeVisible();
+    expect(await deviceDb.catchQueue.toArray()).toEqual([
+      expect.objectContaining({ userId: profile.id, status: 'PENDING_SYNC' }),
+    ]);
+  });
+
+  it('works for the angler whose permits the device holds when the app opens without network', async () => {
+    await onDevice();
+    withoutNetwork();
+    mockApi({
+      'POST /api/v1/auth/refresh': () => {
+        throw new TypeError('Failed to fetch');
+      },
+    });
+    await restoreSession();
+    renderRoute('/catch/new', { keepSession: true });
+
+    expect(await screen.findByLabelText('Łowisko')).toBeVisible();
+    expect(screen.getByText('Offline')).toBeVisible();
+    await fillCatch({});
+    await userEvent.click(screen.getByRole('button', { name: 'Zapisz połów' }));
+
+    expect(await screen.findByRole('heading', { name: 'Zapisano na urządzeniu' })).toBeVisible();
+  });
+
+  it('after no answer keeps the catch on the device and sends the same one again', async () => {
     let attempts = 0;
+    await onDevice();
     const fetch = mockApi({
       ...forForm,
       'POST /api/v1/catches/sync': (request) =>
@@ -249,10 +343,8 @@ describe('new catch page', () => {
     await fillCatch({});
     await userEvent.click(screen.getByRole('button', { name: 'Zapisz połów' }));
     expect(await screen.findByText('INTERNAL_ERROR')).toBeVisible();
-    // It may be stored already: what was sent cannot be changed before it is sent again.
-    expect(screen.getByLabelText('Długość (cm)')).toBeDisabled();
-    expect(screen.queryByRole('button', { name: 'Zapisz połów' })).not.toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Wyślij ponownie' }));
+    expect(screen.getByRole('heading', { name: 'Zapisano na urządzeniu' })).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Wyślij teraz' }));
 
     expect(
       await screen.findByRole('heading', { name: 'Połów zapisany w rejestrze' }),
@@ -264,41 +356,37 @@ describe('new catch page', () => {
     expect(bodies[1]).toEqual(bodies[0]);
   });
 
-  it('keeps the form open to corrections when the server refused the catch', async () => {
-    let attempts = 0;
+  it('marks a catch the server refused as input, and does not send it again', async () => {
+    await onDevice();
     const fetch = mockApi({
       ...forForm,
-      'POST /api/v1/catches/sync': (request) =>
-        ++attempts === 1
-          ? jsonResponse({ code: 'VALIDATION_FAILED', message: 'Request validation failed' }, 400)
-          : verdict('ACCEPTED')(request),
+      'POST /api/v1/catches/sync': () =>
+        jsonResponse({ code: 'VALIDATION_FAILED', message: 'Request validation failed' }, 400),
     });
     renderRoute('/catch/new', { accessToken: 'access-1' });
 
     await fillCatch({});
     await userEvent.click(screen.getByRole('button', { name: 'Zapisz połów' }));
-    expect(await screen.findByText('VALIDATION_FAILED')).toBeVisible();
-    await userEvent.clear(screen.getByLabelText('Długość (cm)'));
-    await userEvent.type(screen.getByLabelText('Długość (cm)'), '63');
-    await userEvent.click(screen.getByRole('button', { name: 'Zapisz połów' }));
 
     expect(
-      await screen.findByRole('heading', { name: 'Połów zapisany w rejestrze' }),
+      await screen.findByRole('heading', { name: 'Nie udało się wysłać połowu' }),
     ).toBeVisible();
-    const bodies = (await sentBodies(fetch, 'POST /api/v1/catches/sync')) as {
-      items: { clientId: string; lengthCm: number }[];
-    }[];
-    expect(bodies.map(({ items }) => items[0]!.lengthCm)).toEqual([62, 63]);
+    expect(await deviceDb.catchQueue.toArray()).toEqual([
+      expect.objectContaining({ status: 'FAILED', errorCode: 'VALIDATION_FAILED' }),
+    ]);
+    expect(await sentBodies(fetch, 'POST /api/v1/catches/sync')).toHaveLength(1);
   });
 
   it('does not promise a correction of a rejected catch whose window has closed', async () => {
+    // A yearly permit: the device lets a catch of last October through, the server rejects it.
+    await onDevice({ permits: [{ ...permit, validFrom: '2025-10-01', validTo: '2026-10-31' }] });
     mockApi({
       ...forForm,
       'POST /api/v1/catches/sync': verdict('REJECTED', [
         {
           code: 'PERMIT_NOT_ACTIVE',
           ruleId: 'BR-01',
-          details: { status: 'SCHEDULED', validFrom: '2026-10-01', validTo: '2026-10-31' },
+          details: { status: 'REVOKED', validFrom: '2025-10-01', validTo: '2026-10-31' },
         },
       ]),
     });
@@ -314,16 +402,53 @@ describe('new catch page', () => {
     expect(heading.parentElement).toHaveTextContent('Czas na jego zmianę już minął.');
     expect(
       screen.getByText(
-        'W chwili połowu zezwolenie nie było ważne (Zaplanowane). Ważne od 1 paź 2026 do 31 paź 2026 włącznie.',
+        'W chwili połowu zezwolenie nie było ważne (Unieważnione). Ważne od 1 paź 2025 do 31 paź 2026 włącznie.',
       ),
     ).toBeVisible();
   });
 
-  it('explains that a catch needs an active permit', async () => {
-    mockApi({
-      ...forForm,
-      'GET /api/v1/me/permits': () => jsonResponse([{ ...permit, status: 'EXPIRED' }]),
+  it('offers the permit that ended yesterday for a catch of yesterday', async () => {
+    await onDevice({
+      permits: [
+        {
+          ...permit,
+          status: 'EXPIRED',
+          validFrom: '2026-10-05',
+          validTo: '2026-10-05',
+          waters: [RIVER],
+          qrToken: null,
+        },
+      ],
     });
+    const fetch = mockApi({ ...forForm, 'POST /api/v1/catches/sync': verdict('ACCEPTED') });
+    renderRoute('/catch/new', { accessToken: 'access-1' });
+
+    await fillCatch({ water: 'Narew (ważne do 5 paź 2026)' });
+    // Today it is not valid any more (BR-01 at the time of the catch).
+    expect(
+      await screen.findByText(
+        'W chwili połowu zezwolenie nie było ważne (Wygasłe). Ważne od 5 paź 2026 do 5 paź 2026 włącznie.',
+      ),
+    ).toBeVisible();
+    fireEvent.change(screen.getByLabelText('Czas połowu'), {
+      target: { value: '2026-10-05T18:00' },
+    });
+    await userEvent.click(await screen.findByRole('button', { name: 'Zapisz połów' }));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Połów zapisany w rejestrze' }),
+    ).toBeVisible();
+    const [body] = (await sentBodies(fetch, 'POST /api/v1/catches/sync')) as {
+      items: { caughtAt: string }[];
+    }[];
+    expect(body!.items[0]!.caughtAt).toBe('2026-10-05T16:00:00.000Z');
+  });
+
+  it('explains that a catch needs an active permit', async () => {
+    await onDevice({
+      permits: [{ ...permit, status: 'EXPIRED', validTo: '2026-09-30', qrToken: null }],
+    });
+    mockApi(forForm);
     renderRoute('/catch/new', { accessToken: 'access-1' });
 
     expect(
@@ -336,6 +461,60 @@ describe('new catch page', () => {
       '/me/permits',
     );
     expect(screen.queryByLabelText('Łowisko')).not.toBeInTheDocument();
+  });
+
+  it('asks for the network when the device holds no permits of the angler', async () => {
+    mockApi(forForm);
+    renderRoute('/catch/new', { accessToken: 'access-1' });
+
+    expect(
+      await screen.findByText(
+        'Na tym urządzeniu nie ma jeszcze Twoich zezwoleń. Połącz się z siecią, aby je pobrać.',
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Pobierz zezwolenia' })).toBeVisible();
+    expect(screen.queryByLabelText('Łowisko')).not.toBeInTheDocument();
+  });
+
+  it('offers the species in the alphabetical order of the language', async () => {
+    await onDevice();
+    mockApi(forForm);
+    renderRoute('/catch/new', { accessToken: 'access-1' });
+
+    const options = within(await screen.findByLabelText('Gatunek')).getAllByRole('option');
+    expect(options.map((option) => option.textContent)).toEqual([
+      'Wybierz gatunek',
+      'Leszcz',
+      'Łosoś',
+      'Szczupak',
+    ]);
+  });
+
+  it('asks for the species, kept or released and the length before sending', async () => {
+    await onDevice();
+    // No handler for the sync: a request would fail the test.
+    mockApi(forForm);
+    renderRoute('/catch/new', { accessToken: 'access-1' });
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Zapisz połów' }));
+
+    expect(await screen.findByText('Wybierz gatunek.')).toBeVisible();
+    expect(screen.getByText('Zaznacz, czy rybę zabrano, czy wypuszczono.')).toBeVisible();
+    expect(screen.getByText('Podaj długość w pełnych centymetrach, od 1 do 400.')).toBeVisible();
+    expect(screen.getByLabelText('Czas połowu')).not.toHaveValue('');
+  });
+
+  it('rejects a weight that is not kilograms', async () => {
+    await onDevice();
+    mockApi(forForm);
+    renderRoute('/catch/new', { accessToken: 'access-1' });
+
+    await fillCatch({ weight: '1,2345' });
+    await userEvent.click(screen.getByRole('button', { name: 'Zapisz połów' }));
+
+    expect(
+      await screen.findByText('Podaj wagę w kilogramach, np. 1,25 — do 300 kg.'),
+    ).toBeVisible();
   });
 
   it('sends a guest to the login page', async () => {
@@ -387,7 +566,99 @@ const forRegister = (catches: () => Catch[]) => ({
   'GET /api/v1/species': () => jsonResponse([PIKE, BREAM]),
 });
 
+/** A pike recorded on the river this morning, on the device. */
+const queuedPike = {
+  clientId: '8b000000-0000-4000-8000-000000000009',
+  permitId: permit.id,
+  externalPermitId: null,
+  fishingWaterId: RIVER.id,
+  speciesId: PIKE.id,
+  caughtAt: '2026-10-06T08:00:00.000Z',
+  lengthCm: 62,
+  weightG: 2100,
+  kept: true,
+  lat: null,
+  lng: null,
+};
+
 describe('my catches page', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('shows the catches waiting on the device and sends them on request', async () => {
+    await onDevice();
+    await enqueueCatch(profile.id, queuedPike, new Date());
+    const fetch = mockApi({
+      ...forRegister(() => []),
+      'POST /api/v1/catches/sync': verdict('ACCEPTED'),
+    });
+    renderRoute('/me/catches', { accessToken: 'access-1' });
+
+    const queue = await screen.findByRole('region', { name: 'Na tym urządzeniu' });
+    expect(within(queue).getByText('1 połów czeka na wysłanie.')).toBeVisible();
+    expect(within(queue).getByText('Szczupak')).toBeVisible();
+    expect(within(queue).getByText('Narew')).toBeVisible();
+    expect(within(queue).getByText('Do synchronizacji')).toBeVisible();
+    await userEvent.click(within(queue).getByRole('button', { name: 'Synchronizuj' }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole('region', { name: 'Na tym urządzeniu' })).not.toBeInTheDocument(),
+    );
+    const [body] = (await sentBodies(fetch, 'POST /api/v1/catches/sync')) as {
+      items: unknown[];
+    }[];
+    expect(body!.items).toEqual([queuedPike]);
+  });
+
+  it('removes a refused catch from the device after a second confirmation', async () => {
+    await onDevice();
+    await enqueueCatch(profile.id, queuedPike, new Date());
+    await deviceDb.catchQueue.update(queuedPike.clientId, {
+      status: 'FAILED',
+      errorCode: 'VALIDATION_FAILED',
+    });
+    mockApi(forRegister(() => []));
+    renderRoute('/me/catches', { accessToken: 'access-1' });
+
+    const queue = await screen.findByRole('region', { name: 'Na tym urządzeniu' });
+    expect(within(queue).getByText('Nie wysłano')).toBeVisible();
+    expect(within(queue).getByText(/^Serwer odrzucił połów:/)).toBeVisible();
+    // A refused catch is not sent again.
+    expect(within(queue).queryByRole('button', { name: 'Synchronizuj' })).not.toBeInTheDocument();
+    await userEvent.click(within(queue).getByRole('button', { name: /^Usuń połów: Szczupak/ }));
+    expect(
+      within(queue).getByText('Usunąć ten połów z urządzenia? Nie trafi do rejestru.'),
+    ).toBeVisible();
+    await userEvent.click(within(queue).getByRole('button', { name: 'Tak, usuń' }));
+
+    await waitFor(() => expect(screen.queryByText('Nie wysłano')).not.toBeInTheDocument());
+    expect(await deviceDb.catchQueue.count()).toBe(0);
+  });
+
+  it('shows only the catches on the device without network', async () => {
+    await onDevice();
+    await enqueueCatch(profile.id, queuedPike, new Date());
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    // The register on the server is not asked for.
+    mockApi({
+      ...session,
+      'GET /api/v1/me/permits': () => jsonResponse([permit]),
+      'GET /api/v1/species': () => jsonResponse([PIKE, BREAM]),
+    });
+    renderRoute('/me/catches', { accessToken: 'access-1' });
+
+    const queue = await screen.findByRole('region', { name: 'Na tym urządzeniu' });
+    expect(
+      within(queue).getByText('1 połów czeka na wysłanie — wyślemy go po powrocie sieci.'),
+    ).toBeVisible();
+    expect(
+      screen.getByText(
+        'Bez sieci widać tylko połowy zapisane na tym urządzeniu. Pełny rejestr zobaczysz po połączeniu.',
+      ),
+    ).toBeVisible();
+  });
+
   it('lists the catches by day with their status and the reasons of a rejection', async () => {
     mockApi(forRegister(() => [rejected, older]));
     renderRoute('/me/catches', { accessToken: 'access-1' });
@@ -528,6 +799,53 @@ describe('my catches page', () => {
         .getAllByRole('option')
         .map((option) => option.textContent),
     ).toEqual(['2026', '2025', '2024', '2023', '2022']);
+  });
+});
+
+describe('without network', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const openOffline = async (path: string) => {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    mockApi({
+      'POST /api/v1/auth/refresh': () => {
+        throw new TypeError('Failed to fetch');
+      },
+    });
+    await restoreSession();
+    renderRoute(path, { keepSession: true });
+  };
+
+  it('shows the permits and the QR code kept on the device', async () => {
+    await onDevice();
+    await openOffline(`/me/permits/${permit.id}`);
+
+    expect(
+      await screen.findByText(
+        'Brak sieci — zezwolenia zapisane na tym urządzeniu, w stanie z ostatniego połączenia.',
+      ),
+    ).toBeVisible();
+    expect(screen.getByTitle('Kod QR zezwolenia ZW-2026-000121')).toBeInTheDocument();
+    // The PDF needs the server.
+    expect(screen.queryByRole('button', { name: 'Pobierz PDF' })).not.toBeInTheDocument();
+  });
+
+  it('lists the permits kept on the device', async () => {
+    await onDevice();
+    await openOffline('/me/permits');
+
+    expect(await screen.findByText('Miesięczne')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Dodaj połów' })).toHaveAttribute('href', '/catch/new');
+  });
+
+  it('keeps the pages that need the server closed', async () => {
+    await onDevice();
+    await openOffline('/org');
+
+    expect(await screen.findByText('Brak połączenia z siecią')).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Dodaj połów' })).toHaveAttribute('href', '/catch/new');
   });
 });
 

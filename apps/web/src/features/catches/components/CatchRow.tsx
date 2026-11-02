@@ -196,6 +196,7 @@ function editPlaces(fish: Catch, permits: MyPermit[]): CatchPlace[] {
           waterId: fish.water.id,
           waterName: fish.water.name,
           permitName: null,
+          endedOn: null,
         },
       ];
 }

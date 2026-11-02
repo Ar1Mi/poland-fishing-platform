@@ -1,13 +1,16 @@
-import { Download, LoaderCircle, Plus } from 'lucide-react';
+import { Download, LoaderCircle, Plus, WifiOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
 import { formatPrice } from '../../../shared/lib/format';
 import { saveFile } from '../../../shared/lib/save-file';
+import { Alert, AlertDescription } from '../../../shared/ui/alert';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Badge } from '../../../shared/ui/badge';
 import { Button } from '../../../shared/ui/button';
 import { Card, CardContent } from '../../../shared/ui/card';
+import { useDevicePermits } from '../api/useDevicePermits';
 import { useMyPermit, useMyPermitPdf } from '../api/useMyPermits';
+import { DeviceNotice } from '../components/DeviceNotice';
 import { PermitTicket } from '../components/PermitTicket';
 import { PermitTypeTerms } from '../components/PermitTypeTerms';
 
@@ -18,21 +21,32 @@ export function MyPermitPage() {
   const { id = '' } = useParams();
   const permit = useMyPermit(id);
   const pdf = useMyPermitPdf();
+  const device = useDevicePermits();
+  // Without the server the permit kept on the device shows its QR (ADR-0009).
+  const onDevice = permit.data ? undefined : device.permits?.find((item) => item.id === id);
+  const data = permit.data ?? onDevice;
 
   return (
     <>
       <h1 className="text-h1">{t('permits.detail.title')}</h1>
-      {permit.isPending && (
+      {onDevice && <DeviceNotice />}
+      {device.offline && !data && device.permits !== undefined && (
+        <Alert variant="warning">
+          <WifiOff aria-hidden />
+          <AlertDescription className="text-body">{t('permits.device.missing')}</AlertDescription>
+        </Alert>
+      )}
+      {permit.isPending && !device.offline && (
         <Badge variant="neutral" role="status">
           <LoaderCircle aria-hidden className="animate-spin" />
           {t('permits.detail.loading')}
         </Badge>
       )}
-      {permit.isError && <ApiErrorAlert error={permit.error} />}
-      {permit.data && (
+      {permit.isError && !onDevice && <ApiErrorAlert error={permit.error} />}
+      {data && (
         <>
-          <PermitTicket permit={permit.data} />
-          {permit.data.status === 'ACTIVE' && (
+          <PermitTicket permit={data} />
+          {data.status === 'ACTIVE' && (
             <Button asChild variant="accent" className="w-fit">
               <Link to="/catch/new">
                 <Plus aria-hidden />
@@ -46,25 +60,23 @@ export function MyPermitPage() {
                 <dt className="caption text-muted-foreground">
                   {t('permits.detail.organization')}
                 </dt>
-                <dd className="text-body">{permit.data.organization.name}</dd>
+                <dd className="text-body">{data.organization.name}</dd>
                 <dt className="caption text-muted-foreground">{t('permits.detail.terms')}</dt>
                 <dd className="text-body">
-                  <PermitTypeTerms type={permit.data.permitType} />
+                  <PermitTypeTerms type={data.permitType} />
                 </dd>
                 <dt className="caption text-muted-foreground">{t('permits.buy.price')}</dt>
-                <dd className="font-mono text-body">
-                  {formatPrice(permit.data.pricePaidGrosze, locale)}
-                </dd>
+                <dd className="font-mono text-body">{formatPrice(data.pricePaidGrosze, locale)}</dd>
               </dl>
             </CardContent>
           </Card>
-          {permit.data.qrToken !== null && (
+          {data.qrToken !== null && !onDevice && (
             <Button
               variant="secondary"
               className="w-fit"
               disabled={pdf.isPending}
               onClick={() => {
-                const { id: permitId, number } = permit.data;
+                const { id: permitId, number } = data;
                 pdf.mutate(permitId, { onSuccess: (blob) => saveFile(blob, `${number}.pdf`) });
               }}
             >

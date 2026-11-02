@@ -9,9 +9,13 @@ export type RuleViolation = components['schemas']['RuleViolationDto'];
 
 const myCatchesKey = ['me', 'catches'] as const;
 
-/** My register of a season (Warsaw year); the current one when `season` is not given. */
-export function useMyCatches(season?: number) {
+/**
+ * My register of a season (Warsaw year); the current one when `season` is not given.
+ * `enabled: false` without a session that reaches the server (offline, ADR-0009).
+ */
+export function useMyCatches(season?: number, { enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
+    enabled,
     queryKey: [...myCatchesKey, season ?? 'current'],
     queryFn: ({ signal }) =>
       request(() =>
@@ -20,23 +24,6 @@ export function useMyCatches(season?: number) {
           signal,
         }),
       ),
-  });
-}
-
-/**
- * Records one catch online (FR-11): the server checks it and stores it ACCEPTED or REJECTED.
- * The offline queue sends batches through the same route (T-21).
- */
-export function useRecordCatch() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async (item: NewCatch) => {
-      const { results } = await request(() =>
-        api.POST('/api/v1/catches/sync', { body: { items: [item] } }),
-      );
-      return results[0]!;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: myCatchesKey }),
   });
 }
 

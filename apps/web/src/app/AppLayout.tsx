@@ -1,13 +1,20 @@
 import { useTranslation } from 'react-i18next';
 import { Link, Outlet } from 'react-router';
-import { useProfileLocale } from '../features/auth/api/useAuth';
+import { useProfileLocale, useSessionStatus } from '../features/auth/api/useAuth';
 import { AccountMenu } from '../features/auth/components/AccountMenu';
+import { cn } from '../shared/lib/cn';
+import { BottomNav } from './BottomNav';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
-/** Mobile-first shell: header with the app name and language, content with 16 px margins. */
+/**
+ * Mobile-first shell: header with the app name and language, content with 16 px margins, and
+ * for a logged-in user on a phone the bottom navigation.
+ */
 export function AppLayout() {
   const { t } = useTranslation();
   useProfileLocale();
+  const status = useSessionStatus();
+  const withNav = status === 'authenticated' || status === 'offline';
   return (
     <div className="flex min-h-dvh flex-col">
       <a
@@ -27,9 +34,16 @@ export function AppLayout() {
           </div>
         </div>
       </header>
-      <main id="main" className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-3 p-4">
+      <main
+        id="main"
+        className={cn(
+          'mx-auto flex w-full max-w-5xl flex-1 flex-col gap-3 p-4',
+          withNav && 'pb-24 md:pb-4',
+        )}
+      >
         <Outlet />
       </main>
+      {withNav && <BottomNav />}
     </div>
   );
 }

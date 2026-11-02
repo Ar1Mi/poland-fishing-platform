@@ -7,7 +7,9 @@ import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Badge } from '../../../shared/ui/badge';
 import { Button } from '../../../shared/ui/button';
 import type { MyPermit } from '../api/usePurchase';
+import { useDevicePermits } from '../api/useDevicePermits';
 import { useMyPermits } from '../api/useMyPermits';
+import { DeviceNotice } from '../components/DeviceNotice';
 import { PermitStatusBadge } from '../components/PermitStatusBadge';
 
 /** Permits the angler can still use or is paying for; the rest is history. */
@@ -21,23 +23,28 @@ const CURRENT: ReadonlySet<EffectivePermitStatus> = new Set([
 export function MyPermitsPage() {
   const { t } = useTranslation();
   const permits = useMyPermits();
-  const current = permits.data?.filter((permit) => CURRENT.has(permit.status)) ?? [];
-  const past = permits.data?.filter((permit) => !CURRENT.has(permit.status)) ?? [];
+  const device = useDevicePermits();
+  // Without the server the permits kept on the device stand in (ADR-0009).
+  const fromDevice = !permits.data && device.permits !== undefined;
+  const data = permits.data ?? device.permits;
+  const current = data?.filter((permit) => CURRENT.has(permit.status)) ?? [];
+  const past = data?.filter((permit) => !CURRENT.has(permit.status)) ?? [];
 
   return (
     <>
       <h1 className="text-h1">{t('permits.mine.title')}</h1>
-      {permits.isPending && (
+      {fromDevice && <DeviceNotice />}
+      {permits.isPending && !fromDevice && !device.offline && (
         <Badge variant="neutral" role="status">
           <LoaderCircle aria-hidden className="animate-spin" />
           {t('permits.mine.loading')}
         </Badge>
       )}
-      {permits.isError && <ApiErrorAlert error={permits.error} />}
+      {permits.isError && !fromDevice && <ApiErrorAlert error={permits.error} />}
       {/* The register lives with the permits it is kept on (FR-11). */}
-      {permits.data && permits.data.length > 0 && (
+      {data && data.length > 0 && (
         <div className="flex flex-wrap gap-3">
-          {permits.data.some((permit) => permit.status === 'ACTIVE') && (
+          {data.some((permit) => permit.status === 'ACTIVE') && (
             <Button asChild variant="accent">
               <Link to="/catch/new">
                 <Plus aria-hidden />
@@ -53,7 +60,7 @@ export function MyPermitsPage() {
           </Button>
         </div>
       )}
-      {permits.data?.length === 0 && (
+      {data?.length === 0 && (
         <>
           <p className="text-body">{t('permits.mine.empty')}</p>
           <Link to="/" className="flex min-h-11 w-fit items-center font-semibold text-primary">
