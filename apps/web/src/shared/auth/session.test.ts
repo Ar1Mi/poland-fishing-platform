@@ -4,6 +4,7 @@ import { api, request } from '../api/client';
 import { deviceDb } from '../offline/db';
 import {
   getAccessToken,
+  getCarriedUserId,
   getOfflineUserId,
   getSessionStatus,
   refreshSession,
@@ -124,6 +125,21 @@ describe('session', () => {
       expect(getSessionStatus()).toBe('guest');
     });
 
+    it('does not carry the offline user into a login', async () => {
+      await deviceDb.meta.put({
+        key: 'owner',
+        userId: USER,
+        refreshedAt: new Date().toISOString(),
+      });
+      vi.stubGlobal('fetch', unreachable());
+      await restoreSession();
+
+      startSession('access-of-someone');
+
+      expect(getSessionStatus()).toBe('authenticated');
+      expect(getCarriedUserId()).toBeNull();
+    });
+
     it('becomes a real session when the network comes back', async () => {
       await deviceDb.meta.put({
         key: 'owner',
@@ -140,6 +156,8 @@ describe('session', () => {
       await vi.waitFor(() => expect(getSessionStatus()).toBe('authenticated'));
       expect(getAccessToken()).toBe('access-3');
       expect(getOfflineUserId()).toBeNull();
+      // Still the same user while their profile loads.
+      expect(getCarriedUserId()).toBe(USER);
     });
   });
 

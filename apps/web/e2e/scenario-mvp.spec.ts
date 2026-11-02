@@ -1,8 +1,9 @@
-import { warsawDate, warsawDayEnd } from '@lowisko/shared';
-import { type Browser, expect, type Page, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
+import { logIn, notAcrossMidnight, withPage } from './helpers';
 
 // The end-to-end MVP of docs/09-scenarios.md: Д (shortened, through the demo seed) → А (fake
-// payment provider) → Б (online) → В. Accounts and data come from apps/api/prisma/demo-data.ts.
+// payment provider) → Б (online; offline in scenario-b.spec.ts) → В. Accounts and data come
+// from apps/api/prisma/demo-data.ts.
 
 const ANGLER = { email: 'anna.nowak@lowisko.test', name: 'Anna Nowak', birthYear: '1992' };
 const INSPECTOR = { email: 'straznik@lowisko.test', name: 'Piotr Zieliński' };
@@ -18,15 +19,7 @@ interface PaidPermit {
   qrToken: string;
 }
 
-async function logIn(page: Page, email: string): Promise<void> {
-  const password = process.env.SEED_DEMO_PASSWORD;
-  if (!password) throw new Error('SEED_DEMO_PASSWORD comes from playwright.config.ts');
-  await page.getByLabel('E-mail').fill(email);
-  await page.getByLabel('Hasło', { exact: true }).fill(password);
-  await page.getByRole('button', { name: 'Zaloguj się' }).click();
-}
-
-async function recordCatch(
+async function fillCatch(
   page: Page,
   fish: { place: string; species: string; lengthCm: string; weightKg: string },
 ): Promise<void> {
@@ -35,30 +28,6 @@ async function recordCatch(
   await page.getByRole('button', { name: 'Zabrana' }).click();
   await page.getByLabel('Długość (cm)').fill(fish.lengthCm);
   await page.getByLabel('Waga (kg)').fill(fish.weightKg);
-  await page.getByRole('button', { name: 'Zapisz połów' }).click();
-}
-
-/** Another person on another phone: a context of their own, closed even when a step fails. */
-async function withPage(browser: Browser, use: (page: Page) => Promise<void>): Promise<void> {
-  const context = await browser.newContext();
-  try {
-    await use(await context.newPage());
-  } finally {
-    await context.close();
-  }
-}
-
-/**
- * The day permit starts today and the catches and the inspector's list are of today (Warsaw).
- * The scenario takes well under a minute; a run that would cross midnight waits for it.
- */
-async function notAcrossMidnight(): Promise<void> {
-  const now = new Date();
-  const left = warsawDayEnd(warsawDate(now)).getTime() - now.getTime();
-  if (left < 60_000) {
-    test.setTimeout(test.info().timeout + left + 5_000);
-    await new Promise((resolve) => setTimeout(resolve, left + 5_000));
-  }
 }
 
 /** The same token with one character of the signature changed: a forged QR code. */
@@ -119,24 +88,30 @@ test('MVP: a seeded organization sells a permit, the angler records catches, the
     return permit;
   });
 
-  await test.step('Б: catches are checked online; the organization rule rejects one', async () => {
+  await test.step('Б: the organization rule, kept on the phone, stops an undersized carp', async () => {
     // The only permit of the angler: the place is named by the water alone.
     const place = WATER;
     await page.getByRole('link', { name: 'Dodaj połów' }).click();
-    await recordCatch(page, { place, species: 'Karp', lengthCm: '42', weightKg: '2,4' });
+    await fillCatch(page, { place, species: 'Karp', lengthCm: '42', weightKg: '2,4' });
+    await page.getByRole('button', { name: 'Zapisz połów' }).click();
     await expect(page.getByRole('heading', { name: 'Połów zapisany w rejestrze' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Dodaj kolejny połów' }).click();
-    await recordCatch(page, { place, species: 'Karp', lengthCm: '30', weightKg: '0,8' });
-    await expect(page.getByRole('heading', { name: 'Połów odrzucony' })).toBeVisible();
+    await fillCatch(page, { place, species: 'Karp', lengthCm: '30', weightKg: '0,8' });
+    // The rules of the bought permit came to the phone after payment (offline bundle): the
+    // CatchValidator finds the violation before anything is sent.
     await expect(page.getByText('Poniżej wymiaru ochronnego')).toBeVisible();
     // 35 cm is the organization's own rule: carp has no general one (demo-data.ts).
     await expect(page.getByText('Zabrać można rybę od 35 cm — tę trzeba wypuścić.')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Zapisz połów' })).toBeDisabled();
+    await page.getByRole('button', { name: 'Wypuszczona' }).click();
+    await page.getByRole('button', { name: 'Zapisz połów' }).click();
+    await expect(page.getByRole('heading', { name: 'Połów zapisany w rejestrze' })).toBeVisible();
 
     await page.getByRole('link', { name: 'Przejdź do rejestru' }).click();
     await expect(page.getByRole('heading', { name: 'Rejestr połowów' })).toBeVisible();
-    await expect(page.getByText('Przyjęty')).toHaveCount(1);
-    await expect(page.getByText('Odrzucony')).toHaveCount(1);
+    await expect(page.getByText('Przyjęty')).toHaveCount(2);
+    await expect(page.getByText(/^Wypuszczona · /)).toHaveCount(1);
   });
 
   await test.step('В: a forged code is invalid, a guest sees only the public part', async () => {
@@ -179,14 +154,14 @@ test('MVP: a seeded organization sells a permit, the angler records catches, the
       await expect(inspector.getByText('Dzienne', { exact: true })).toBeVisible();
       await expect(inspector.getByText(/^Ważne od .+ do .+ włącznie$/)).toBeVisible();
       const today = inspector.getByRole('region', { name: 'Połowy dzisiaj' });
-      // Both catches with their verdicts; the rejected one lists its reason.
+      // Both catches of today: the kept one and the released one.
       await expect(today.getByRole('listitem').filter({ hasText: 'Karp' })).toHaveCount(2);
-      await expect(today.getByText('Poniżej wymiaru ochronnego')).toBeVisible();
+      await expect(today.getByText(/^Wypuszczona · /)).toBeVisible();
 
       await inspector.getByRole('button', { name: 'Naruszenie' }).click();
       await inspector
         .getByLabel('Uwagi')
-        .fill('Zabrany karp 30 cm, poniżej wymiaru koła — pouczenie.');
+        .fill('Karp 30 cm w siatce, zapisany jako wypuszczony — pouczenie.');
       await inspector.getByRole('button', { name: 'Zapisz protokół' }).click();
       await expect(inspector.getByText(/^Protokół zapisany o /)).toBeVisible();
     });

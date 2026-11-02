@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next';
 import { api, request } from '../../../shared/api/client';
 import {
   endSession,
+  getCarriedUserId,
   getOfflineUserId,
   getSessionStatus,
   startSession,
@@ -34,7 +35,7 @@ export function useCurrentUserId(): string | undefined {
   if (status === 'offline') {
     return getOfflineUserId() ?? undefined;
   }
-  return status === 'authenticated' ? me.data?.id : undefined;
+  return status === 'authenticated' ? (me.data?.id ?? getCarriedUserId() ?? undefined) : undefined;
 }
 
 /** Profile of the logged-in user; idle for guests. */

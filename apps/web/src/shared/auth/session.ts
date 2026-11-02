@@ -13,6 +13,11 @@ let accessToken: string | null = null;
 let status: SessionStatus = 'restoring';
 /** The user of an `offline` session: the owner of the data on the device. */
 let offlineUserId: string | null = null;
+/**
+ * The same user once the offline session becomes a real one (network back): their profile
+ * loads anew meanwhile, and the screens on the device's data must not lose who it is.
+ */
+let carriedUserId: string | null = null;
 let pendingRefresh: Promise<string | null> | null = null;
 const listeners = new Set<() => void>();
 
@@ -52,6 +57,11 @@ export function getOfflineUserId(): string | null {
   return offlineUserId;
 }
 
+/** The user of the offline session this one grew out of; null after a login or logout. */
+export function getCarriedUserId(): string | null {
+  return carriedUserId;
+}
+
 export function subscribeSession(listener: () => void): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
@@ -59,11 +69,13 @@ export function subscribeSession(listener: () => void): () => void {
 
 /** After login. */
 export function startSession(token: string): void {
+  carriedUserId = null;
   update(token);
 }
 
 /** After logout, or when the refresh cookie is no longer accepted. */
 export function endSession(): void {
+  carriedUserId = null;
   update(null);
 }
 
@@ -97,6 +109,7 @@ export function refreshSession(): Promise<string | null> {
         if (userId) {
           accessToken = null;
           offlineUserId = userId;
+          carriedUserId = userId;
           status = 'offline';
           notify();
         } else {
@@ -151,6 +164,7 @@ function withToken(request: Request, token: string | null): Request {
 export function resetSessionForTests(): void {
   accessToken = null;
   offlineUserId = null;
+  carriedUserId = null;
   status = 'restoring';
   pendingRefresh = null;
   listeners.clear();
