@@ -7,9 +7,10 @@ import type { Env } from '../../../config/env';
 import { PrismaService } from '../../../database/prisma.service';
 import type { Permit, PermitType } from '../../../generated/prisma/client';
 import { OrganizationsService } from '../../organizations/organizations.service';
+import { SpeciesRulesService } from '../../rules/species-rules.service';
 import { UsersService } from '../../users/users.service';
 import { WatersService } from '../../waters/waters.service';
-import type { MyPermitDto } from '../dto/permit.dto';
+import type { MyPermitDto, OfflineBundleDto } from '../dto/permit.dto';
 import { PermitPdfService } from '../pdf/permit-pdf.service';
 import { fromDbDate } from '../permit-dates';
 import { permitWaters } from '../permit-waters';
@@ -30,7 +31,10 @@ export interface PermitPdf {
   content: Buffer;
 }
 
-/** The angler's own permits: the list, one permit (polled after payment), its QR and PDF. */
+/**
+ * The angler's own permits: the list, one permit (polled after payment), its QR and PDF, and
+ * what the PWA keeps of it to record catches offline.
+ */
 @Injectable()
 export class MyPermitsService {
   private readonly webUrl: string;
@@ -40,6 +44,7 @@ export class MyPermitsService {
     private readonly organizations: OrganizationsService,
     private readonly users: UsersService,
     private readonly waters: WatersService,
+    private readonly rules: SpeciesRulesService,
     private readonly qrTokens: QrTokenService,
     private readonly pdfs: PermitPdfService,
     private readonly clock: ClockService,
@@ -81,6 +86,26 @@ export class MyPermitsService {
     ]);
     // The type keeps its organization (FK), so the profile always exists.
     return this.toDto(permit, organization?.name ?? '', waterNames);
+  }
+
+  /**
+   * The permit with the effective rules of its waters (T-21): merged by the same
+   * `effectiveOnWaters` as `POST /catches/sync`, so the PWA checks a catch offline against the
+   * rules the server will check it against. Species and `isProtected` come from `GET /species`.
+   * Any permit of the user: which ones to keep offline is the device's choice.
+   */
+  async offlineBundle(userId: string, id: string): Promise<OfflineBundleDto> {
+    const permit = await this.get(userId, id);
+    const onWaters = await this.rules.effectiveOnWaters(permit.waters.map((water) => water.id));
+    return {
+      permit,
+      waterRules: permit.waters.map(({ id: waterId }) => ({
+        waterId,
+        rules: [...(onWaters.get(waterId) ?? [])]
+          .map(([speciesId, rule]) => ({ speciesId, ...rule }))
+          .sort((a, b) => a.speciesId.localeCompare(b.speciesId)),
+      })),
+    };
   }
 
   /** The printable permit with its QR code; only while the QR is valid (SCHEDULED or ACTIVE). */

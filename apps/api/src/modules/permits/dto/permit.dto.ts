@@ -1,6 +1,7 @@
 import { DiscountKind, EffectivePermitStatus } from '@lowisko/shared';
 import { ApiProperty } from '@nestjs/swagger';
 import { IsUUID } from 'class-validator';
+import { EffectiveRuleDto } from '../../rules/dto/species-rule.dto';
 import { IsDateOnly } from '../../users/dto/profile.dto';
 
 export class PurchasePermitDto {
@@ -107,4 +108,30 @@ export class PurchasePermitResultDto {
       'straight to /payment/return',
   })
   paymentUrl!: string;
+}
+
+/** The effective rules of one water of a permit (ADR-0008). */
+export class OfflineWaterRulesDto {
+  @ApiProperty({ format: 'uuid' })
+  waterId!: string;
+
+  @ApiProperty({
+    type: [EffectiveRuleDto],
+    description:
+      'Species with a rule of some level, by id; nothing restricts the others but BR-01, ' +
+      'BR-06 and BR-10',
+  })
+  rules!: EffectiveRuleDto[];
+}
+
+/** What the PWA stores to record catches on the permit without network (T-21, ADR-0009). */
+export class OfflineBundleDto {
+  @ApiProperty({ type: MyPermitDto })
+  permit!: MyPermitDto;
+
+  @ApiProperty({
+    type: [OfflineWaterRulesDto],
+    description: 'One per water of the permit, in the order of permit.waters',
+  })
+  waterRules!: OfflineWaterRulesDto[];
 }
