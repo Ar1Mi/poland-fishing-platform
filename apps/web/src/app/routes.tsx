@@ -73,10 +73,11 @@ export const routes: RouteObject[] = [
           </RequireAuth>
         ),
       },
+      // The angler's pages that work without network, from what the device holds (ADR-0009).
       {
         path: 'me/permits',
         element: (
-          <RequireAuth>
+          <RequireAuth offline>
             <MyPermitsPage />
           </RequireAuth>
         ),
@@ -84,7 +85,7 @@ export const routes: RouteObject[] = [
       {
         path: 'me/permits/:id',
         element: (
-          <RequireAuth>
+          <RequireAuth offline>
             <MyPermitPage />
           </RequireAuth>
         ),
@@ -92,7 +93,7 @@ export const routes: RouteObject[] = [
       {
         path: 'catch/new',
         element: (
-          <RequireAuth>
+          <RequireAuth offline>
             <NewCatchPage />
           </RequireAuth>
         ),
@@ -100,7 +101,7 @@ export const routes: RouteObject[] = [
       {
         path: 'me/catches',
         element: (
-          <RequireAuth>
+          <RequireAuth offline>
             <MyCatchesPage />
           </RequireAuth>
         ),

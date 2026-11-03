@@ -25,7 +25,7 @@ apps/
     src/
       app/             роутер, провайдеры
       features/<name>/ страницы и компоненты по фичам
-      shared/          ui (shadcn), api-клиент, i18n, offline (Dexie)
+      shared/          ui (shadcn), api-клиент, i18n, offline (Dexie: данные устройства, очередь уловов)
     e2e/               Playwright
 packages/
   shared/              Zod-схемы, enum, коды ошибок, CatchValidator
@@ -43,7 +43,7 @@ docs/
 | `OrganizationsModule` | Организации, членство, приглашения, `OrgScopeGuard` | Users |
 | `WatersModule` | Каталог, импорт CSV, геокодирование, claim | Organizations |
 | `RulesModule` | Виды, `SpeciesRule`, слияние уровней | Waters |
-| `PermitsModule` | Типы разрешений (T-12), покупка и оплата (T-13: `PaymentProvider` P24/Fake, таблица `Payment`, уведомления, отмена брошенных оплат — `permits/payments/`, ADR-0012), статусы, PDF, QR-токен; внешние разрешения | Waters, Organizations, Users, Audit |
+| `PermitsModule` | Типы разрешений (T-12), покупка и оплата (T-13: `PaymentProvider` P24/Fake, таблица `Payment`, уведомления, отмена брошенных оплат — `permits/payments/`, ADR-0012), статусы, PDF, QR-токен, офлайн-пакет разрешения с эффективными правилами (T-21); внешние разрешения | Waters, Organizations, Users, Audit, Rules |
 | `CatchesModule` | Реестр, `/catches/sync`, вызов CatchValidator, PDF-реестр. Контекст проверки собирает `CatchContextLoader` из экспортированных сервисов: разрешения — `CatchPermitsService`, правила — `SpeciesRulesService.effectiveOnWaters` / `effectiveGeneral`, виды, водоёмы (T-18) | Permits, Rules, Waters |
 | `InspectionsModule` | Проверка QR-токена (`GET /verify/:token`), протоколы. Разрешение по токену — `InspectionPermitsService` (подпись, статус, тип, водоёмы), уловы за сегодня — `CatchesService.listForPermitOnDay`, владелец — `UsersService`, право на расширенную проверку — `OrgAccessService.find` (T-19) | Permits, Catches, Users, Organizations |
 | `ReportsModule` | Статистика, CSV | Permits, Catches |

@@ -11,15 +11,41 @@ import { useTranslation } from 'react-i18next';
 import { api, request } from '../../../shared/api/client';
 import {
   endSession,
+  getCarriedUserId,
+  getOfflineUserId,
   getSessionStatus,
   startSession,
   subscribeSession,
 } from '../../../shared/auth/session';
+import { clearDeviceData } from '../../../shared/offline/db';
 
 export const meQueryKey = ['me'] as const;
 
 export function useSessionStatus() {
   return useSyncExternalStore(subscribeSession, getSessionStatus);
+}
+
+/**
+ * Whose data the device shows and records catches for: the profile's id, or offline the user
+ * the device acts for. `undefined` for a guest and while the profile loads.
+ */
+export function useCurrentUserId(): string | undefined {
+  const status = useSessionStatus();
+  const me = useMe();
+  if (status === 'offline') {
+    return getOfflineUserId() ?? undefined;
+  }
+  return status === 'authenticated' ? (me.data?.id ?? getCarriedUserId() ?? undefined) : undefined;
+}
+
+/**
+ * The user the access token belongs to, once their profile has loaded: the only one whose
+ * catches may be sent. A remembered user (`getCarriedUserId`) is good for showing, not sending.
+ */
+export function useVerifiedUserId(): string | undefined {
+  const status = useSessionStatus();
+  const me = useMe();
+  return status === 'authenticated' ? me.data?.id : undefined;
 }
 
 /** Profile of the logged-in user; idle for guests. */
@@ -43,15 +69,20 @@ export function useLogin() {
   });
 }
 
+/** Logs out the user `userId` (`useCurrentUserId`), whose data the device then forgets. */
 export function useLogout() {
   const queryClient = useQueryClient();
-  return useMutation({
+  // The user is the mutation's variable: only `onSettled` needs it.
+  return useMutation<unknown, Error, string | undefined>({
     mutationFn: () => request(() => api.POST('/api/v1/auth/logout')),
     // Even if the API is unreachable, this tab forgets the session and every cached answer
-    // that belonged to the user.
-    onSettled: () => {
+    // that belonged to the user, and the device forgets the user's permits and unsent catches.
+    onSettled: async (_data, _error, userId) => {
       endSession();
       queryClient.clear();
+      if (userId) {
+        await clearDeviceData(userId).catch(() => undefined);
+      }
     },
   });
 }

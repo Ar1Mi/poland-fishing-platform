@@ -1,8 +1,9 @@
 import { CircleCheck, CircleX, Clock, LoaderCircle, RefreshCw } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router';
 import { formatPrice } from '../../../shared/lib/format';
+import { refreshAndSync } from '../../../shared/offline/device-data';
 import { Alert, AlertDescription, AlertTitle } from '../../../shared/ui/alert';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Badge } from '../../../shared/ui/badge';
@@ -47,6 +48,13 @@ function PaymentOutcome({ permitId }: { permitId: string }) {
   const permit = useMyPermitPolling(permitId, pollingSince);
   // Polling stops after the first answer that came at least PAYMENT_POLL_WINDOW_MS later.
   const lastAnswerAt = Math.max(permit.dataUpdatedAt, permit.errorUpdatedAt);
+  const paid = permit.data?.status === 'ACTIVE' || permit.data?.status === 'SCHEDULED';
+  // The new permit and the rules of its waters go to the device for use without network.
+  useEffect(() => {
+    if (paid) {
+      void refreshAndSync();
+    }
+  }, [paid]);
 
   if (permit.isPending) {
     return <Waiting text={t('permits.payment.return.loading')} />;

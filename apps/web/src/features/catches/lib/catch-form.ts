@@ -9,6 +9,8 @@ export interface CatchPlace {
   waterName: string;
   /** The permit type, shown only when two active permits cover the same water. */
   permitName: string | null;
+  /** The last day of a permit that has ended (yesterday's catch, BR-07); null while valid. */
+  endedOn: string | null;
 }
 
 const placeKey = (permitId: string, waterId: string) => `${permitId}:${waterId}`;
@@ -22,6 +24,7 @@ export function catchPlaces(permits: MyPermit[]): CatchPlace[] {
       waterId: water.id,
       waterName: water.name,
       permitName: permit.permitType.name,
+      endedOn: permit.status === 'EXPIRED' ? permit.validTo : null,
     })),
   );
   const coverage = new Map<string, number>();

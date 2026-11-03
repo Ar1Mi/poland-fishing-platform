@@ -7,7 +7,13 @@ import { createVerifiedUser, login } from './auth-helpers';
 import { createTestApp } from './create-test-app';
 import { prismaServiceFor } from './db/prisma-service';
 import { createTestDatabase, type TestDatabase } from './db/test-database';
-import { createOrganization, createPermit, createPermitType, createWater } from './factories';
+import {
+  createOrganization,
+  createPermit,
+  createPermitType,
+  createSpecies,
+  createWater,
+} from './factories';
 
 const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000';
 
@@ -33,7 +39,10 @@ describe('my permits', () => {
   let prisma: PrismaService;
   let app: NestExpressApplication;
   let angler: { id: string; accessToken: string };
+  let organizationId: string;
   let permitTypeId: string;
+  /** Zalew Zegrzyński, Jezioro Łańskie. */
+  let waterIds: string[];
 
   const server = () => app.getHttpServer();
   const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -53,11 +62,13 @@ describe('my permits', () => {
     prisma = prismaServiceFor(db.url);
     app = await createTestApp({ prisma });
     const organization = await createOrganization(prisma, { status: 'ACTIVE', name: 'Koło PZW 7' });
+    organizationId = organization.id;
     const waters = await Promise.all(
       ['Zalew Zegrzyński', 'Jezioro Łańskie'].map((name) =>
         createWater(prisma, { name, status: 'CONNECTED', organizationId: organization.id }),
       ),
     );
+    waterIds = waters.map(({ id }) => id);
     permitTypeId = (
       await createPermitType(prisma, {
         organizationId: organization.id,
@@ -172,6 +183,111 @@ describe('my permits', () => {
         .expect(200);
 
       expect(response.body).toMatchObject({ status: 'EXPIRED', qrToken: null });
+    });
+  });
+
+  describe('GET /me/permits/:id/offline-bundle', () => {
+    const bundle = (id: string) =>
+      request(server())
+        .get(`/api/v1/me/permits/${id}/offline-bundle`)
+        .set(bearer(angler.accessToken));
+
+    it('gives the permit with the rules of each of its waters, merged as the catch check merges them', async () => {
+      const [lake, lanskie] = waterIds as [string, string];
+      const pike = await createSpecies(prisma, { namePl: 'Szczupak' });
+      const carp = await createSpecies(prisma, { namePl: 'Karp' });
+      await createSpecies(prisma, { namePl: 'Okoń' });
+      const otherOrganization = await createOrganization(prisma, { status: 'ACTIVE' });
+      await prisma.speciesRule.createMany({
+        data: [
+          // General: every water.
+          { speciesId: pike.id, minLengthCm: 50, closedFrom: '01-01', closedTo: '04-30' },
+          // The organization: both waters of the permit.
+          { speciesId: carp.id, organizationId, minLengthCm: 35, dailyLimitCount: 3 },
+          // One water only, stricter than the organization.
+          { speciesId: carp.id, organizationId, fishingWaterId: lake, dailyLimitCount: 2 },
+          // Another organization's rule applies to none of them.
+          { speciesId: carp.id, organizationId: otherOrganization.id, minLengthCm: 60 },
+        ],
+      });
+      const permit = await paidPermit('2026-10-05', '2026-10-11');
+
+      const response = await bundle(permit.id).expect(200);
+
+      expect(response.headers['cache-control']).toBe('no-store');
+      const body = response.body as {
+        permit: MyPermit;
+        waterRules: { waterId: string; rules: { speciesId: string }[] }[];
+      };
+      // The same object as GET /me/permits/:id, QR token included.
+      const single = await request(server())
+        .get(`/api/v1/me/permits/${permit.id}`)
+        .set(bearer(angler.accessToken))
+        .expect(200);
+      expect(body.permit).toEqual(single.body);
+      expect(body.permit.qrToken).toEqual(expect.any(String));
+
+      const pikeRule = {
+        speciesId: pike.id,
+        minLengthCm: 50,
+        dailyLimitCount: null,
+        dailyLimitWeightG: null,
+        closedPeriods: [{ from: '01-01', to: '04-30' }],
+      };
+      const carpRule = (dailyLimitCount: number) => ({
+        speciesId: carp.id,
+        minLengthCm: 35,
+        dailyLimitCount,
+        dailyLimitWeightG: null,
+        closedPeriods: [],
+      });
+      const bySpeciesId = (rules: { speciesId: string }[]) =>
+        [...rules].sort((a, b) => a.speciesId.localeCompare(b.speciesId));
+      // In the order of permit.waters (by name); a species without any rule is not listed.
+      expect(body.waterRules).toEqual([
+        { waterId: lanskie, rules: bySpeciesId([pikeRule, carpRule(3)]) },
+        { waterId: lake, rules: bySpeciesId([pikeRule, carpRule(2)]) },
+      ]);
+    });
+
+    it('gives an expired permit too, without a QR token', async () => {
+      const permit = await paidPermit('2026-09-01', '2026-09-07');
+
+      const response = await bundle(permit.id).expect(200);
+
+      expect(response.body).toMatchObject({
+        permit: { id: permit.id, status: 'EXPIRED', qrToken: null },
+        waterRules: [
+          { waterId: waterIds[1], rules: [] },
+          { waterId: waterIds[0], rules: [] },
+        ],
+      });
+    });
+
+    it('treats a permit of someone else as missing', async () => {
+      const someoneElses = await createPermit(prisma, {
+        permitTypeId,
+        status: 'PAID',
+        validFrom: new Date('2026-10-05'),
+        validTo: new Date('2026-10-11'),
+      });
+
+      for (const id of [someoneElses.id, UNKNOWN_ID]) {
+        const response = await bundle(id);
+        expect(response.status).toBe(404);
+        expect(response.body).toMatchObject({ code: 'NOT_FOUND' });
+      }
+    });
+
+    it('rejects an id that is not a UUID', async () => {
+      const response = await bundle('not-a-uuid');
+
+      expect(response.status).toBe(400);
+      expect(response.body).toMatchObject({ code: 'VALIDATION_FAILED' });
+    });
+
+    it('requires authentication', async () => {
+      await request(server()).get(`/api/v1/me/permits/${UNKNOWN_ID}/offline-bundle`).expect(401);
     });
   });
 

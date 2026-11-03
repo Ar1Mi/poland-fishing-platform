@@ -33,6 +33,7 @@ describe('catchPlaces', () => {
         waterId: 'w1',
         waterName: 'Jezioro Łańskie',
         permitName: null,
+        endedOn: null,
       },
       {
         key: 'p1:w2',
@@ -40,6 +41,7 @@ describe('catchPlaces', () => {
         waterId: 'w2',
         waterName: 'Zalew Zegrzyński',
         permitName: null,
+        endedOn: null,
       },
     ]);
   });
@@ -58,6 +60,14 @@ describe('catchPlaces', () => {
       ['p1:w1', 'Miesięczne'],
       ['p2:w1', 'Dzienne'],
     ]);
+  });
+
+  it('gives the last day of a permit that has ended', () => {
+    const places = catchPlaces([
+      { ...permit('p1', 'Dzienne', [['w1', 'Narew']]), status: 'EXPIRED', validTo: '2026-10-05' },
+    ]);
+
+    expect(places.map(({ endedOn }) => endedOn)).toEqual(['2026-10-05']);
   });
 });
 

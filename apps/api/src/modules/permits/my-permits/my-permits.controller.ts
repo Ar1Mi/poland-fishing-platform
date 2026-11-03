@@ -12,7 +12,7 @@ import {
 } from '@nestjs/swagger';
 import { ErrorResponseDto } from '../../../common/errors/error-response.dto';
 import { type AuthUser, CurrentUser } from '../../auth/decorators/auth.decorators';
-import { MyPermitDto } from '../dto/permit.dto';
+import { MyPermitDto, OfflineBundleDto } from '../dto/permit.dto';
 import { MyPermitsService } from './my-permits.service';
 
 const error = { type: ErrorResponseDto };
@@ -46,6 +46,23 @@ export class MyPermitsController {
   @ApiNotFoundResponse({ ...error, description: 'NOT_FOUND (also a permit of someone else)' })
   get(@CurrentUser() user: AuthUser, @Param('id', ParseUUIDPipe) id: string): Promise<MyPermitDto> {
     return this.myPermits.get(user.id, id);
+  }
+
+  @Get(':id/offline-bundle')
+  @Header(...NO_STORE)
+  @ApiOperation({
+    summary:
+      'My permit with the effective rules of its waters: what the PWA stores to record ' +
+      'catches offline (ADR-0009)',
+  })
+  @ApiOkResponse({ type: OfflineBundleDto })
+  @ApiBadRequestResponse({ ...error, description: 'VALIDATION_FAILED (id is not a UUID)' })
+  @ApiNotFoundResponse({ ...error, description: 'NOT_FOUND (also a permit of someone else)' })
+  offlineBundle(
+    @CurrentUser() user: AuthUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<OfflineBundleDto> {
+    return this.myPermits.offlineBundle(user.id, id);
   }
 
   @Get(':id/pdf')

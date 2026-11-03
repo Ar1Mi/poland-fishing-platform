@@ -151,5 +151,9 @@
     "fullscreenTitle": "Pokaż kod kontrolerowi",
     "brightness": "Zwiększ jasność ekranu, aby kod łatwiej się skanował.",
     "close": "Zamknij"
+  },
+  "device": {
+    "notice": "Brak sieci — zezwolenia zapisane na tym urządzeniu, w stanie z ostatniego połączenia.",
+    "missing": "Tego zezwolenia nie ma na urządzeniu. Otwórz je po połączeniu z siecią."
   }
 }

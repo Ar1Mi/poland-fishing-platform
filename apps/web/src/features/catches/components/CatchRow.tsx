@@ -109,7 +109,7 @@ export function CatchRow({
                 <Button
                   variant="destructive"
                   disabled={remove.isPending}
-                  onClick={() => remove.mutate(fish.id, { onSuccess: onDeleted })}
+                  onClick={() => remove.mutate(fish, { onSuccess: onDeleted })}
                 >
                   {t('catches.register.deleteConfirmYes')}
                 </Button>
@@ -196,6 +196,7 @@ function editPlaces(fish: Catch, permits: MyPermit[]): CatchPlace[] {
           waterId: fish.water.id,
           waterName: fish.water.name,
           permitName: null,
+          endedOn: null,
         },
       ];
 }

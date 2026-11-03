@@ -1,9 +1,15 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { api, request } from '../../../shared/api/client';
+import { useSessionStatus } from '../../auth/api/useAuth';
 
-/** All permits of the logged-in angler, latest start first (scenario A, FR-09). */
+/**
+ * All permits of the logged-in angler, latest start first (scenario A, FR-09). An offline
+ * session has no token to ask with: the pages show the permits on the device instead.
+ */
 export function useMyPermits() {
+  const offline = useSessionStatus() === 'offline';
   return useQuery({
+    enabled: !offline,
     queryKey: ['me', 'permits'],
     queryFn: ({ signal }) => request(() => api.GET('/api/v1/me/permits', { signal })),
   });
@@ -11,7 +17,9 @@ export function useMyPermits() {
 
 /** One permit with its QR token; shares the cache key of the payment return page. */
 export function useMyPermit(id: string) {
+  const offline = useSessionStatus() === 'offline';
   return useQuery({
+    enabled: !offline,
     queryKey: ['me', 'permits', id],
     queryFn: ({ signal }) =>
       request(() => api.GET('/api/v1/me/permits/{id}', { params: { path: { id } }, signal })),

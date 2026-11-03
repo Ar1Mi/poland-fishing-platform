@@ -1,5 +1,5 @@
 import { warsawDate } from '@lowisko/shared';
-import { CircleCheck, LoaderCircle, Plus } from 'lucide-react';
+import { CircleCheck, LoaderCircle, Plus, WifiOff } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router';
@@ -9,17 +9,21 @@ import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Badge } from '../../../shared/ui/badge';
 import { Button } from '../../../shared/ui/button';
 import { SelectField } from '../../../shared/ui/select';
+import { useOnline } from '../../../shared/offline/use-online';
+import { useCurrentUserId, useSessionStatus, useVerifiedUserId } from '../../auth/api/useAuth';
 import { useMyPermits } from '../../permits/api/useMyPermits';
 import { useSpecies } from '../../rules/api/useRules';
 import { type Catch, useMyCatches } from '../api/useCatches';
 import { CatchRow } from '../components/CatchRow';
+import { DeviceQueue } from '../components/DeviceQueue';
 
 /** How many seasons back the register can be browsed. */
 const SEASONS_SHOWN = 5;
 
 /**
- * `/me/catches` (FR-11, FR-12): the register of a season by day, latest first, with the reasons
- * of rejected catches. The season is in the address (`?season=2025`), the current one without it.
+ * `/me/catches` (FR-11, FR-12, FR-13): the register of a season by day, latest first, with the
+ * reasons of rejected catches; above it the catches still on the device. The season is in the
+ * address (`?season=2025`), the current one without it.
  */
 export function MyCatchesPage() {
   const { t } = useTranslation();
@@ -30,7 +34,16 @@ export function MyCatchesPage() {
     Number.isInteger(asked) && asked > currentSeason - SEASONS_SHOWN && asked < currentSeason
       ? asked
       : currentSeason;
-  const catches = useMyCatches(season === currentSeason ? undefined : season);
+  const userId = useCurrentUserId();
+  const online = useOnline();
+  // Without the server only the catches on the device are shown (ADR-0009).
+  const connected = useSessionStatus() === 'authenticated' && online;
+  // The device's catches are sent only for the user the token belongs to.
+  const verifiedId = useVerifiedUserId();
+  const canSend = connected && verifiedId === userId;
+  const catches = useMyCatches(season === currentSeason ? undefined : season, {
+    enabled: connected,
+  });
   const species = useSpecies();
   const permits = useMyPermits();
   const [notice, setNotice] = useState<string | null>(null);
@@ -77,17 +90,27 @@ export function MyCatchesPage() {
           <AlertDescription className="text-body">{notice}</AlertDescription>
         </Alert>
       )}
-      {(catches.isPending || species.isPending || permits.isPending) && (
+      {userId && <DeviceQueue userId={userId} connected={canSend} />}
+      {!connected && (
+        <Alert variant="warning">
+          <WifiOff aria-hidden />
+          <AlertDescription className="text-body">{t('catches.register.offline')}</AlertDescription>
+        </Alert>
+      )}
+      {connected && (catches.isPending || species.isPending || permits.isPending) && (
         <Badge variant="neutral" role="status">
           <LoaderCircle aria-hidden className="animate-spin" />
           {t('catches.register.loading')}
         </Badge>
       )}
-      {(catches.isError || species.isError || permits.isError) && (
+      {connected && (catches.isError || species.isError || permits.isError) && (
         <ApiErrorAlert error={catches.error ?? species.error ?? permits.error} />
       )}
-      {catches.data?.length === 0 && <p className="text-body">{t('catches.register.empty')}</p>}
-      {species.data &&
+      {connected && catches.data?.length === 0 && (
+        <p className="text-body">{t('catches.register.empty')}</p>
+      )}
+      {connected &&
+        species.data &&
         permits.data &&
         days.map(({ day, catches: ofDay }) => (
           <section key={day} aria-labelledby={`day-${day}`} className="flex flex-col gap-3">

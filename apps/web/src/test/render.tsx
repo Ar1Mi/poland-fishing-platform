@@ -8,12 +8,16 @@ import { recordUnexpectedRequest } from './unexpected-requests';
 
 /**
  * Renders the real route tree at `path`, with a fresh query cache and no retries.
- * The session is settled: a guest, or logged in with `accessToken`.
+ * The session is settled: a guest, logged in with `accessToken`, or as the test left it
+ * (`keepSession`, e.g. offline after `restoreSession()`).
  */
-export function renderRoute(path: string, { accessToken }: { accessToken?: string } = {}) {
+export function renderRoute(
+  path: string,
+  { accessToken, keepSession = false }: { accessToken?: string; keepSession?: boolean } = {},
+) {
   if (accessToken) {
     startSession(accessToken);
-  } else {
+  } else if (!keepSession) {
     endSession();
   }
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

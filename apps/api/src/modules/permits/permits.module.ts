@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuditModule } from '../audit/audit.module';
 import { OrganizationsModule } from '../organizations/organizations.module';
+import { RulesModule } from '../rules/rules.module';
 import { UsersModule } from '../users/users.module';
 import { WatersModule } from '../waters/waters.module';
 import { CatchPermitsService } from './catch-permits/catch-permits.service';
@@ -28,10 +29,11 @@ import { QrTokenService } from './qr/qr-token.service';
  * Permit types (T-12), the purchase and its payment (T-13, ADR-0012): the provider chosen by
  * `PAYMENTS_PROVIDER` (ADR-0004; Przelewy24 since T-14), notifications and the timeout.
  * The angler's permits with their QR token (ADR-0006) and PDF (T-15); the permits of catches
- * for the register (T-18) and of QR checks and protocols (T-19).
+ * for the register (T-18) and of QR checks and protocols (T-19); the offline bundle of a permit
+ * with the effective rules of its waters (T-21).
  */
 @Module({
-  imports: [OrganizationsModule, WatersModule, AuditModule, UsersModule],
+  imports: [OrganizationsModule, WatersModule, AuditModule, UsersModule, RulesModule],
   controllers: [
     OrgPermitTypesController,
     PermitTypesController,
