@@ -4,7 +4,8 @@ import { VitePWA } from 'vite-plugin-pwa';
 import { configDefaults, defineConfig } from 'vitest/config';
 
 /** Public API answers the catalogue shows; the rest of the API is personal and never cached. */
-const CATALOG_API = /^\/api\/v1\/(waters|species)(\/|$)/;
+const WATERS_API = /^\/api\/v1\/waters(\/|$)/;
+const SPECIES_API = /^\/api\/v1\/species(\/|$)/;
 
 export default defineConfig({
   plugins: [
@@ -51,11 +52,22 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
-            urlPattern: ({ url, sameOrigin }) => sameOrigin && CATALOG_API.test(url.pathname),
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && WATERS_API.test(url.pathname),
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'catalog-api',
               expiration: { maxEntries: 200 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          {
+            // The device's copy of species (`isProtected`, new species) must be the current
+            // one: the network first, the cache only without it.
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && SPECIES_API.test(url.pathname),
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'species-api',
+              networkTimeoutSeconds: 5,
               cacheableResponse: { statuses: [200] },
             },
           },

@@ -1,11 +1,13 @@
 import { type BrowserContext, expect, type Page, test } from '@playwright/test';
-import { logIn, notAcrossMidnight } from './helpers';
+import { logIn, notAcrossMidnight, withPage } from './helpers';
 
 // Scenario Б of docs/09-scenarios.md: catches recorded without network (ADR-0009). Jan has a
 // yearly permit of «Sielawa» on both its waters; the organization keeps carp from 35 cm, at most
 // 2 a day on all its waters together (apps/api/prisma/demo-data.ts). He has no catch today.
 
 const ANGLER = 'jan.kowalski@lowisko.test';
+// Inspector of «Sielawa», which issued Jan's permit.
+const INSPECTOR = 'straznik@lowisko.test';
 const LAKE = 'Jezioro Srebrne';
 const OXBOW = 'Starorzecze Narwi';
 
@@ -114,6 +116,32 @@ test('Б: two phones record catches offline; the server rejects the one over the
       ).toBeVisible();
       // Nothing waits on the phone any more.
       await expect(phoneA.getByRole('region', { name: 'Na tym urządzeniu' })).toHaveCount(0);
+    });
+
+    await test.step('В: the inspector sees the rejected catch with its reason', async () => {
+      // The QR token of Jan's yearly permit, as its page gets it.
+      const fetched = phoneA.waitForResponse(
+        async (response) =>
+          /^\/api\/v1\/me\/permits\/[0-9a-f-]{36}$/.test(new URL(response.url()).pathname) &&
+          response.ok() &&
+          ((await response.json()) as { qrToken: string | null }).qrToken !== null,
+      );
+      await phoneA.getByRole('link', { name: 'Zezwolenia' }).click();
+      await phoneA
+        .getByRole('link', { name: /Roczne/ })
+        .first()
+        .click();
+      const { qrToken } = (await (await fetched).json()) as { qrToken: string };
+
+      await withPage(browser, async (inspector) => {
+        await inspector.goto(`/verify/${qrToken}`);
+        await inspector.getByRole('link', { name: 'Zaloguj się jako strażnik' }).click();
+        await logIn(inspector, INSPECTOR);
+
+        const caughtToday = inspector.getByRole('region', { name: 'Połowy dzisiaj' });
+        await expect(caughtToday.getByText('Dzienny limit sztuk')).toBeVisible();
+        await expect(caughtToday.getByText('Odrzucony')).toHaveCount(1);
+      });
     });
   } finally {
     await Promise.all(contexts.map((context) => context.close()));

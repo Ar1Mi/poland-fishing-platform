@@ -156,6 +156,8 @@
     "waitingOffline_other": "{{count}} połowu czeka na wysłanie — wyślemy je po powrocie sieci.",
     "sync": "Synchronizuj",
     "failedReason": "Serwer odrzucił połów: {{reason}}",
-    "deleteConfirm": "Usunąć ten połów z urządzenia? Nie trafi do rejestru."
+    "deleteConfirm": "Usunąć ten połów z urządzenia? Nie trafi do rejestru.",
+    "sentNoAnswer": "Połów został wysłany, ale odpowiedź nie dotarła — mógł już trafić do rejestru. Po synchronizacji usuniesz go w rejestrze.",
+    "fish": "Połów"
   }
 }

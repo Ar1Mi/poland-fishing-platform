@@ -212,7 +212,7 @@ export function CatchForm({
       </fieldset>
       {check && (
         // Polite: it changes as the angler types.
-        <div aria-live="polite" className="flex flex-col gap-2">
+        <div id={`${formId}-check`} aria-live="polite" className="flex flex-col gap-2">
           {violations.length > 0 && <RuleAlerts violations={violations} />}
           {checked && violations.length === 0 && (
             <Alert variant="success">
@@ -234,7 +234,13 @@ export function CatchForm({
             {t('catches.form.retry')}
           </Button>
         ) : (
-          <Button type="submit" variant="accent" disabled={pending || violations.length > 0}>
+          <Button
+            type="submit"
+            variant="accent"
+            disabled={pending || violations.length > 0}
+            // Why it cannot be saved: the violations above.
+            aria-describedby={violations.length > 0 ? `${formId}-check` : undefined}
+          >
             {pending && <LoaderCircle aria-hidden className="animate-spin" />}
             {submitLabel}
           </Button>

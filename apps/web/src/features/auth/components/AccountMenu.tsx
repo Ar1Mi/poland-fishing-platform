@@ -6,7 +6,8 @@ import { cn } from '../../../shared/lib/cn';
 import { deviceDb } from '../../../shared/offline/db';
 import { Badge } from '../../../shared/ui/badge';
 import { Button } from '../../../shared/ui/button';
-import { useLogout, useMe, useSessionStatus } from '../api/useAuth';
+import { useOnline } from '../../../shared/offline/use-online';
+import { useCurrentUserId, useLogout, useMe, useSessionStatus } from '../api/useAuth';
 
 const iconLink =
   'flex size-11 items-center justify-center rounded-md hover:bg-primary focus-visible:outline-primary-foreground [&_svg]:size-5';
@@ -21,6 +22,10 @@ export function AccountMenu() {
   const status = useSessionStatus();
   const me = useMe();
   const logout = useLogout();
+  const userId = useCurrentUserId();
+  // The server must forget the refresh cookie: without network logging out would only wipe the
+  // device, and the next start would log in again (ADR-0013).
+  const online = useOnline();
 
   if (status === 'restoring') {
     return null;
@@ -78,17 +83,24 @@ export function AccountMenu() {
           <ShieldCheck aria-hidden />
         </Link>
       )}
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-11 text-primary-foreground hover:bg-primary focus-visible:outline-primary-foreground"
-        disabled={logout.isPending}
-        onClick={() => void confirmLogout(me.data?.id).then((go) => go && logout.mutate())}
-        aria-label={t('auth.account.logout')}
-        title={t('auth.account.logout')}
-      >
-        <LogOut aria-hidden />
-      </Button>
+      {online ? (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-11 text-primary-foreground hover:bg-primary focus-visible:outline-primary-foreground"
+          disabled={logout.isPending}
+          onClick={() => void confirmLogout(userId).then((go) => go && logout.mutate(userId))}
+          aria-label={t('auth.account.logout')}
+          title={t('auth.account.logout')}
+        >
+          <LogOut aria-hidden />
+        </Button>
+      ) : (
+        <Badge variant="warning">
+          <WifiOff aria-hidden />
+          {t('auth.account.offline')}
+        </Badge>
+      )}
     </div>
   );
 }

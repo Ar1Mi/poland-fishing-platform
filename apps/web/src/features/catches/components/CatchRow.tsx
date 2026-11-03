@@ -109,7 +109,7 @@ export function CatchRow({
                 <Button
                   variant="destructive"
                   disabled={remove.isPending}
-                  onClick={() => remove.mutate(fish.id, { onSuccess: onDeleted })}
+                  onClick={() => remove.mutate(fish, { onSuccess: onDeleted })}
                 >
                   {t('catches.register.deleteConfirmYes')}
                 </Button>

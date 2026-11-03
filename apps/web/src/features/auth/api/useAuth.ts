@@ -38,6 +38,16 @@ export function useCurrentUserId(): string | undefined {
   return status === 'authenticated' ? (me.data?.id ?? getCarriedUserId() ?? undefined) : undefined;
 }
 
+/**
+ * The user the access token belongs to, once their profile has loaded: the only one whose
+ * catches may be sent. A remembered user (`getCarriedUserId`) is good for showing, not sending.
+ */
+export function useVerifiedUserId(): string | undefined {
+  const status = useSessionStatus();
+  const me = useMe();
+  return status === 'authenticated' ? me.data?.id : undefined;
+}
+
 /** Profile of the logged-in user; idle for guests. */
 export function useMe() {
   const status = useSessionStatus();
@@ -59,14 +69,15 @@ export function useLogin() {
   });
 }
 
+/** Logs out the user `userId` (`useCurrentUserId`), whose data the device then forgets. */
 export function useLogout() {
   const queryClient = useQueryClient();
-  return useMutation({
+  // The user is the mutation's variable: only `onSettled` needs it.
+  return useMutation<unknown, Error, string | undefined>({
     mutationFn: () => request(() => api.POST('/api/v1/auth/logout')),
     // Even if the API is unreachable, this tab forgets the session and every cached answer
     // that belonged to the user, and the device forgets the user's permits and unsent catches.
-    onSettled: async () => {
-      const userId = queryClient.getQueryData<{ id: string }>(meQueryKey)?.id;
+    onSettled: async (_data, _error, userId) => {
       endSession();
       queryClient.clear();
       if (userId) {

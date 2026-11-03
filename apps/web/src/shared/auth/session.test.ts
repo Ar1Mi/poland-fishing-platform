@@ -125,6 +125,27 @@ describe('session', () => {
       expect(getSessionStatus()).toBe('guest');
     });
 
+    it('stops acting offline once the refresh cookie has been refused', async () => {
+      await deviceDb.meta.put({
+        key: 'owner',
+        userId: USER,
+        refreshedAt: new Date().toISOString(),
+      });
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(jsonResponse({ code: 'UNAUTHENTICATED', message: 'x' }, 401)),
+      );
+      await restoreSession();
+      // The next start, without network.
+      resetSessionForTests();
+      vi.stubGlobal('fetch', unreachable());
+
+      await restoreSession();
+
+      expect(getSessionStatus()).toBe('guest');
+      expect(await deviceDb.meta.get('owner')).toBeUndefined();
+    });
+
     it('does not carry the offline user into a login', async () => {
       await deviceDb.meta.put({
         key: 'owner',

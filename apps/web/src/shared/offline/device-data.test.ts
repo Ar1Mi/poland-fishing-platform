@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { jsonResponse, mockApi } from '../../test/render';
-import { startSession } from '../auth/session';
+import { endSession, startSession } from '../auth/session';
 import { enqueueCatch } from './catch-queue';
 import { type DevicePermit, deviceDb } from './db';
 import { getDeviceRefresh, refreshAndSync, refreshDeviceData } from './device-data';
@@ -92,7 +92,7 @@ describe('device data', () => {
   it('keeps the permits valid now or later and the one that ended yesterday, with their rules', async () => {
     mockApi(api());
 
-    expect(await refreshDeviceData(new Date())).toBe(USER);
+    await refreshDeviceData(USER, new Date());
 
     const ids = (await deviceDb.permits.toArray()).map(({ id }) => id).sort();
     expect(ids).toEqual([active.id, scheduled.id, endedYesterday.id].sort());
@@ -131,7 +131,7 @@ describe('device data', () => {
     );
     mockApi(api());
 
-    await refreshDeviceData(new Date());
+    await refreshDeviceData(USER, new Date());
 
     expect(await deviceDb.permits.get(permit(9, {}).id)).toBeUndefined();
     expect(await deviceDb.catchQueue.count()).toBe(1);
@@ -145,7 +145,9 @@ describe('device data', () => {
         jsonResponse({ code: 'INTERNAL_ERROR', message: 'Internal error' }, 500),
     });
 
-    await expect(refreshDeviceData(new Date())).rejects.toMatchObject({ code: 'INTERNAL_ERROR' });
+    await expect(refreshDeviceData(USER, new Date())).rejects.toMatchObject({
+      code: 'INTERNAL_ERROR',
+    });
 
     expect(await deviceDb.permits.toArray()).toEqual([active]);
     expect(await deviceDb.meta.get('owner')).toBeUndefined();
@@ -204,5 +206,91 @@ describe('device data', () => {
 
     expect(getDeviceRefresh()).toEqual({ status: 'done' });
     expect(await deviceDb.catchQueue.get(clientId)).toMatchObject({ status: 'ACCEPTED' });
+  });
+
+  it('drops what was fetched for a session that ended meanwhile', async () => {
+    mockApi({
+      ...api(),
+      // The angler logs out while the permits are on their way.
+      'GET /api/v1/species': () => {
+        endSession();
+        return jsonResponse([PIKE]);
+      },
+    });
+
+    await refreshDeviceData(USER, new Date());
+
+    expect(await deviceDb.permits.count()).toBe(0);
+    expect(await deviceDb.meta.get('owner')).toBeUndefined();
+  });
+
+  it('sends the waiting catches even when the permits cannot be refreshed', async () => {
+    const clientId = '8b000000-0000-4000-8000-000000000002';
+    await enqueueCatch(
+      USER,
+      {
+        clientId,
+        permitId: active.id,
+        externalPermitId: null,
+        fishingWaterId: LAKE.id,
+        speciesId: PIKE.id,
+        caughtAt: '2026-10-06T08:00:00.000Z',
+        lengthCm: 60,
+        weightG: null,
+        kept: true,
+        lat: null,
+        lng: null,
+      },
+      new Date(),
+    );
+    mockApi({
+      ...api(),
+      'GET /api/v1/species': () =>
+        jsonResponse({ code: 'INTERNAL_ERROR', message: 'Internal error' }, 500),
+      'POST /api/v1/catches/sync': () =>
+        jsonResponse({
+          results: [
+            {
+              clientId,
+              id: '9a000000-0000-4000-8000-000000000002',
+              status: 'ACCEPTED',
+              violations: [],
+            },
+          ],
+        }),
+    });
+
+    await refreshAndSync();
+
+    expect(getDeviceRefresh()).toMatchObject({ status: 'failed' });
+    expect(await deviceDb.catchQueue.get(clientId)).toMatchObject({ status: 'ACCEPTED' });
+  });
+
+  it('runs another cycle for a call made during one: a permit paid meanwhile is fetched', async () => {
+    let answerFirst = () => undefined as void;
+    const firstAnswered = new Promise<void>((resolve) => {
+      answerFirst = resolve;
+    });
+    let lists = 0;
+    const fetch = mockApi({
+      ...api(),
+      'GET /api/v1/me/permits': async () => {
+        if (++lists === 1) {
+          await firstAnswered;
+          return jsonResponse([]);
+        }
+        return jsonResponse([active]);
+      },
+    });
+
+    const first = refreshAndSync();
+    await vi.waitFor(() => expect(lists).toBe(1));
+    const second = refreshAndSync();
+    answerFirst();
+    await Promise.all([first, second]);
+
+    expect(lists).toBe(2);
+    expect((await deviceDb.permits.toArray()).map(({ id }) => id)).toEqual([active.id]);
+    expect(fetch).toHaveBeenCalled();
   });
 });

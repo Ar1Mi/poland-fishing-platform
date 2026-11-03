@@ -289,6 +289,24 @@ describe('new catch page', () => {
     expect(screen.getByRole('button', { name: 'Zapisz połów' })).toBeDisabled();
   });
 
+  it('does not count a catch deleted in the register towards the daily limit', async () => {
+    await onDevice({ waterRules: pikeOnRiver({ dailyLimitCount: 1 }) });
+    // Accepted earlier on this phone, then deleted in the register (a wrong permit).
+    await enqueueCatch(
+      profile.id,
+      { ...queuedPike, caughtAt: '2026-10-06T06:00:00.000Z' },
+      new Date(),
+    );
+    await deviceDb.catchQueue.update(queuedPike.clientId, { status: 'ACCEPTED' });
+    mockApi(forForm);
+    renderRoute('/catch/new', { accessToken: 'access-1' });
+
+    await fillCatch({});
+
+    expect(await screen.findByText('Zgodne z zasadami łowiska')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Zapisz połów' })).toBeEnabled();
+  });
+
   it('records a catch without network and keeps it on the device', async () => {
     await onDevice();
     withoutNetwork();
@@ -586,6 +604,20 @@ describe('my catches page', () => {
     vi.restoreAllMocks();
   });
 
+  it('does not offer to remove a catch sent without an answer', async () => {
+    await onDevice();
+    await enqueueCatch(profile.id, queuedPike, new Date());
+    await deviceDb.catchQueue.update(queuedPike.clientId, { sentAt: '2026-10-06T15:00:00.000Z' });
+    mockApi(forRegister(() => []));
+    renderRoute('/me/catches', { accessToken: 'access-1' });
+
+    const queue = await screen.findByRole('region', { name: 'Na tym urządzeniu' });
+    expect(
+      within(queue).getByText(/^Połów został wysłany, ale odpowiedź nie dotarła/),
+    ).toBeVisible();
+    expect(within(queue).queryByRole('button', { name: /^Usuń połów/ })).not.toBeInTheDocument();
+  });
+
   it('shows the catches waiting on the device and sends them on request', async () => {
     await onDevice();
     await enqueueCatch(profile.id, queuedPike, new Date());
@@ -657,6 +689,9 @@ describe('my catches page', () => {
         'Bez sieci widać tylko połowy zapisane na tym urządzeniu. Pełny rejestr zobaczysz po połączeniu.',
       ),
     ).toBeVisible();
+    // Logging out needs the server to forget the refresh cookie (ADR-0013).
+    expect(screen.queryByRole('button', { name: 'Wyloguj się' })).not.toBeInTheDocument();
+    expect(screen.getByText('Offline')).toBeVisible();
   });
 
   it('lists the catches by day with their status and the reasons of a rejection', async () => {
@@ -737,6 +772,33 @@ describe('my catches page', () => {
     expect(
       screen.getByText('Połów został usunięty z rejestru.').closest('[tabindex]'),
     ).toHaveFocus();
+  });
+
+  it('forgets a deleted catch on the device, so it no longer counts towards a limit', async () => {
+    let list = [rejected];
+    await enqueueCatch(
+      profile.id,
+      { ...queuedPike, clientId: rejected.clientId, speciesId: BREAM.id },
+      new Date(),
+    );
+    await deviceDb.catchQueue.update(rejected.clientId, { status: 'ACCEPTED' });
+    mockApi({
+      ...forRegister(() => list),
+      [`DELETE /api/v1/catches/${rejected.id}`]: () => {
+        list = [];
+        return noContent();
+      },
+    });
+    renderRoute('/me/catches', { accessToken: 'access-1' });
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Usuń połów: Leszcz, 10:00' }));
+    const confirm = screen.getByRole('group', { name: 'Usunąć ten połów z rejestru?' });
+    await userEvent.click(within(confirm).getByRole('button', { name: 'Tak, usuń' }));
+
+    expect(await screen.findByText('Połów został usunięty z rejestru.')).toBeVisible();
+    await waitFor(async () =>
+      expect(await deviceDb.catchQueue.get(rejected.clientId)).toBeUndefined(),
+    );
   });
 
   it('keeps the focus within the row while correcting or deleting', async () => {

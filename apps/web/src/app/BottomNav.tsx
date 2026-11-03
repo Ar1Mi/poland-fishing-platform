@@ -1,7 +1,7 @@
 import { Fish, Map as MapIcon, Ticket } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { NavLink, useLocation } from 'react-router';
+import { Link, useLocation } from 'react-router';
 import { cn } from '../shared/lib/cn';
 
 /**
@@ -42,26 +42,26 @@ function Item({
 }: {
   to: string;
   end?: boolean;
+  /** Also current on another path (`aria-current`, the fill). */
   active?: boolean;
   icon: ReactNode;
   children: ReactNode;
 }) {
+  const { pathname } = useLocation();
+  const current = active || (end ? pathname === to : pathname.startsWith(to));
   return (
     <li>
-      <NavLink
+      <Link
         to={to}
-        end={end}
-        aria-current={active ? 'page' : undefined}
-        className={({ isActive }) =>
-          cn(
-            'flex h-13 flex-col items-center justify-center gap-0.5 rounded-md text-label font-semibold text-muted-foreground [&_svg]:size-5.5',
-            (isActive || active) && 'bg-secondary text-primary-dark',
-          )
-        }
+        aria-current={current ? 'page' : undefined}
+        className={cn(
+          'flex h-13 flex-col items-center justify-center gap-0.5 rounded-md text-label font-semibold text-muted-foreground [&_svg]:size-5.5',
+          current && 'bg-secondary text-primary-dark',
+        )}
       >
         {icon}
         {children}
-      </NavLink>
+      </Link>
     </li>
   );
 }

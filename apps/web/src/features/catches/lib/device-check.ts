@@ -31,11 +31,15 @@ export function recordablePermits(permits: DevicePermit[], now: Date): DevicePer
 
 /**
  * Kept catches that count towards the daily limits (docs/02-business-rules.md: of every
- * water): accepted on the server, and those of this device that are accepted or still waiting
- * — a waiting one passed this check, so it is counted as the server will count it.
+ * water). With the server's register at hand it decides about every catch it has — one deleted
+ * or changed there no longer counts as the device first recorded it — and the device adds only
+ * what still waits to be sent. Without it the device counts its own accepted and waiting
+ * catches. A waiting one passed this check, so it is counted as the server will count it.
  */
 export function sameDayKeptOf(server: Catch[] | undefined, queue: QueuedCatch[]): SameDayCatch[] {
   const onServer = new Set(server?.map((fish) => fish.clientId));
+  const counted = (row: QueuedCatch) =>
+    row.status === 'PENDING_SYNC' || (server === undefined && row.status === 'ACCEPTED');
   return [
     ...(server ?? [])
       .filter((fish) => fish.kept && fish.status === 'ACCEPTED')
@@ -46,12 +50,7 @@ export function sameDayKeptOf(server: Catch[] | undefined, queue: QueuedCatch[])
         kept: true,
       })),
     ...queue
-      .filter(
-        (row) =>
-          !onServer.has(row.clientId) &&
-          row.item.kept &&
-          (row.status === 'PENDING_SYNC' || row.status === 'ACCEPTED'),
-      )
+      .filter((row) => !onServer.has(row.clientId) && row.item.kept && counted(row))
       .map(({ item }) => ({
         speciesId: item.speciesId,
         caughtAt: new Date(item.caughtAt),

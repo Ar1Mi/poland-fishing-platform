@@ -42,6 +42,8 @@ export interface QueuedCatch {
   /** The code of the refusal of a FAILED row. */
   errorCode: string | null;
   createdAt: string;
+  /** When it was last sent: without an answer the server may have stored it. */
+  sentAt: string | null;
 }
 
 export class DeviceDatabase extends Dexie {
@@ -81,6 +83,17 @@ export async function recentDeviceOwner(now: Date): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * After the refresh cookie is refused (401): the device stops acting for its owner offline
+ * (ADR-0013) and drops their permits; unsent catches wait for the owner's next login.
+ */
+export async function forgetDeviceOwner(): Promise<void> {
+  const { meta, permits, rules, species } = deviceDb;
+  await deviceDb.transaction('rw', [meta, permits, rules, species], async () => {
+    await Promise.all([meta.clear(), permits.clear(), rules.clear(), species.clear()]);
+  });
 }
 
 /** After logout: the user's permits, rules and unsent catches leave the device. */

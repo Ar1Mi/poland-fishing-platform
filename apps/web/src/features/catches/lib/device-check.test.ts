@@ -78,6 +78,20 @@ describe('recordablePermits', () => {
     expect(ids).toEqual(['active', 'yesterday']);
   });
 
+  it('offers on 1 January the permit that ended on 31 December', () => {
+    const lastYear = permit({
+      status: 'ACTIVE',
+      validFrom: '2026-12-01',
+      validTo: '2026-12-31',
+    });
+    // 1 January 2027, 00:30 in Warsaw (23:30 UTC on 31 December).
+    const newYear = new Date('2026-12-31T23:30:00.000Z');
+
+    expect(recordablePermits([lastYear], newYear)).toEqual([{ ...lastYear, status: 'EXPIRED' }]);
+    // A day later it is gone.
+    expect(recordablePermits([lastYear], new Date('2027-01-01T23:30:00.000Z'))).toEqual([]);
+  });
+
   it('turns a permit fetched as scheduled active when its first day comes without network', () => {
     const fetchedYesterday = permit({
       status: 'SCHEDULED',
@@ -132,9 +146,10 @@ describe('sameDayKeptOf', () => {
     violations: [],
     errorCode: null,
     createdAt: '2026-10-06T09:00:00.000Z',
+    sentAt: null,
   });
 
-  it('counts kept catches accepted on the server and waiting or accepted on the device', () => {
+  it('counts kept catches accepted on the server and those still waiting on the device', () => {
     const kept = sameDayKeptOf(
       [
         onServer({}),
@@ -143,7 +158,6 @@ describe('sameDayKeptOf', () => {
       ],
       [
         queued('waiting', 'PENDING_SYNC'),
-        queued('accepted-here', 'ACCEPTED'),
         queued('failed', 'FAILED'),
         queued('rejected-here', 'REJECTED'),
         queued('released-here', 'PENDING_SYNC', false),
@@ -153,8 +167,12 @@ describe('sameDayKeptOf', () => {
     expect(kept).toEqual([
       { speciesId: PIKE, caughtAt: at('2026-10-06T08:00:00.000Z'), weightG: 2000, kept: true },
       { speciesId: PIKE, caughtAt: at('2026-10-06T09:00:00.000Z'), weightG: null, kept: true },
-      { speciesId: PIKE, caughtAt: at('2026-10-06T09:00:00.000Z'), weightG: null, kept: true },
     ]);
+  });
+
+  it('does not count a catch deleted in the register that the device still holds as accepted', () => {
+    // Deleted on the server (a wrong permit, recorded again): the register no longer has it.
+    expect(sameDayKeptOf([], [queued('deleted', 'ACCEPTED')])).toEqual([]);
   });
 
   it('counts a catch of this device once when the server has it too', () => {
@@ -163,8 +181,14 @@ describe('sameDayKeptOf', () => {
     expect(kept).toHaveLength(1);
   });
 
-  it('counts the device alone when the server register is not at hand', () => {
-    expect(sameDayKeptOf(undefined, [queued('waiting', 'PENDING_SYNC')])).toHaveLength(1);
+  it('counts the accepted and waiting catches of the device without the server register', () => {
+    expect(
+      sameDayKeptOf(undefined, [
+        queued('waiting', 'PENDING_SYNC'),
+        queued('accepted', 'ACCEPTED'),
+        queued('failed', 'FAILED'),
+      ]),
+    ).toHaveLength(2);
   });
 });
 

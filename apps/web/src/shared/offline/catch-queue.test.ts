@@ -4,6 +4,8 @@ import { startSession } from '../auth/session';
 import {
   SYNC_BATCH_SIZE,
   enqueueCatch,
+  forgetQueued,
+  reflectStored,
   removeQueued,
   subscribeSynced,
   syncCatchQueue,
@@ -206,5 +208,104 @@ describe('catch queue', () => {
     await removeQueued(item(2).clientId);
 
     expect(await statuses()).toEqual({ '02': 'ACCEPTED' });
+  });
+
+  it('sends a catch saved during a run with the run of a later call', async () => {
+    await enqueueCatch(USER, item(1), new Date());
+    let answerFirst = () => undefined as void;
+    const firstAnswered = new Promise<void>((resolve) => {
+      answerFirst = resolve;
+    });
+    let calls = 0;
+    const fetch = mockApi({
+      'POST /api/v1/catches/sync': async (request) => {
+        if (++calls === 1) {
+          await firstAnswered;
+        }
+        return acceptAll(request);
+      },
+    });
+
+    const first = syncCatchQueue(USER);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    // Saved while the first batch is on its way (a slow network).
+    await enqueueCatch(USER, item(2), new Date());
+    const second = syncCatchQueue(USER);
+    answerFirst();
+    await Promise.all([first, second]);
+
+    expect(await statuses()).toEqual({ '01': 'ACCEPTED', '02': 'ACCEPTED' });
+    const bodies = (await sentBodies(fetch, 'POST /api/v1/catches/sync')) as {
+      items: QueuedItem[];
+    }[];
+    expect(bodies.map(({ items }) => items.map(({ clientId }) => clientId.slice(-2)))).toEqual([
+      ['01'],
+      ['02'],
+    ]);
+  });
+
+  it('tries again later what was refused before reaching the API', async () => {
+    await enqueueCatch(USER, item(1), new Date());
+    // A proxy or firewall answers 403 with its own page: the API never saw the catch.
+    mockApi({
+      'POST /api/v1/catches/sync': () => new Response('<html>Forbidden</html>', { status: 403 }),
+    });
+
+    const outcome = await syncCatchQueue(USER);
+
+    expect(outcome.settled).toBe(0);
+    expect(await statuses()).toEqual({ '01': 'PENDING_SYNC' });
+  });
+
+  it('keeps a catch sent without an answer: the server may have stored it', async () => {
+    await enqueueCatch(USER, item(1), new Date());
+    await enqueueCatch(USER, item(2), new Date());
+    mockApi({
+      'POST /api/v1/catches/sync': () => {
+        throw new TypeError('Failed to fetch');
+      },
+    });
+
+    await syncCatchQueue(USER);
+    await removeQueued(item(1).clientId);
+
+    expect(await deviceDb.catchQueue.get(item(1).clientId)).toMatchObject({
+      status: 'PENDING_SYNC',
+      sentAt: '2026-10-06T15:20:00.000Z',
+    });
+  });
+
+  it('follows the register: a deleted catch leaves the device, a changed one is counted as stored', async () => {
+    await enqueueCatch(USER, item(1), new Date());
+    await enqueueCatch(USER, item(2), new Date());
+    await deviceDb.catchQueue.bulkUpdate([
+      { key: item(1).clientId, changes: { status: 'ACCEPTED' } },
+      { key: item(2).clientId, changes: { status: 'ACCEPTED' } },
+    ]);
+
+    await forgetQueued(item(1).clientId);
+    await reflectStored({
+      id: '9a000000-0000-4000-8000-000000000002',
+      clientId: item(2).clientId,
+      permitId: item(2).permitId ?? null,
+      externalPermitId: null,
+      water: { id: item(2).fishingWaterId, name: 'Narew' },
+      speciesId: item(2).speciesId,
+      caughtAt: item(2).caughtAt,
+      lengthCm: 52,
+      weightG: null,
+      kept: false,
+      lat: null,
+      lng: null,
+      status: 'ACCEPTED',
+      violations: [],
+      editableUntil: '2026-10-07T22:00:00.000Z',
+      createdAt: '2026-10-06T08:02:00.000Z',
+    });
+
+    expect(await deviceDb.catchQueue.get(item(1).clientId)).toBeUndefined();
+    expect(await deviceDb.catchQueue.get(item(2).clientId)).toMatchObject({
+      item: { kept: false, lengthCm: 52 },
+    });
   });
 });

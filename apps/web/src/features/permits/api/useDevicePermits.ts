@@ -22,6 +22,12 @@ export function useDevicePermits(): { offline: boolean; permits: DevicePermit[] 
     offline,
     permits: device.permits
       .map((permit) => withStatusAt(permit, now))
+      // As the server gives it: a QR only while the permit is scheduled or active (ADR-0006).
+      .map((permit) =>
+        permit.status === 'SCHEDULED' || permit.status === 'ACTIVE'
+          ? permit
+          : { ...permit, qrToken: null },
+      )
       .sort(
         (a, b) => b.validFrom.localeCompare(a.validFrom) || b.createdAt.localeCompare(a.createdAt),
       ),

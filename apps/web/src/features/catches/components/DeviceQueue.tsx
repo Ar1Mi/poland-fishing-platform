@@ -3,7 +3,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiError, type ApiErrorCode, errorMessageKey } from '../../../shared/api/errors';
 import { formatDateTime } from '../../../shared/lib/format';
-import { removeQueued, syncCatchQueue } from '../../../shared/offline/catch-queue';
+import { isRemovable, removeQueued, syncCatchQueue } from '../../../shared/offline/catch-queue';
 import type { QueuedCatch } from '../../../shared/offline/db';
 import { useDeviceData, useQueuedCatches } from '../../../shared/offline/use-device';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
@@ -69,7 +69,8 @@ export function DeviceQueue({ userId, connected }: { userId: string; connected: 
               row={row}
               speciesLabel={(id) => {
                 const kind = device?.species.find((item) => item.id === id);
-                return kind ? speciesName(kind, i18n.resolvedLanguage) : '';
+                // The device may hold no species of this user (a refresh that failed).
+                return kind ? speciesName(kind, i18n.resolvedLanguage) : t('catches.queue.fish');
               }}
               waterName={(id) =>
                 device?.permits.flatMap((permit) => permit.waters).find((water) => water.id === id)
@@ -152,7 +153,10 @@ function QueuedRow({
           </p>
         </>
       )}
-      {confirming ? (
+      {!isRemovable(row) ? (
+        // Sent without an answer: the server may have it, so it is deleted in the register.
+        <p className="text-small text-muted-foreground">{t('catches.queue.sentNoAnswer')}</p>
+      ) : confirming ? (
         <div className="flex flex-col gap-2" role="group" aria-labelledby={confirmId}>
           <p id={confirmId} className="text-body font-semibold">
             {t('catches.queue.deleteConfirm')}

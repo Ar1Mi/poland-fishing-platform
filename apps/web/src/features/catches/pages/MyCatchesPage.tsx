@@ -10,7 +10,7 @@ import { Badge } from '../../../shared/ui/badge';
 import { Button } from '../../../shared/ui/button';
 import { SelectField } from '../../../shared/ui/select';
 import { useOnline } from '../../../shared/offline/use-online';
-import { useCurrentUserId, useSessionStatus } from '../../auth/api/useAuth';
+import { useCurrentUserId, useSessionStatus, useVerifiedUserId } from '../../auth/api/useAuth';
 import { useMyPermits } from '../../permits/api/useMyPermits';
 import { useSpecies } from '../../rules/api/useRules';
 import { type Catch, useMyCatches } from '../api/useCatches';
@@ -38,6 +38,9 @@ export function MyCatchesPage() {
   const online = useOnline();
   // Without the server only the catches on the device are shown (ADR-0009).
   const connected = useSessionStatus() === 'authenticated' && online;
+  // The device's catches are sent only for the user the token belongs to.
+  const verifiedId = useVerifiedUserId();
+  const canSend = connected && verifiedId === userId;
   const catches = useMyCatches(season === currentSeason ? undefined : season, {
     enabled: connected,
   });
@@ -87,7 +90,7 @@ export function MyCatchesPage() {
           <AlertDescription className="text-body">{notice}</AlertDescription>
         </Alert>
       )}
-      {userId && <DeviceQueue userId={userId} connected={connected} />}
+      {userId && <DeviceQueue userId={userId} connected={canSend} />}
       {!connected && (
         <Alert variant="warning">
           <WifiOff aria-hidden />

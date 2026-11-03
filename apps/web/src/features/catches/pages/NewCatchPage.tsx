@@ -26,7 +26,7 @@ import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Badge } from '../../../shared/ui/badge';
 import { Button } from '../../../shared/ui/button';
 import { Card, CardContent } from '../../../shared/ui/card';
-import { useCurrentUserId, useSessionStatus } from '../../auth/api/useAuth';
+import { useCurrentUserId, useSessionStatus, useVerifiedUserId } from '../../auth/api/useAuth';
 import { type Catch, type NewCatch, useMyCatches } from '../api/useCatches';
 import { CatchForm, type CatchFormSubmit } from '../components/CatchForm';
 import { RuleAlerts } from '../components/RuleAlerts';
@@ -46,9 +46,12 @@ export function NewCatchPage() {
   const queue = useQueuedCatches(userId);
   const refresh = useDeviceRefresh();
   const online = useOnline();
-  const connected = useSessionStatus() === 'authenticated' && online;
+  const reachable = useSessionStatus() === 'authenticated' && online;
+  // Catches are sent only for the user the token belongs to, once their profile is known.
+  const verifiedId = useVerifiedUserId();
+  const connected = reachable && verifiedId === userId;
   // The server's register also has the catches of the angler's other phones.
-  const server = useMyCatches(undefined, { enabled: connected });
+  const server = useMyCatches(undefined, { enabled: reachable });
   const loading =
     device === undefined ||
     queue === undefined ||
@@ -57,7 +60,7 @@ export function NewCatchPage() {
   return (
     <>
       <h1 className="text-h1">{t('catches.form.title')}</h1>
-      {!connected && (
+      {!reachable && (
         <Alert variant="warning">
           <WifiOff aria-hidden />
           <AlertTitle>{t('catches.offline.title')}</AlertTitle>
@@ -73,7 +76,7 @@ export function NewCatchPage() {
       {!loading && device === null && (
         <NoDeviceData
           error={refresh.status === 'failed' ? refresh.error : null}
-          canFetch={connected}
+          canFetch={reachable}
         />
       )}
       {!loading && device && queue && userId && (
