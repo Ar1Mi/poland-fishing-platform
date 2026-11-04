@@ -269,7 +269,8 @@ export class CatchDto {
   createdAt!: string;
 }
 
-export class MyCatchesQueryDto {
+/** `?season=` of the register and its PDF (T-22). */
+export class SeasonQueryDto {
   @ApiPropertyOptional({
     type: Number,
     example: 2026,
@@ -283,7 +284,9 @@ export class MyCatchesQueryDto {
   @Min(CATCH_SEASONS.FIRST)
   @Max(CATCH_SEASONS.LAST)
   season?: number;
+}
 
+export class MyCatchesQueryDto extends SeasonQueryDto {
   @ApiPropertyOptional({ format: 'uuid', description: 'Only catches on this platform permit' })
   @LowerCase()
   @IfPresent()
