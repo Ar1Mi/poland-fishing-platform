@@ -31,6 +31,7 @@ describe('error codes', () => {
         'CLAIM_NOT_PENDING',
         'PERMIT_TYPE_IN_USE',
         'RULE_ALREADY_EXISTS',
+        'EXTERNAL_PERMIT_IN_USE',
       ],
       422: [
         'PERMIT_START_IN_PAST',
