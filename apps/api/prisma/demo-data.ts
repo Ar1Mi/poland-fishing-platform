@@ -18,7 +18,7 @@ const demoId = (group: number, n: number): string =>
 export const DEMO_EMAIL_DOMAIN = 'lowisko.test';
 
 type OrgKey = 'sielawa' | 'lipowy';
-type WaterKey = 'srebrne' | 'narew' | 'lipowy';
+type WaterKey = 'srebrne' | 'narew' | 'lipowy' | 'wasosze';
 
 export interface DemoOrganization {
   key: OrgKey;
@@ -51,7 +51,10 @@ export const DEMO_ORGANIZATIONS: readonly DemoOrganization[] = [
 
 export interface DemoWater {
   key: WaterKey;
-  organization: OrgKey;
+  /** `null`: not connected (UNCLAIMED) — catches only on an external permit (scenario Г). */
+  organization: OrgKey | null;
+  /** The użytkownik rybacki of an unconnected water. */
+  externalOwnerName?: string;
   name: string;
   type: WaterType;
   lat: number;
@@ -87,6 +90,16 @@ export const DEMO_WATERS: readonly DemoWater[] = [
     lat: 52.1009,
     lng: 20.8108,
     sourceRef: 'DEMO-3',
+  },
+  {
+    key: 'wasosze',
+    organization: null,
+    externalOwnerName: 'Gospodarstwo Rybackie „Wąsosze” (demo)',
+    name: 'Jezioro Wąsosze',
+    type: 'LAKE',
+    lat: 52.6402,
+    lng: 21.3311,
+    sourceRef: 'DEMO-4',
   },
 ];
 

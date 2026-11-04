@@ -43,7 +43,7 @@ interface ErrorBody {
 }
 
 /** Collects a binary body (PDF, photo) instead of parsing it. */
-const binary = (res: NodeJS.ReadableStream, done: (error: Error | null, body: Buffer) => void) => {
+const binary = (res: request.Response, done: (error: Error | null, body: Buffer) => void) => {
   const chunks: Buffer[] = [];
   res.on('data', (chunk: Buffer) => chunks.push(chunk));
   res.on('end', () => done(null, Buffer.concat(chunks)));
