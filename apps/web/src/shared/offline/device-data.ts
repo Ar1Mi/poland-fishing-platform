@@ -1,14 +1,18 @@
 import { type DateOnly, addDays, warsawDate } from '@lowisko/shared';
 import { api, request } from '../api/client';
 import { getSessionGeneration } from '../auth/session';
-import { type DevicePermit, deviceDb } from './db';
+import { deviceDb } from './db';
 import { syncCatchQueue } from './catch-queue';
 
 /**
- * Permits the device keeps: valid now or later, and the one that ended yesterday — a catch
- * of yesterday can still be recorded on it (BR-01 is checked at `caughtAt`, BR-07).
+ * Permits the device keeps, platform and external: valid now or later, and the one that ended
+ * yesterday — a catch of yesterday can still be recorded on it (BR-01 is checked at `caughtAt`,
+ * BR-07).
  */
-export function keptOnDevice(permit: DevicePermit, today: DateOnly): boolean {
+export function keptOnDevice(
+  permit: { status: string; validTo: DateOnly },
+  today: DateOnly,
+): boolean {
   return (
     permit.status === 'ACTIVE' ||
     permit.status === 'SCHEDULED' ||
@@ -17,8 +21,8 @@ export function keptOnDevice(permit: DevicePermit, today: DateOnly): boolean {
 }
 
 /**
- * Replaces what the device holds with `userId`'s permits, their rules and species
- * (docs/06-frontend.md → «Офлайн», step 1). Not screen data, so it calls the API client without
+ * Replaces what the device holds with `userId`'s permits, external permits, their rules and
+ * species (docs/06-frontend.md → «Офлайн», step 1). Not screen data, so it calls the API client without
  * TanStack Query. Another user's permits never stay next to these. Data fetched for a session
  * that has since ended (logout, another login) is dropped, not written: `generation` is the
  * session's when the work started.
@@ -28,29 +32,53 @@ export async function refreshDeviceData(
   now: Date,
   generation = getSessionGeneration(),
 ): Promise<void> {
-  const [permits, species] = await Promise.all([
+  const [permits, externalPermits, species] = await Promise.all([
     request(() => api.GET('/api/v1/me/permits')),
+    request(() => api.GET('/api/v1/me/external-permits')),
     request(() => api.GET('/api/v1/species')),
   ]);
   const today = warsawDate(now);
-  const bundles = await Promise.all(
-    permits
-      .filter((permit) => keptOnDevice(permit, today))
-      .map(({ id }) =>
-        request(() =>
-          api.GET('/api/v1/me/permits/{id}/offline-bundle', { params: { path: { id } } }),
+  const [bundles, externalBundles] = await Promise.all([
+    Promise.all(
+      permits
+        .filter((permit) => keptOnDevice(permit, today))
+        .map(({ id }) =>
+          request(() =>
+            api.GET('/api/v1/me/permits/{id}/offline-bundle', { params: { path: { id } } }),
+          ),
         ),
-      ),
-  );
+    ),
+    Promise.all(
+      externalPermits
+        .filter((permit) => keptOnDevice(permit, today))
+        .map(({ id }) =>
+          request(() =>
+            api.GET('/api/v1/me/external-permits/{id}/offline-bundle', {
+              params: { path: { id } },
+            }),
+          ),
+        ),
+    ),
+  ]);
   const { meta, rules } = deviceDb;
-  await deviceDb.transaction('rw', [meta, deviceDb.permits, rules, deviceDb.species], async () => {
+  const tables = [meta, deviceDb.permits, deviceDb.externalPermits, rules, deviceDb.species];
+  await deviceDb.transaction('rw', tables, async () => {
     if (getSessionGeneration() !== generation) {
       return;
     }
-    await Promise.all([deviceDb.permits.clear(), rules.clear(), deviceDb.species.clear()]);
+    await Promise.all([
+      deviceDb.permits.clear(),
+      deviceDb.externalPermits.clear(),
+      rules.clear(),
+      deviceDb.species.clear(),
+    ]);
     await deviceDb.permits.bulkPut(bundles.map((bundle) => bundle.permit));
+    await deviceDb.externalPermits.bulkPut(externalBundles.map((bundle) => bundle.permit));
     await rules.bulkPut(
-      bundles.map((bundle) => ({ permitId: bundle.permit.id, waterRules: bundle.waterRules })),
+      [...bundles, ...externalBundles].map((bundle) => ({
+        permitId: bundle.permit.id,
+        waterRules: bundle.waterRules,
+      })),
     );
     await deviceDb.species.bulkPut(species);
     await meta.put({ key: 'owner', userId, refreshedAt: now.toISOString() });

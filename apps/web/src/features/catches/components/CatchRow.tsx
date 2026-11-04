@@ -5,11 +5,15 @@ import { useTranslation } from 'react-i18next';
 import { formatDateTime, formatTime } from '../../../shared/lib/format';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Button } from '../../../shared/ui/button';
-import type { MyPermit } from '../../permits/api/usePurchase';
 import type { Species } from '../../rules/api/useRules';
 import { speciesName } from '../../rules/lib/format-rule';
 import { type Catch, useDeleteCatch, useUpdateCatch } from '../api/useCatches';
-import { type CatchPlace, catchPlaces, formatWeightInput } from '../lib/catch-form';
+import {
+  type CatchPlace,
+  type PlacePermit,
+  catchPlaces,
+  formatWeightInput,
+} from '../lib/catch-form';
 import { CatchForm, type CatchFormSubmit } from './CatchForm';
 import { CatchSummary } from './CatchSummary';
 
@@ -26,7 +30,8 @@ export function CatchRow({
 }: {
   fish: Catch;
   species: Species[];
-  permits: MyPermit[];
+  /** The angler's permits, platform and external: the waters a catch may move to. */
+  permits: PlacePermit[];
   onDeleted: () => void;
 }) {
   const { t, i18n } = useTranslation();
@@ -183,8 +188,9 @@ const placeKeyOf = (fish: Catch) =>
   `${fish.permitId ?? fish.externalPermitId ?? ''}:${fish.water.id}`;
 
 /** The waters of the catch's permit — the permit itself does not change (docs/05-api.md). */
-function editPlaces(fish: Catch, permits: MyPermit[]): CatchPlace[] {
-  const permit = permits.find((item) => item.id === fish.permitId);
+function editPlaces(fish: Catch, permits: PlacePermit[]): CatchPlace[] {
+  const permitId = fish.permitId ?? fish.externalPermitId ?? '';
+  const permit = permits.find((item) => item.id === permitId);
   const places = permit ? catchPlaces([permit]) : [];
   return places.some((place) => place.key === placeKeyOf(fish))
     ? places
@@ -192,7 +198,8 @@ function editPlaces(fish: Catch, permits: MyPermit[]): CatchPlace[] {
         ...places,
         {
           key: placeKeyOf(fish),
-          permitId: fish.permitId ?? '',
+          permitId,
+          external: fish.permitId === null,
           waterId: fish.water.id,
           waterName: fish.water.name,
           permitName: null,

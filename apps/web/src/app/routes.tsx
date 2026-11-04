@@ -16,9 +16,12 @@ import { OrgClaimsPage } from '../features/claims/pages/OrgClaimsPage';
 import { PrivacyPolicyPage } from '../features/legal/pages/PrivacyPolicyPage';
 import { MyOrganizationsPage } from '../features/orgs/pages/MyOrganizationsPage';
 import { BuyPermitPage } from '../features/permits/pages/BuyPermitPage';
+import { ExternalPermitPage } from '../features/permits/pages/ExternalPermitPage';
+import { ExternalPermitsPage } from '../features/permits/pages/ExternalPermitsPage';
 import { FakePaymentPage } from '../features/permits/pages/FakePaymentPage';
 import { MyPermitPage } from '../features/permits/pages/MyPermitPage';
 import { MyPermitsPage } from '../features/permits/pages/MyPermitsPage';
+import { NewExternalPermitPage } from '../features/permits/pages/NewExternalPermitPage';
 import { OrgPermitTypesPage } from '../features/permits/pages/OrgPermitTypesPage';
 import { OrgRulesPage } from '../features/rules/pages/OrgRulesPage';
 import { PaymentReturnPage } from '../features/permits/pages/PaymentReturnPage';
@@ -103,6 +106,31 @@ export const routes: RouteObject[] = [
         element: (
           <RequireAuth offline>
             <MyCatchesPage />
+          </RequireAuth>
+        ),
+      },
+      // External permits are typed in online; the catch form uses them from the device.
+      {
+        path: 'me/external-permits',
+        element: (
+          <RequireAuth>
+            <ExternalPermitsPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'me/external-permits/new',
+        element: (
+          <RequireAuth>
+            <NewExternalPermitPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'me/external-permits/:id',
+        element: (
+          <RequireAuth>
+            <ExternalPermitPage />
           </RequireAuth>
         ),
       },

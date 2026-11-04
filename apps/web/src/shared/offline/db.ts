@@ -2,9 +2,11 @@ import Dexie, { type EntityTable } from 'dexie';
 import type { components } from '../api/schema';
 
 // What the angler's device keeps to work without network (ADR-0009, docs/06-frontend.md →
-// «Офлайн»): permits with their QR, the rules of their waters, species, and the queue of catches.
+// «Офлайн»): permits with their QR, external permits (T-22), the rules of their waters, species,
+// and the queue of catches.
 
 export type DevicePermit = components['schemas']['MyPermitDto'];
+export type DeviceExternalPermit = components['schemas']['ExternalPermitDto'];
 export type DeviceSpecies = components['schemas']['SpeciesDto'];
 export type WaterRules = components['schemas']['OfflineWaterRulesDto'];
 export type QueuedItem = components['schemas']['SyncCatchItemDto'];
@@ -18,7 +20,10 @@ export interface DeviceOwner {
   refreshedAt: string;
 }
 
-/** The effective rules of the waters of one permit (`GET /me/permits/:id/offline-bundle`). */
+/**
+ * The effective rules of the waters of one permit (`GET /me/permits/:id/offline-bundle`), or the
+ * general rules on the waters of an external one (`GET /me/external-permits/:id/offline-bundle`).
+ */
 export interface DeviceRules {
   permitId: string;
   waterRules: WaterRules[];
@@ -49,6 +54,7 @@ export interface QueuedCatch {
 export class DeviceDatabase extends Dexie {
   meta!: EntityTable<DeviceOwner, 'key'>;
   permits!: EntityTable<DevicePermit, 'id'>;
+  externalPermits!: EntityTable<DeviceExternalPermit, 'id'>;
   rules!: EntityTable<DeviceRules, 'permitId'>;
   species!: EntityTable<DeviceSpecies, 'id'>;
   catchQueue!: EntityTable<QueuedCatch, 'clientId'>;
@@ -63,6 +69,8 @@ export class DeviceDatabase extends Dexie {
       species: 'id',
       catchQueue: 'clientId, [userId+status]',
     });
+    // T-22: external permits; the next refresh fills the table.
+    this.version(2).stores({ externalPermits: 'id' });
   }
 }
 
@@ -90,19 +98,32 @@ export async function recentDeviceOwner(now: Date): Promise<string | null> {
  * (ADR-0013) and drops their permits; unsent catches wait for the owner's next login.
  */
 export async function forgetDeviceOwner(): Promise<void> {
-  const { meta, permits, rules, species } = deviceDb;
-  await deviceDb.transaction('rw', [meta, permits, rules, species], async () => {
-    await Promise.all([meta.clear(), permits.clear(), rules.clear(), species.clear()]);
+  const { meta, permits, externalPermits, rules, species } = deviceDb;
+  await deviceDb.transaction('rw', [meta, permits, externalPermits, rules, species], async () => {
+    await Promise.all([
+      meta.clear(),
+      permits.clear(),
+      externalPermits.clear(),
+      rules.clear(),
+      species.clear(),
+    ]);
   });
 }
 
 /** After logout: the user's permits, rules and unsent catches leave the device. */
 export async function clearDeviceData(userId: string): Promise<void> {
-  const { meta, permits, rules, species, catchQueue } = deviceDb;
-  await deviceDb.transaction('rw', [meta, permits, rules, species, catchQueue], async () => {
+  const { meta, permits, externalPermits, rules, species, catchQueue } = deviceDb;
+  const tables = [meta, permits, externalPermits, rules, species, catchQueue];
+  await deviceDb.transaction('rw', tables, async () => {
     const owner = await meta.get('owner');
     if (owner?.userId === userId) {
-      await Promise.all([meta.clear(), permits.clear(), rules.clear(), species.clear()]);
+      await Promise.all([
+        meta.clear(),
+        permits.clear(),
+        externalPermits.clear(),
+        rules.clear(),
+        species.clear(),
+      ]);
     }
     await catchQueue.filter((row) => row.userId === userId).delete();
   });

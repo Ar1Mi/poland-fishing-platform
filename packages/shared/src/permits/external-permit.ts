@@ -84,6 +84,8 @@ export function externalPermitDatesIssue(
   return null;
 }
 
+const calendarDate = z.iso.date();
+
 /** Issue messages of fields of `externalPermitFormSchema` other than the dates' window. */
 export const ExternalPermitFieldIssue = { REQUIRED: 'REQUIRED', INVALID: 'INVALID' } as const;
 
@@ -112,6 +114,10 @@ export function externalPermitFormSchema(today: DateOnly) {
         .max(EXTERNAL_PERMIT_MAX_WATERS, { message: ExternalPermitFieldIssue.INVALID }),
     })
     .superRefine(({ validFrom, validTo }, context) => {
+      // It runs despite the issues of the fields: the window is checked only on real dates.
+      if (!calendarDate.safeParse(validFrom).success || !calendarDate.safeParse(validTo).success) {
+        return;
+      }
       const issue = externalPermitDatesIssue(validFrom, validTo, today);
       if (issue) {
         context.addIssue({ code: 'custom', path: ['validTo'], message: issue });

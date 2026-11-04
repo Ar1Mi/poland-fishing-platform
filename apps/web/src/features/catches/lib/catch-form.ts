@@ -1,29 +1,63 @@
+import type { EffectivePermitStatus } from '@lowisko/shared';
+import type { ExternalPermit } from '../../permits/api/useExternalPermits';
 import type { MyPermit } from '../../permits/api/usePurchase';
+
+/** A permit a catch is recorded on: bought on the platform, or external (T-22). */
+export interface PlacePermit {
+  id: string;
+  external: boolean;
+  /** The permit type of a platform permit, the issuer of an external one. */
+  name: string;
+  status: EffectivePermitStatus;
+  validTo: string;
+  waters: { id: string; name: string }[];
+}
+
+export const platformPlacePermit = (permit: MyPermit): PlacePermit => ({
+  id: permit.id,
+  external: false,
+  name: permit.permitType.name,
+  status: permit.status,
+  validTo: permit.validTo,
+  waters: permit.waters,
+});
+
+export const externalPlacePermit = (permit: ExternalPermit): PlacePermit => ({
+  id: permit.id,
+  external: true,
+  name: permit.issuerName,
+  status: permit.status,
+  validTo: permit.validTo,
+  waters: permit.waters,
+});
 
 /** A water to record a catch on, with the permit that covers it (BR-01). */
 export interface CatchPlace {
   /** `permitId:waterId`, the value of the select. */
   key: string;
   permitId: string;
+  /** The permit is external: the catch is sent with `externalPermitId`. */
+  external: boolean;
   waterId: string;
   waterName: string;
-  /** The permit type, shown only when two active permits cover the same water. */
+  /** The permit, shown only when two active permits cover the same water. */
   permitName: string | null;
   /** The last day of a permit that has ended (yesterday's catch, BR-07); null while valid. */
   endedOn: string | null;
 }
 
-const placeKey = (permitId: string, waterId: string) => `${permitId}:${waterId}`;
+export const placeKey = (permitId: string, waterId: string) => `${permitId}:${waterId}`;
 
 /** Waters of the given permits, by name; a water covered by two of them is offered once per permit. */
-export function catchPlaces(permits: MyPermit[]): CatchPlace[] {
+export function catchPlaces(permits: PlacePermit[]): CatchPlace[] {
   const places = permits.flatMap((permit) =>
     permit.waters.map((water) => ({
       key: placeKey(permit.id, water.id),
       permitId: permit.id,
+      external: permit.external,
       waterId: water.id,
       waterName: water.name,
-      permitName: permit.permitType.name,
+      permitName: permit.name,
       endedOn: permit.status === 'EXPIRED' ? permit.validTo : null,
     })),
   );

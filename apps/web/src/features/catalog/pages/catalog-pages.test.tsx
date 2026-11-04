@@ -242,6 +242,10 @@ describe('water page', () => {
     ).toBeVisible();
     expect(screen.getByText('RZGW Warszawa')).toBeVisible();
     expect(screen.getByText(/kupisz u użytkownika rybackiego/)).toBeVisible();
+    // Scenario Г: the permit bought from the owner is typed in for this water.
+    expect(
+      screen.getByRole('link', { name: 'Dodaj zezwolenie zewnętrzne na to łowisko' }),
+    ).toHaveAttribute('href', `/me/external-permits/new?waterId=${zegrze.id}`);
     const link = screen.getByRole('link', { name: /Regulamin i zezwolenia u zarządcy/ });
     expect(link).toHaveAttribute('href', 'https://www.gov.pl/web/wody-polskie');
     expect(link).toHaveAttribute('target', '_blank');

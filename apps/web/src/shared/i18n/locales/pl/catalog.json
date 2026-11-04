@@ -49,6 +49,7 @@
     "permitsTitle": "Zezwolenia",
     "permitsConnected": "To łowisko sprzedaje zezwolenia w serwisie.",
     "permitsExternal": "Zezwolenie na to łowisko kupisz u użytkownika rybackiego. Połowy zapiszesz w rejestrze, dodając zezwolenie zewnętrzne.",
+    "addExternalPermit": "Dodaj zezwolenie zewnętrzne na to łowisko",
     "externalLink": "Regulamin i zezwolenia u zarządcy",
     "externalLinkHint": "(otwiera się w nowej karcie)",
     "description": "Opis",

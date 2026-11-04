@@ -135,7 +135,10 @@
     "empty": "Nie masz jeszcze żadnego zezwolenia.",
     "toCatalog": "Znajdź łowisko na mapie",
     "current": "Aktualne",
-    "past": "Archiwalne"
+    "past": "Archiwalne",
+    "externalTitle": "Zezwolenia zewnętrzne",
+    "externalLead": "Zezwolenie kupione u użytkownika rybackiego poza serwisem dodaj tutaj, aby zapisywać połowy w rejestrze.",
+    "externalLink": "Zezwolenia zewnętrzne"
   },
   "detail": {
     "title": "Zezwolenie",
@@ -155,5 +158,104 @@
   "device": {
     "notice": "Brak sieci — zezwolenia zapisane na tym urządzeniu, w stanie z ostatniego połączenia.",
     "missing": "Tego zezwolenia nie ma na urządzeniu. Otwórz je po połączeniu z siecią."
+  },
+  "external": {
+    "list": {
+      "title": "Zezwolenia zewnętrzne",
+      "lead": "Zezwolenia kupione poza serwisem, np. u użytkownika rybackiego łowiska spoza serwisu. Połowy na nich zapiszesz w rejestrze i sprawdzimy je według ogólnych przepisów.",
+      "add": "Dodaj zezwolenie",
+      "loading": "Ładowanie zezwoleń…",
+      "empty": "Nie masz jeszcze zezwoleń zewnętrznych.",
+      "withPhoto": "Ze zdjęciem",
+      "toPermits": "Zezwolenia kupione w serwisie"
+    },
+    "new": {
+      "title": "Nowe zezwolenie zewnętrzne",
+      "lead": "Przepisz dane z zezwolenia i wybierz łowiska, na których obowiązuje. Zdjęcie lub skan przyda się przy kontroli.",
+      "back": "Zezwolenia zewnętrzne"
+    },
+    "form": {
+      "issuer": {
+        "label": "Wydał",
+        "hint": "Użytkownik rybacki lub sklep, np. „Gospodarstwo Rybackie Wąsosze”.",
+        "required": "Podaj, kto wydał zezwolenie."
+      },
+      "number": {
+        "label": "Numer zezwolenia (opcjonalnie)",
+        "hint": "Tak jak na dokumencie."
+      },
+      "tooLong": "Tekst jest za długi.",
+      "validFrom": "Ważne od",
+      "validTo": "Ważne do (włącznie)",
+      "dates": {
+        "INVALID": "Podaj datę.",
+        "ORDER": "Data końca nie może być wcześniejsza niż data początku.",
+        "TOO_LONG": "Zezwolenie może obowiązywać najwyżej 366 dni.",
+        "TOO_LATE": "Zezwolenie może zaczynać się najpóźniej za 365 dni — sprawdź rok.",
+        "OUT_OF_SEASONS": "Daty muszą przypadać w latach 2000–2100."
+      },
+      "waters": {
+        "legend": "Łowiska",
+        "chosen": "Wybrane łowiska",
+        "remove": "Usuń łowisko {{name}}",
+        "search": "Szukaj łowiska po nazwie",
+        "searchPlaceholder": "np. Wąsosze",
+        "searchSubmit": "Szukaj",
+        "results": "Znalezione łowiska",
+        "noResults": "Nie znaleziono łowiska o tej nazwie.",
+        "narrow": "Wyników jest więcej — wpisz dokładniejszą nazwę.",
+        "add": "Dodaj: {{name}} · {{region}}",
+        "required": "Wybierz co najmniej jedno łowisko.",
+        "tooMany": "Wybierz najwyżej {{max}} łowisk."
+      },
+      "photo": {
+        "label": "Zdjęcie lub skan zezwolenia (opcjonalnie)",
+        "hint": "JPEG, PNG, WebP lub PDF, do 5 MB.",
+        "type": "Wybierz zdjęcie (JPEG, PNG, WebP) albo plik PDF.",
+        "tooBig": "Plik jest większy niż 5 MB."
+      },
+      "submitNew": "Zapisz zezwolenie",
+      "submitEdit": "Zapisz zmiany",
+      "cancel": "Anuluj"
+    },
+    "detail": {
+      "title": "Zezwolenie zewnętrzne",
+      "loading": "Ładowanie zezwolenia…",
+      "back": "Zezwolenia zewnętrzne",
+      "photoNotAdded": "Zezwolenie zapisano, ale nie dodano zdjęcia. Spróbuj ponownie poniżej.",
+      "number": "Numer",
+      "noNumber": "bez numeru",
+      "validity": "Ważność",
+      "waters": "Łowiska",
+      "rulesNote": "Połowy na tym zezwoleniu sprawdzamy według ogólnych przepisów; regulamin łowiska znasz od jego użytkownika rybackiego.",
+      "edit": "Popraw dane",
+      "editTitle": "Popraw zezwolenie",
+      "editLead": "Zapisane już połowy nie zostaną ponownie sprawdzone.",
+      "saved": "Zmiany zapisane."
+    },
+    "photo": {
+      "title": "Zdjęcie zezwolenia",
+      "none": "Nie dodano zdjęcia.",
+      "hasImage": "Dodano zdjęcie zezwolenia.",
+      "hasPdf": "Dodano skan zezwolenia (PDF).",
+      "download": "Pobierz",
+      "remove": "Usuń zdjęcie",
+      "add": "Dodaj zdjęcie lub skan",
+      "replace": "Zmień zdjęcie lub skan",
+      "submit": "Zapisz zdjęcie",
+      "saved": "Zdjęcie zapisane."
+    },
+    "register": {
+      "title": "Rejestr połowów dla użytkownika rybackiego",
+      "lead": "PDF z rybami zabranymi w sezonie — data, łowisko, gatunek, ilość, długość i waga. Połowy niezgodne z zasadami są oznaczone. Wyślij go użytkownikowi rybackiemu, tak jak papierowy rejestr.",
+      "season": "Sezon",
+      "download": "Pobierz rejestr {{season}} (PDF)"
+    },
+    "delete": {
+      "action": "Usuń zezwolenie",
+      "confirm": "Usunąć zezwolenie „{{name}}”? Zezwolenia z zapisanymi połowami nie można usunąć.",
+      "yes": "Tak, usuń",
+      "no": "Nie usuwaj"
+    }
   }
 }

@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import {
+  type DeviceExternalPermit,
   type DevicePermit,
   type DeviceSpecies,
   type QueuedCatch,
@@ -11,7 +12,9 @@ import { useLiveQuery } from './use-live-query';
 
 export interface DeviceData {
   permits: DevicePermit[];
-  /** The rules of the waters of each permit, by permit id. */
+  /** Permits bought outside the platform (T-22). */
+  externalPermits: DeviceExternalPermit[];
+  /** The rules of the waters of each permit, platform or external, by permit id. */
   rules: Map<string, WaterRules[]>;
   species: DeviceSpecies[];
 }
@@ -30,13 +33,15 @@ export function useDeviceData(userId: string | undefined): DeviceData | null | u
       if (owner?.userId !== userId) {
         return null;
       }
-      const [permits, rules, species] = await Promise.all([
+      const [permits, externalPermits, rules, species] = await Promise.all([
         deviceDb.permits.toArray(),
+        deviceDb.externalPermits.toArray(),
         deviceDb.rules.toArray(),
         deviceDb.species.toArray(),
       ]);
       return {
         permits,
+        externalPermits,
         rules: new Map(rules.map((row) => [row.permitId, row.waterRules])),
         species,
       };

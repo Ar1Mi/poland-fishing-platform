@@ -1,5 +1,5 @@
 import type { EffectivePermitStatus } from '@lowisko/shared';
-import { ChevronRight, LoaderCircle, NotebookPen, Plus } from 'lucide-react';
+import { ChevronRight, FileText, LoaderCircle, NotebookPen, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router';
 import { formatDate } from '../../../shared/lib/format';
@@ -70,6 +70,21 @@ export function MyPermitsPage() {
       )}
       {current.length > 0 && <PermitList title={t('permits.mine.current')} permits={current} />}
       {past.length > 0 && <PermitList title={t('permits.mine.past')} permits={past} />}
+      {/* Bought outside the platform (FR-26): typed in online, so not in an offline session. */}
+      {!device.offline && (
+        <section aria-labelledby="external-permits-title" className="flex flex-col gap-2">
+          <h2 id="external-permits-title" className="text-h2">
+            {t('permits.mine.externalTitle')}
+          </h2>
+          <p className="text-body">{t('permits.mine.externalLead')}</p>
+          <Button asChild variant="secondary" className="w-fit">
+            <Link to="/me/external-permits">
+              <FileText aria-hidden />
+              {t('permits.mine.externalLink')}
+            </Link>
+          </Button>
+        </section>
+      )}
     </>
   );
 }

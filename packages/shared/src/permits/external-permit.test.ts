@@ -100,7 +100,20 @@ describe('externalPermitFormSchema', () => {
     expect(result.error?.issues).toMatchObject([{ path: ['validTo'], message: 'ORDER' }]);
   });
 
-  it('refuses a date that does not exist', () => {
-    expect(schema.safeParse({ ...valid, validTo: '2026-11-31' }).success).toBe(false);
+  it('refuses a date that does not exist without checking the window', () => {
+    for (const dates of [
+      { validTo: '2026-11-31' },
+      { validFrom: '2026-02-30', validTo: '2026-01-01' },
+      { validFrom: '', validTo: '' },
+    ]) {
+      const result = schema.safeParse({ ...valid, ...dates });
+      expect(result.error?.issues.map((issue) => issue.message)).not.toContain('ORDER');
+      expect(result.success).toBe(false);
+    }
+  });
+
+  it('checks the dates while other fields are still wrong', () => {
+    const result = schema.safeParse({ ...valid, issuerName: '', validTo: '2026-10-31' });
+    expect(result.error?.issues.map((issue) => issue.message)).toEqual(['REQUIRED', 'ORDER']);
   });
 });

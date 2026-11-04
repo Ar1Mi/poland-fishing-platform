@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { DevicePermit, QueuedCatch } from '../../../shared/offline/db';
+import type { DeviceExternalPermit, DevicePermit, QueuedCatch } from '../../../shared/offline/db';
 import type { DeviceData } from '../../../shared/offline/use-device';
 import type { Catch } from '../api/useCatches';
 import { checkOnDevice, recordablePermits, sameDayKeptOf } from './device-check';
@@ -34,6 +34,19 @@ const permit = (changes: Partial<DevicePermit> = {}): DevicePermit => ({
   ...changes,
 });
 
+const external = (changes: Partial<DeviceExternalPermit> = {}): DeviceExternalPermit => ({
+  id: '7e1c2c9e-0000-4000-8000-000000000201',
+  issuerName: 'Gospodarstwo Rybackie Wąsosze',
+  number: null,
+  status: 'ACTIVE',
+  validFrom: '2026-05-01',
+  validTo: '2026-12-31',
+  waters: [{ id: LAKE, name: 'Zalew Zegrzyński' }],
+  photoType: null,
+  createdAt: '2026-05-01T10:00:00.000Z',
+  ...changes,
+});
+
 const species = (id: string, isProtected = false) => ({
   id,
   latinName: 'Latin',
@@ -45,6 +58,7 @@ const species = (id: string, isProtected = false) => ({
 
 const device = (rules: DeviceData['rules']): DeviceData => ({
   permits: [permit()],
+  externalPermits: [external()],
   rules,
   species: [species(PIKE), species(STURGEON, true)],
 });
@@ -55,23 +69,31 @@ const at = (iso: string) => new Date(iso);
 describe('recordablePermits', () => {
   it('offers the permits active now and the one that ended yesterday', () => {
     const ids = recordablePermits(
-      [
-        permit({ id: 'active' }),
-        permit({
-          id: 'yesterday',
-          status: 'EXPIRED',
-          validFrom: '2026-10-05',
-          validTo: '2026-10-05',
-        }),
-        permit({ id: 'older', status: 'EXPIRED', validFrom: '2026-10-04', validTo: '2026-10-04' }),
-        permit({ id: 'revoked', status: 'REVOKED' }),
-        permit({
-          id: 'tomorrow',
-          status: 'SCHEDULED',
-          validFrom: '2026-10-07',
-          validTo: '2026-10-07',
-        }),
-      ],
+      {
+        externalPermits: [],
+        permits: [
+          permit({ id: 'active' }),
+          permit({
+            id: 'yesterday',
+            status: 'EXPIRED',
+            validFrom: '2026-10-05',
+            validTo: '2026-10-05',
+          }),
+          permit({
+            id: 'older',
+            status: 'EXPIRED',
+            validFrom: '2026-10-04',
+            validTo: '2026-10-04',
+          }),
+          permit({ id: 'revoked', status: 'REVOKED' }),
+          permit({
+            id: 'tomorrow',
+            status: 'SCHEDULED',
+            validFrom: '2026-10-07',
+            validTo: '2026-10-07',
+          }),
+        ],
+      },
       NOW,
     ).map(({ id }) => id);
 
@@ -87,9 +109,13 @@ describe('recordablePermits', () => {
     // 1 January 2027, 00:30 in Warsaw (23:30 UTC on 31 December).
     const newYear = new Date('2026-12-31T23:30:00.000Z');
 
-    expect(recordablePermits([lastYear], newYear)).toEqual([{ ...lastYear, status: 'EXPIRED' }]);
+    const permits = { permits: [lastYear], externalPermits: [] };
+
+    expect(recordablePermits(permits, newYear)).toMatchObject([
+      { id: lastYear.id, status: 'EXPIRED', validTo: '2026-12-31' },
+    ]);
     // A day later it is gone.
-    expect(recordablePermits([lastYear], new Date('2027-01-01T23:30:00.000Z'))).toEqual([]);
+    expect(recordablePermits(permits, new Date('2027-01-01T23:30:00.000Z'))).toEqual([]);
   });
 
   it('turns a permit fetched as scheduled active when its first day comes without network', () => {
@@ -99,8 +125,29 @@ describe('recordablePermits', () => {
       validTo: '2026-10-06',
     });
 
-    expect(recordablePermits([fetchedYesterday], NOW)).toEqual([
-      { ...fetchedYesterday, status: 'ACTIVE' },
+    expect(
+      recordablePermits({ permits: [fetchedYesterday], externalPermits: [] }, NOW),
+    ).toMatchObject([{ id: fetchedYesterday.id, status: 'ACTIVE' }]);
+  });
+
+  it('offers external permits by their dates, named by the issuer', () => {
+    const permits = recordablePermits(
+      {
+        permits: [],
+        externalPermits: [
+          // Fetched as scheduled: it starts today.
+          external({ id: 'today', status: 'SCHEDULED', validFrom: '2026-10-06' }),
+          external({ id: 'yesterday', validFrom: '2026-10-01', validTo: '2026-10-05' }),
+          external({ id: 'older', status: 'EXPIRED', validTo: '2026-10-04' }),
+          external({ id: 'tomorrow', status: 'SCHEDULED', validFrom: '2026-10-07' }),
+        ],
+      },
+      NOW,
+    );
+
+    expect(permits.map(({ id, external, name, status }) => [id, external, name, status])).toEqual([
+      ['today', true, 'Gospodarstwo Rybackie Wąsosze', 'ACTIVE'],
+      ['yesterday', true, 'Gospodarstwo Rybackie Wąsosze', 'EXPIRED'],
     ]);
   });
 });
@@ -220,7 +267,7 @@ describe('checkOnDevice', () => {
 
     const violations = checkOnDevice(
       { ...pike, caughtAt: at('2026-10-06T10:00:00Z') },
-      permit(),
+      permit().id,
       device(rules),
       kept,
       NOW,
@@ -234,7 +281,7 @@ describe('checkOnDevice', () => {
     expect(
       checkOnDevice(
         { ...pike, fishingWaterId: LAKE, caughtAt: at('2026-10-06T10:00:00Z') },
-        permit(),
+        permit().id,
         device(rules),
         kept,
         NOW,
@@ -245,7 +292,7 @@ describe('checkOnDevice', () => {
   it('checks a protected species and the permit at the time of the catch without rules', () => {
     const violations = checkOnDevice(
       { ...pike, speciesId: STURGEON, caughtAt: at('2026-09-30T10:00:00Z') },
-      permit(),
+      permit().id,
       device(new Map()),
       [],
       NOW,
@@ -257,5 +304,57 @@ describe('checkOnDevice', () => {
       validFrom: '2026-10-01',
       validTo: '2026-10-31',
     });
+  });
+
+  it('checks a catch on an external permit against its dates, its waters and its rules', () => {
+    const general = new Map([
+      [
+        external().id,
+        [
+          {
+            waterId: LAKE,
+            rules: [
+              {
+                speciesId: PIKE,
+                minLengthCm: 50,
+                dailyLimitCount: null,
+                dailyLimitWeightG: null,
+                closedPeriods: [],
+              },
+            ],
+          },
+        ],
+      ],
+    ]);
+    const onLake = { ...pike, fishingWaterId: LAKE, caughtAt: at('2026-10-06T10:00:00Z') };
+
+    expect(checkOnDevice(onLake, external().id, device(general), [], NOW)).toEqual([]);
+    expect(
+      checkOnDevice({ ...onLake, lengthCm: 45 }, external().id, device(general), [], NOW).map(
+        ({ code }) => code,
+      ),
+    ).toEqual(['BELOW_MIN_LENGTH']);
+    // The river is not one of the waters the angler listed; April is before the permit.
+    expect(
+      checkOnDevice(
+        { ...onLake, fishingWaterId: RIVER, caughtAt: at('2026-04-30T10:00:00Z') },
+        external().id,
+        device(general),
+        [],
+        NOW,
+      ).map(({ code }) => code),
+    ).toEqual(['PERMIT_NOT_ACTIVE', 'PERMIT_WATER_MISMATCH']);
+  });
+
+  it('leaves a permit the device does not hold to the server', () => {
+    expect(
+      checkOnDevice(
+        { ...pike, caughtAt: at('2026-10-06T10:00:00Z') },
+        'unknown',
+        device(new Map()),
+        [],
+        NOW,
+      ),
+    ).toEqual([]);
   });
 });
