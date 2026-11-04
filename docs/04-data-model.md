@@ -483,7 +483,8 @@ CREATE UNIQUE INDEX claim_one_pending ON "WaterClaim" ("fishingWaterId", "organi
 Удаление (`onDelete`), отличное от умолчаний Prisma:
 
 - `SpeciesRule.organization`, `SpeciesRule.water` — `Cascade`. Умолчание `SET NULL` молча расширяло бы правило: правило удалённой организации стало бы общим для всей страны, правило удалённого водоёма — правилом всей организации.
-- `CatchRecord.externalPermit` — `Restrict`: внешнее разрешение с уловами удалить нельзя (при `SET NULL` удаление упало бы на `catch_exactly_one_permit` с непонятной ошибкой).
+- `CatchRecord.externalPermit` — `Restrict`: внешнее разрешение с уловами удалить нельзя (при `SET NULL` удаление упало бы на `catch_exactly_one_permit` с непонятной ошибкой). API переводит отказ базы (P2003) в 409 `EXTERNAL_PERMIT_IN_USE` (T-22): проверку делает FK, поэтому и улов, синхронизированный одновременно с удалением, не теряется.
+- `ExternalPermit.photoKey` (T-22) — ключ `StorageService` (`external-permits/<uuid>.<ext>`), MIME выводится из расширения. Правка, замена фото и удаление блокируют строку разрешения (`FOR UPDATE`): ключ старого файла читается в той же транзакции, файл удаляется после неё.
 
 ## Номер разрешения
 
