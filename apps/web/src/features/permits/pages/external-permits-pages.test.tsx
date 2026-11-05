@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
+import { enqueueCatch } from '../../../shared/offline/catch-queue';
 import { jsonResponse, mockApi, noContent, renderRoute, sentBodies } from '../../../test/render';
 import type { ExternalPermit } from '../api/useExternalPermits';
 
@@ -165,13 +166,16 @@ describe('new external permit page', () => {
     );
   });
 
-  it('keeps the saved permit when the photo is refused, and says so', async () => {
+  it('keeps the saved permit when the photo is refused, and says so until one is added', async () => {
+    let uploads = 0;
     mockApi({
       ...session,
       ...deviceRefresh([permit]),
       'POST /api/v1/me/external-permits': () => jsonResponse(permit, 201),
       [`PUT /api/v1/me/external-permits/${permit.id}/photo`]: () =>
-        jsonResponse({ code: 'VALIDATION_FAILED', message: 'Unsupported photo type' }, 400),
+        ++uploads === 1
+          ? jsonResponse({ code: 'VALIDATION_FAILED', message: 'Unsupported photo type' }, 400)
+          : jsonResponse({ ...permit, photoType: 'image/png' }),
       [`GET /api/v1/me/external-permits/${permit.id}`]: () => jsonResponse(permit),
       'GET /api/v1/waters': () => jsonResponse({ items: [LAKE], truncated: false }),
     });
@@ -195,6 +199,16 @@ describe('new external permit page', () => {
       ),
     ).toBeVisible();
     expect(screen.getByText('Nie dodano zdjęcia.')).toBeVisible();
+    // The reason, translated from its code.
+    expect(screen.getByText('Sprawdź poprawność wprowadzonych danych.')).toBeVisible();
+
+    await userEvent.upload(
+      screen.getByLabelText('Dodaj zdjęcie lub skan'),
+      new File(['png'], 'zezwolenie.png', { type: 'image/png' }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Zapisz zdjęcie' }));
+    expect(await screen.findByText('Zdjęcie zapisane.')).toBeVisible();
+    expect(screen.queryByText(/nie dodano zdjęcia/)).not.toBeInTheDocument();
   });
 
   it('finds waters by name, adds them and takes them away', async () => {
@@ -211,12 +225,15 @@ describe('new external permit page', () => {
 
     const chosen = screen.getByRole('list', { name: 'Wybrane łowiska' });
     expect(chosen).toHaveTextContent('Staw Dolny');
+    // The chosen result is gone with its button: the focus is back in the search.
+    expect(screen.getByLabelText('Szukaj łowiska po nazwie')).toHaveFocus();
     // A chosen water is not offered again.
     expect(
       screen.queryByRole('button', { name: 'Dodaj: Staw Dolny · kujawsko-pomorskie' }),
     ).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Usuń łowisko Staw Dolny' }));
     expect(screen.queryByRole('list', { name: 'Wybrane łowiska' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Szukaj łowiska po nazwie')).toHaveFocus();
   });
 
   it('checks the form before sending it', async () => {
@@ -323,6 +340,11 @@ describe('external permit page', () => {
     });
 
     await userEvent.click(await screen.findByRole('button', { name: 'Popraw dane' }));
+    expect(screen.getByRole('heading', { name: 'Popraw zezwolenie' })).toHaveFocus();
+    // The page keeps its heading while the form is open.
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Gospodarstwo Rybackie Wąsosze' }),
+    ).toBeVisible();
     await userEvent.clear(screen.getByLabelText('Numer zezwolenia (opcjonalnie)'));
     fireEvent.change(screen.getByLabelText('Ważne do (włącznie)'), {
       target: { value: '2026-10-31' },
@@ -331,6 +353,7 @@ describe('external permit page', () => {
 
     expect(await screen.findByText('Zmiany zapisane.')).toBeVisible();
     expect(screen.getByText('bez numeru')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Popraw dane' })).toHaveFocus();
     expect(await sentBodies(fetch, `PATCH /api/v1/me/external-permits/${permit.id}`)).toEqual([
       {
         issuerName: 'Gospodarstwo Rybackie Wąsosze',
@@ -354,6 +377,34 @@ describe('external permit page', () => {
 
     expect(await screen.findByText(/Na tym zezwoleniu są zapisane połowy/)).toBeVisible();
     expect(screen.getByRole('button', { name: 'Usuń zezwolenie' })).toHaveFocus();
+  });
+
+  it('keeps the permit while its catches still wait on this device', async () => {
+    await enqueueCatch(
+      profile.id,
+      {
+        clientId: '8b000000-0000-4000-8000-000000000001',
+        permitId: null,
+        externalPermitId: permit.id,
+        fishingWaterId: LAKE.id,
+        speciesId: '0b1d4c8e-6f2a-4d3b-9c5e-1a2b3c4d5e61',
+        caughtAt: '2026-10-06T08:00:00.000Z',
+        lengthCm: 40,
+        weightG: null,
+        kept: false,
+        lat: null,
+        lng: null,
+      },
+      new Date(),
+    );
+    show();
+
+    expect(await screen.findByText(/Najpierw wyślij je do rejestru/)).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Przejdź do rejestru połowów' })).toHaveAttribute(
+      'href',
+      '/me/catches',
+    );
+    expect(screen.queryByRole('button', { name: 'Usuń zezwolenie' })).not.toBeInTheDocument();
   });
 
   it('deletes a permit and goes back to the list', async () => {

@@ -5,12 +5,12 @@ import {
   type ExternalPermitFormValues,
   type ExternalPermitInput,
   externalPermitFormSchema,
-  isClaimProofMimeType,
+  isExternalPermitPhotoType,
   warsawDate,
 } from '@lowisko/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Search, X } from 'lucide-react';
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
@@ -60,6 +60,7 @@ export function ExternalPermitForm({
   const {
     register,
     handleSubmit,
+    getValues,
     setValue,
     formState: { errors, isSubmitted },
   } = useForm<ExternalPermitFormValues, unknown, ExternalPermitInput>({
@@ -83,19 +84,25 @@ export function ExternalPermitForm({
   };
 
   const initial = useWater(initialWaterId ?? '', { enabled: !permit && !!initialWaterId });
+  const preset = useRef(false);
   useEffect(() => {
-    if (initial.data) {
+    // Once, and not over waters the angler chose while the card's water was loading.
+    if (!initial.data || preset.current) {
+      return;
+    }
+    preset.current = true;
+    if (getValues('waterIds').length === 0) {
       const { id, name } = initial.data;
       setWaters([{ id, name }]);
       setValue('waterIds', [id]);
     }
-  }, [initial.data, setValue]);
+  }, [initial.data, getValues, setValue]);
 
   const choosePhoto = (file: File | undefined) => {
     setPhoto(file ?? null);
     // An empty type (unknown to the browser) is left to the API, which reads the content.
     setPhotoError(
-      file && file.type && !isClaimProofMimeType(file.type)
+      file && file.type && !isExternalPermitPhotoType(file.type)
         ? t('permits.external.form.photo.type')
         : file && file.size > EXTERNAL_PERMIT_PHOTO_MAX_BYTES
           ? t('permits.external.form.photo.tooBig')
@@ -216,7 +223,14 @@ function WatersField({
   const found = useWaters({ q }, { enabled: q !== '' });
   const chosen = new Set(value.map((water) => water.id));
   const items = (found.data?.items ?? []).filter((item) => !chosen.has(item.id));
+  const full = value.length >= EXTERNAL_PERMIT_MAX_WATERS;
   const search = () => setQ(draft.trim());
+  // A chosen or removed water takes its button away: the search field keeps the focus.
+  const searchField = useRef<HTMLInputElement>(null);
+  const change = (next: WaterOption[]) => {
+    onChange(next);
+    searchField.current?.focus();
+  };
 
   return (
     <fieldset
@@ -236,7 +250,7 @@ function WatersField({
                 variant="secondary"
                 className="h-auto min-h-11 whitespace-normal"
                 aria-label={t('permits.external.form.waters.remove', { name: water.name })}
-                onClick={() => onChange(value.filter((item) => item.id !== water.id))}
+                onClick={() => change(value.filter((item) => item.id !== water.id))}
               >
                 {water.name}
                 <X aria-hidden />
@@ -247,6 +261,7 @@ function WatersField({
       )}
       <div role="search" className="flex items-end gap-2">
         <TextField
+          ref={searchField}
           className="flex-1"
           label={t('permits.external.form.waters.search')}
           placeholder={t('permits.external.form.waters.searchPlaceholder')}
@@ -281,8 +296,8 @@ function WatersField({
                     type="button"
                     variant="ghost"
                     className="h-auto min-h-12 w-full justify-start border-border text-left whitespace-normal"
-                    disabled={value.length >= EXTERNAL_PERMIT_MAX_WATERS}
-                    onClick={() => onChange([...value, { id: item.id, name: item.name }])}
+                    disabled={full}
+                    onClick={() => change([...value, { id: item.id, name: item.name }])}
                   >
                     {t('permits.external.form.waters.add', {
                       name: item.name,
@@ -292,6 +307,11 @@ function WatersField({
                 </li>
               ))}
             </ul>
+          )}
+          {full && items.length > 0 && (
+            <p className="text-small text-muted-foreground">
+              {t('permits.external.form.waters.full', { max: EXTERNAL_PERMIT_MAX_WATERS })}
+            </p>
           )}
           {(items.length > PICKER_LIMIT || found.data.truncated) && (
             <p className="text-small text-muted-foreground">

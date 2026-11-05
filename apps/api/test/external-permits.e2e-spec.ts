@@ -5,6 +5,7 @@ import { EXTERNAL_PERMIT_MAX_WATERS, EXTERNAL_PERMIT_PHOTO_MAX_BYTES } from '@lo
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import type { PrismaService } from '../src/database/prisma.service';
+import { RegisterPdfService } from '../src/modules/catches/register/register-pdf.service';
 import { createVerifiedUser, login } from './auth-helpers';
 import { FIXED_NOW, createTestApp } from './create-test-app';
 import { prismaServiceFor } from './db/prisma-service';
@@ -198,6 +199,13 @@ describe('external permits', () => {
         details: { fields: { validTo: [expect.any(String) as unknown] } },
       });
       expect(await prisma.externalPermit.count()).toBe(0);
+    });
+
+    it('takes the ids of waters in any case of letters, as one water', async () => {
+      const permit = await created({ waterIds: [lakeId.toUpperCase()] });
+
+      expect(permit.waters.map((water) => water.id)).toEqual([lakeId]);
+      await create({ waterIds: [lakeId, lakeId.toUpperCase()] }).expect(400);
     });
 
     it('refuses waters outside the catalogue, repeated or too many', async () => {
@@ -483,6 +491,65 @@ describe('external permits', () => {
       );
       expect(response.headers['cache-control']).toBe('no-store');
       expect((response.body as Buffer).subarray(0, 5).toString('latin1')).toBe('%PDF-');
+    });
+
+    it('lists the kept fish of this permit in the Warsaw season, rejected ones too, by time', async () => {
+      const permit = await created({ validFrom: '2025-12-01', validTo: '2026-11-30' });
+      const otherPermit = await created();
+      const foreign = await createExternalPermit(prisma, { userId: other.id });
+      const fish = (caughtAt: string, data: Record<string, unknown> = {}) =>
+        createCatch(prisma, {
+          userId: angler.id,
+          externalPermitId: permit.id,
+          fishingWaterId: lakeId,
+          speciesId: perchId,
+          caughtAt: new Date(caughtAt),
+          ...data,
+        });
+      // 23:59:59 on 31 December in Warsaw (CET, UTC+1): still 2025.
+      await fish('2025-12-31T22:59:59.000Z', { lengthCm: 31 });
+      // 00:00 on 1 January in Warsaw: the first instant of 2026.
+      const newYear = await fish('2026-01-01T00:00:00.000+01:00', { lengthCm: 32 });
+      const rejected = await fish('2026-03-01T10:00:00.000Z', {
+        speciesId: pikeId,
+        lengthCm: 40,
+        syncStatus: 'REJECTED',
+        violations: [{ code: 'BELOW_MIN_LENGTH', ruleId: 'BR-02', details: { minLengthCm: 50 } }],
+      });
+      const june = await fish('2026-06-01T10:00:00.000Z', { lengthCm: 33 });
+      // Not in the register: released, another permit of the angler, someone else's catch.
+      await fish('2026-06-02T10:00:00.000Z', { kept: false });
+      await fish('2026-06-03T10:00:00.000Z', { externalPermitId: otherPermit.id });
+      await createCatch(prisma, {
+        userId: other.id,
+        externalPermitId: foreign.id,
+        fishingWaterId: lakeId,
+        speciesId: perchId,
+        caughtAt: new Date('2026-06-04T10:00:00.000Z'),
+      });
+      const render = jest.spyOn(app.get(RegisterPdfService), 'render');
+
+      await register(permit.id, '?season=2026').expect(200);
+      await register(permit.id, '?season=2025').expect(200);
+
+      const [season2026, season2025] = render.mock.calls.map(([input]) => input);
+      expect(season2026!.season).toBe(2026);
+      expect(season2026!.catches.map((catch_) => catch_.id)).toEqual([
+        newYear.id,
+        rejected.id,
+        june.id,
+      ]);
+      expect(season2026!.catches[1]).toMatchObject({
+        status: 'REJECTED',
+        violations: [{ code: 'BELOW_MIN_LENGTH' }],
+      });
+      expect(season2026!.speciesNames.get(pikeId)).toBe('Szczupak');
+      expect(season2026!.holder).toEqual({
+        firstName: 'Jan',
+        lastName: 'Kowalski',
+        anglerCardNo: null,
+      });
+      expect(season2025!.catches.map((catch_) => catch_.lengthCm)).toEqual([31]);
     });
 
     it('names the asked season, an empty one too', async () => {

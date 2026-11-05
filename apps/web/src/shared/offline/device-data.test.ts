@@ -2,7 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { jsonResponse, mockApi } from '../../test/render';
 import { endSession, startSession } from '../auth/session';
 import { enqueueCatch } from './catch-queue';
-import { type DeviceExternalPermit, type DevicePermit, deviceDb } from './db';
+import {
+  type DeviceExternalPermit,
+  type DevicePermit,
+  clearDeviceData,
+  deviceDb,
+  forgetDeviceOwner,
+} from './db';
 import { getDeviceRefresh, refreshAndSync, refreshDeviceData } from './device-data';
 
 const USER = '6f1c2c9e-0000-4000-8000-000000000001';
@@ -145,6 +151,20 @@ describe('device data', () => {
       permitId: externalActive.id,
       waterRules: [{ waterId: LAKE.id, rules: [{ ...pikeRule, dailyLimitCount: null }] }],
     });
+  });
+
+  it.each([
+    ['a refused refresh (401)', () => forgetDeviceOwner()],
+    ['logout', () => clearDeviceData(USER)],
+  ])('forgets the external permits after %s', async (_case, forget) => {
+    mockApi(api());
+    await refreshDeviceData(USER, new Date());
+    expect(await deviceDb.externalPermits.count()).toBe(1);
+
+    await forget();
+
+    expect(await deviceDb.externalPermits.count()).toBe(0);
+    expect(await deviceDb.rules.get(externalActive.id)).toBeUndefined();
   });
 
   it("replaces another user's permits, but keeps their unsent catches for them", async () => {

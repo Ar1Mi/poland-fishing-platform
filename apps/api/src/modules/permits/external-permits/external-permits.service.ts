@@ -1,11 +1,11 @@
 import {
-  CLAIM_PROOF_EXTENSIONS,
   type DateOnly,
+  EXTERNAL_PERMIT_PHOTO_EXTENSIONS,
   ErrorCode,
-  claimProofTypeOf,
   externalPermitDatesIssue,
+  externalPermitPhotoTypeOf,
   externalPermitStatus,
-  isClaimProofMimeType,
+  isExternalPermitPhotoType,
   warsawDate,
 } from '@lowisko/shared';
 import { Injectable } from '@nestjs/common';
@@ -163,7 +163,7 @@ export class ExternalPermitsService {
   async setPhoto(userId: string, id: string, photo: Buffer): Promise<ExternalPermitDto> {
     // The declared type and the file name are the client's word; the content decides.
     const mime = (await detectFileType(photo))?.mime;
-    if (!mime || !isClaimProofMimeType(mime)) {
+    if (!mime || !isExternalPermitPhotoType(mime)) {
       throw new DomainError(
         ErrorCode.VALIDATION_FAILED,
         { fields: { file: ['file must be a PDF, JPEG, PNG or WebP document'] } },
@@ -175,7 +175,11 @@ export class ExternalPermitsService {
     try {
       changed = await this.prisma.$transaction(async (tx) => {
         const stored = await this.lock(tx, userId, id);
-        photoKey = await this.storage.save(PHOTO_FOLDER, CLAIM_PROOF_EXTENSIONS[mime], photo);
+        photoKey = await this.storage.save(
+          PHOTO_FOLDER,
+          EXTERNAL_PERMIT_PHOTO_EXTENSIONS[mime],
+          photo,
+        );
         const updated = await tx.externalPermit.update({
           where: { id },
           data: { photoKey },
@@ -210,24 +214,37 @@ export class ExternalPermitsService {
     }
   }
 
+  /**
+   * Read without a lock: a photo replaced or removed meanwhile has its file deleted, so a missing
+   * file is looked up once more in the row before it counts as lost.
+   */
   async readPhoto(userId: string, id: string): Promise<ExternalPermitPhoto> {
-    const permit = await this.find(this.prisma, userId, id);
-    const type = permit.photoKey ? claimProofTypeOf(permit.photoKey) : undefined;
-    if (!permit.photoKey || !type) {
-      throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'External permit has no photo');
-    }
-    let content: Buffer;
-    try {
-      content = await this.storage.read(permit.photoKey);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        throw error;
+    let key = (await this.find(this.prisma, userId, id)).photoKey;
+    for (let attempt = 1; ; attempt++) {
+      const type = key ? externalPermitPhotoTypeOf(key) : undefined;
+      if (!key || !type) {
+        throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'External permit has no photo');
       }
-      // The row outlived its file (volume restored from an older backup, manual cleanup).
-      this.logger.error({ externalPermitId: id, key: permit.photoKey }, 'Photo is missing');
-      throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'External permit photo not found');
+      try {
+        const content = await this.storage.read(key);
+        return {
+          content,
+          type,
+          fileName: `zezwolenie-${id}.${EXTERNAL_PERMIT_PHOTO_EXTENSIONS[type]}`,
+        };
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+          throw error;
+        }
+      }
+      const current = (await this.find(this.prisma, userId, id)).photoKey;
+      if (current === key || attempt === 2) {
+        // The row outlived its file (volume restored from an older backup, manual cleanup).
+        this.logger.error({ externalPermitId: id, key }, 'Photo is missing');
+        throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'External permit photo not found');
+      }
+      key = current;
     }
-    return { content, type, fileName: `zezwolenie-${id}.${CLAIM_PROOF_EXTENSIONS[type]}` };
   }
 
   /**
@@ -324,7 +341,7 @@ export class ExternalPermitsService {
         validFrom,
         validTo,
         waters: permitWaters(permit.waters, names),
-        photoType: (permit.photoKey && claimProofTypeOf(permit.photoKey)) ?? null,
+        photoType: (permit.photoKey && externalPermitPhotoTypeOf(permit.photoKey)) ?? null,
         createdAt: permit.createdAt.toISOString(),
       };
     });

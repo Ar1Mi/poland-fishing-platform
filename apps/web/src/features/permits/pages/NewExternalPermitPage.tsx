@@ -1,13 +1,17 @@
 import { ArrowLeft } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useSearchParams } from 'react-router';
+import { errorMessageKey } from '../../../shared/api/errors';
 import { Card, CardContent } from '../../../shared/ui/card';
 import { useCreateExternalPermit } from '../api/useExternalPermits';
 import { ExternalPermitForm } from '../components/ExternalPermitForm';
 
-/** Router state of the permit page after adding: the photo did not go with the permit. */
+/**
+ * Router state of the permit page after adding: why the photo did not go with the permit. A key,
+ * not the error: history keeps a structured clone, which loses the fields of an `ApiError`.
+ */
 export interface AddedExternalPermitState {
-  photoError: unknown;
+  photoError: ReturnType<typeof errorMessageKey> | null;
 }
 
 /** `/me/external-permits/new?waterId=` — adding a permit, from a water card or the list. */
@@ -39,7 +43,9 @@ export function NewExternalPermitPage() {
                 onSuccess: ({ permit, photoError }) =>
                   void navigate(`/me/external-permits/${permit.id}`, {
                     replace: true,
-                    state: { photoError } satisfies AddedExternalPermitState,
+                    state: {
+                      photoError: photoError === null ? null : errorMessageKey(photoError),
+                    } satisfies AddedExternalPermitState,
                   }),
               })
             }

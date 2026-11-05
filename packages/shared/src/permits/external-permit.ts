@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { CATCH_SEASONS } from '../catches/catch-input.js';
-import { CLAIM_PROOF_MAX_BYTES, CLAIM_PROOF_MIME_TYPES } from '../claims/claims.js';
+import {
+  CLAIM_PROOF_EXTENSIONS,
+  CLAIM_PROOF_MAX_BYTES,
+  CLAIM_PROOF_MIME_TYPES,
+  claimProofTypeOf,
+  isClaimProofMimeType,
+} from '../claims/claims.js';
 import { PermitStatus } from '../enums.js';
 import type { DateOnly } from '../time/warsaw.js';
 import { EffectivePermitStatus, effectivePermitStatus } from './effective-status.js';
@@ -23,6 +29,15 @@ export const EXTERNAL_PERMIT_MAX_DAYS = 366;
  */
 export const EXTERNAL_PERMIT_PHOTO_MIME_TYPES = CLAIM_PROOF_MIME_TYPES;
 export const EXTERNAL_PERMIT_PHOTO_MAX_BYTES = CLAIM_PROOF_MAX_BYTES;
+export type ExternalPermitPhotoType = (typeof EXTERNAL_PERMIT_PHOTO_MIME_TYPES)[number];
+/** File extension of each photo type: the stored file and the downloaded copy are named by it. */
+export const EXTERNAL_PERMIT_PHOTO_EXTENSIONS: Readonly<Record<ExternalPermitPhotoType, string>> =
+  CLAIM_PROOF_EXTENSIONS;
+export const isExternalPermitPhotoType: (value: string) => value is ExternalPermitPhotoType =
+  isClaimProofMimeType;
+/** Photo type of a stored file name (`external-permits/<uuid>.png`); undefined for anything else. */
+export const externalPermitPhotoTypeOf: (fileName: string) => ExternalPermitPhotoType | undefined =
+  claimProofTypeOf;
 
 /** Status of an external permit: it has no stored one, only its dates (ADR-0005). */
 export type ExternalPermitStatus =

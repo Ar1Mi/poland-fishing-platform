@@ -206,7 +206,8 @@
         "narrow": "Wyników jest więcej — wpisz dokładniejszą nazwę.",
         "add": "Dodaj: {{name}} · {{region}}",
         "required": "Wybierz co najmniej jedno łowisko.",
-        "tooMany": "Wybierz najwyżej {{max}} łowisk."
+        "tooMany": "Wybierz najwyżej {{max}} łowisk.",
+        "full": "Wybrano już {{max}} łowisk — usuń któreś, aby dodać inne."
       },
       "photo": {
         "label": "Zdjęcie lub skan zezwolenia (opcjonalnie)",
@@ -255,7 +256,9 @@
       "action": "Usuń zezwolenie",
       "confirm": "Usunąć zezwolenie „{{name}}”? Zezwolenia z zapisanymi połowami nie można usunąć.",
       "yes": "Tak, usuń",
-      "no": "Nie usuwaj"
+      "no": "Nie usuwaj",
+      "waiting": "Na tym urządzeniu czekają na wysłanie połowy zapisane na tym zezwoleniu. Najpierw wyślij je do rejestru — zezwolenia z połowami nie można usunąć.",
+      "toRegister": "Przejdź do rejestru połowów"
     }
   }
 }

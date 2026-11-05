@@ -81,6 +81,12 @@ const field = {
     },
     rules: () =>
       applyDecorators(
+        // As the UUIDs of a catch (T-18): a water in capitals is the same water.
+        Transform(({ value }: { value: unknown }) =>
+          Array.isArray(value)
+            ? value.map((id: unknown) => (typeof id === 'string' ? id.toLowerCase() : id))
+            : value,
+        ),
         IsArray(),
         ArrayMinSize(1),
         ArrayMaxSize(EXTERNAL_PERMIT_MAX_WATERS),

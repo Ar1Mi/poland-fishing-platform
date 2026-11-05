@@ -94,6 +94,19 @@ const onDevice = async ({
   await deviceDb.species.bulkPut(species);
 };
 
+/** A permit bought outside the platform (T-22) for a water of its own. */
+const EXTERNAL: DeviceExternalPermit = {
+  id: '7e1c2c9e-0000-4000-8000-000000000001',
+  issuerName: 'Gospodarstwo Rybackie Wąsosze',
+  number: null,
+  status: 'ACTIVE',
+  validFrom: '2026-05-01',
+  validTo: '2026-12-31',
+  waters: [{ id: '3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e63', name: 'Jezioro Wąsosze' }],
+  photoType: null,
+  createdAt: '2026-05-01T10:00:00.000Z',
+};
+
 /** The rule of the pike on the river, as `GET /me/permits/:id/offline-bundle` gives it. */
 const pikeOnRiver = (rule: Partial<WaterRules['rules'][number]>): WaterRules[] => [
   {
@@ -204,17 +217,7 @@ describe('new catch page', () => {
   });
 
   it('records a catch on an external permit, checked on the device against its rules', async () => {
-    const external: DeviceExternalPermit = {
-      id: '7e1c2c9e-0000-4000-8000-000000000001',
-      issuerName: 'Gospodarstwo Rybackie Wąsosze',
-      number: null,
-      status: 'ACTIVE',
-      validFrom: '2026-05-01',
-      validTo: '2026-12-31',
-      waters: [{ id: '3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e63', name: 'Jezioro Wąsosze' }],
-      photoType: null,
-      createdAt: '2026-05-01T10:00:00.000Z',
-    };
+    const external = EXTERNAL;
     // The general rule of the pike on the lake, as the external permit's bundle gives it.
     await onDevice({
       permits: [],
@@ -730,6 +733,31 @@ describe('my catches page', () => {
 
     await waitFor(() => expect(screen.queryByText('Nie wysłano')).not.toBeInTheDocument());
     expect(await deviceDb.catchQueue.count()).toBe(0);
+  });
+
+  it('names the water of a catch waiting on an external permit', async () => {
+    await onDevice({ externalPermits: [EXTERNAL] });
+    await enqueueCatch(
+      profile.id,
+      {
+        ...queuedPike,
+        permitId: null,
+        externalPermitId: EXTERNAL.id,
+        fishingWaterId: EXTERNAL.waters[0]!.id,
+      },
+      new Date(),
+    );
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    mockApi({
+      ...session,
+      'GET /api/v1/me/permits': () => jsonResponse([permit]),
+      'GET /api/v1/me/external-permits': () => jsonResponse([]),
+      'GET /api/v1/species': () => jsonResponse([PIKE, BREAM]),
+    });
+    renderRoute('/me/catches', { accessToken: 'access-1' });
+
+    const queue = await screen.findByRole('region', { name: 'Na tym urządzeniu' });
+    expect(await within(queue).findByText(/Jezioro Wąsosze/)).toBeVisible();
   });
 
   it('shows only the catches on the device without network', async () => {
