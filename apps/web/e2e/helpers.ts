@@ -14,13 +14,10 @@ export async function logIn(page: Page, email: string): Promise<void> {
 }
 
 /** Another person on another phone: a context of their own, closed even when a step fails. */
-export async function withPage(
-  browser: Browser,
-  use: (page: Page) => Promise<void>,
-): Promise<void> {
+export async function withPage<T>(browser: Browser, use: (page: Page) => Promise<T>): Promise<T> {
   const context = await browser.newContext();
   try {
-    await use(await context.newPage());
+    return await use(await context.newPage());
   } finally {
     await context.close();
   }
@@ -36,5 +33,37 @@ export async function notAcrossMidnight(): Promise<void> {
   if (left < 60_000) {
     test.setTimeout(test.info().timeout + left + 5_000);
     await new Promise((resolve) => setTimeout(resolve, left + 5_000));
+  }
+}
+
+interface MailpitMessage {
+  ID: string;
+  Subject: string;
+}
+
+/**
+ * The link of the latest email to `to` whose subject contains `subject`, from the Mailpit of
+ * the run (apps/api/test/e2e-server.ts). The API sends after its transaction: waits for it.
+ */
+export async function emailLink(to: string, subject: string): Promise<string> {
+  const mailpit = process.env.E2E_MAILPIT_URL;
+  if (!mailpit) throw new Error('E2E_MAILPIT_URL comes from playwright.config.ts');
+  const deadline = Date.now() + 10_000;
+  for (;;) {
+    const search = new URL('/api/v1/search', mailpit);
+    search.searchParams.set('query', `to:"${to}"`);
+    const { messages } = (await (await fetch(search)).json()) as { messages: MailpitMessage[] };
+    // Newest first.
+    const message = messages.find((candidate) => candidate.Subject.includes(subject));
+    if (message) {
+      const { Text } = (await (
+        await fetch(new URL(`/api/v1/message/${message.ID}`, mailpit))
+      ).json()) as { Text: string };
+      const link = /https?:\/\/\S+/.exec(Text)?.[0];
+      if (!link) throw new Error(`No link in the email "${message.Subject}" to ${to}`);
+      return link;
+    }
+    if (Date.now() > deadline) throw new Error(`No email "${subject}" to ${to}`);
+    await new Promise((resolve) => setTimeout(resolve, 200));
   }
 }

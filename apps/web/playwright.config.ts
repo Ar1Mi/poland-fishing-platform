@@ -10,6 +10,9 @@ const WEB_URL = `http://localhost:${WEB_PORT}`;
 // The runner and each worker load this file; workers inherit the runner's environment, so the
 // password made here is both the one the seed gets and the one the tests log in with.
 process.env.SEED_DEMO_PASSWORD ??= randomBytes(18).toString('base64url');
+// Mailpit of the run (apps/api/test/e2e-server.ts): its API gives the scenarios the email links.
+process.env.E2E_MAILPIT_URL ??= 'http://localhost:3126';
+const MAILPIT_SMTP_URL = 'smtp://localhost:3125';
 
 /** A fresh Ed25519 pair per run (ADR-0006): QR codes of a run are valid only in that run. */
 function qrSigningKeys() {
@@ -42,7 +45,7 @@ export default defineConfig({
       name: 'api',
       command: 'pnpm --filter api e2e:server',
       url: `${API_URL}/api/v1/health`,
-      // tsc build, a PostgreSQL container, migrations and seed.
+      // tsc build, PostgreSQL and Mailpit containers, migrations and seed.
       timeout: 240_000,
       // Lets the server stop its database container (otherwise the reaper does, later).
       gracefulShutdown: { signal: 'SIGTERM', timeout: 15_000 },
@@ -55,8 +58,9 @@ export default defineConfig({
         WEB_URL,
         JWT_ACCESS_SECRET: randomBytes(32).toString('hex'),
         PAYMENTS_PROVIDER: 'fake',
-        // Nothing in the scenarios sends e-mail; Mailpit catches it if it runs.
-        SMTP_URL: 'smtp://localhost:1025',
+        // A Mailpit of its own, not the one of docker compose (1025).
+        SMTP_URL: MAILPIT_SMTP_URL,
+        E2E_MAILPIT_URL: process.env.E2E_MAILPIT_URL,
         MAIL_FROM: 'Łowisko E2E <no-reply@lowisko.test>',
         ...qrSigningKeys(),
       },
