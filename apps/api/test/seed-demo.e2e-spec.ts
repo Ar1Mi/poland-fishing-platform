@@ -289,12 +289,18 @@ describe('seedDemoData', () => {
     );
   });
 
-  it('leaves the owner of the unconnected demo water claimed during a demo', async () => {
+  it('leaves the owner and its description of the unconnected demo water claimed during a demo', async () => {
     await seed();
     const lipowy = DEMO_ORGANIZATIONS.find((org) => org.key === 'lipowy')!;
     await db.prisma.fishingWater.updateMany({
       where: { name: 'Jezioro Wąsosze' },
-      data: { status: 'CONNECTED', organizationId: lipowy.id, name: 'Zmieniona nazwa' },
+      data: {
+        status: 'CONNECTED',
+        organizationId: lipowy.id,
+        name: 'Zmieniona nazwa',
+        // Written by the organization (FR-05, T-23).
+        description: 'Opis koła',
+      },
     });
 
     await seed(new Date('2026-10-20T10:00:00.000Z'));
@@ -302,11 +308,12 @@ describe('seedDemoData', () => {
     const water = await db.prisma.fishingWater.findFirstOrThrow({
       where: { source: 'MANUAL', sourceRef: 'DEMO-4' },
     });
-    // The demo fields come back; the claim approved meanwhile stays.
+    // The demo fields come back; the claim approved meanwhile and what the organization wrote stay.
     expect(water).toMatchObject({
       name: 'Jezioro Wąsosze',
       status: 'CONNECTED',
       organizationId: lipowy.id,
+      description: 'Opis koła',
     });
   });
 

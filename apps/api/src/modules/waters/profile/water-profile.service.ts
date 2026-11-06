@@ -1,10 +1,12 @@
 import {
   ErrorCode,
+  WaterStatus,
   WATER_PHOTO_EXTENSIONS,
   isWaterPhotoType,
   waterPhotoTypeOf,
   type WaterPhotoType,
 } from '@lowisko/shared';
+import type { Readable } from 'node:stream';
 import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { DomainError } from '../../../common/errors/domain-error';
@@ -23,7 +25,8 @@ const PHOTO_FOLDER = 'waters';
 const PROFILE_FIELDS = ['description', 'seasonInfo'] as const;
 
 export interface WaterPhoto {
-  content: Buffer;
+  stream: Readable;
+  size: number;
   type: WaterPhotoType;
   fileName: string;
 }
@@ -44,6 +47,20 @@ export class WaterProfileService {
     private readonly logger: PinoLogger,
   ) {
     logger.setContext(WaterProfileService.name);
+  }
+
+  /**
+   * The card of a water connected to the organization, read for its edit form: never from a
+   * cache (the public card is cached by the PWA), and another organization's water is unknown.
+   */
+  async getConnected(organizationId: string, waterId: string): Promise<WaterDetailDto> {
+    const water = await this.prisma.fishingWater.findFirst({
+      where: { id: waterId, organizationId, status: WaterStatus.CONNECTED },
+    });
+    if (!water) {
+      throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'Water not found');
+    }
+    return toWaterDetail(water, this.organizations);
   }
 
   /** Changes only the fields sent; a request that changes nothing writes nothing. */
@@ -129,24 +146,34 @@ export class WaterProfileService {
     return toWaterDetail(changed.updated, this.organizations);
   }
 
-  async deletePhoto(organizationId: string, actorId: string, waterId: string): Promise<void> {
-    const removed = await this.prisma.$transaction(async (tx) => {
+  /** Answers the card without the photo: the client takes it instead of reading a cached one. */
+  async deletePhoto(
+    organizationId: string,
+    actorId: string,
+    waterId: string,
+  ): Promise<WaterDetailDto> {
+    const { water, removed } = await this.prisma.$transaction(async (tx) => {
       const stored = await this.lockConnected(tx, organizationId, waterId);
-      if (stored.photoKey) {
-        await tx.fishingWater.update({ where: { id: waterId }, data: { photoKey: null } });
-        await this.audit.record(tx, {
-          actorId,
-          action: 'WATER_PHOTO_DELETED',
-          entity: 'FishingWater',
-          entityId: waterId,
-          diff: { organizationId },
-        });
+      if (!stored.photoKey) {
+        return { water: stored, removed: null };
       }
-      return stored.photoKey;
+      const updated = await tx.fishingWater.update({
+        where: { id: waterId },
+        data: { photoKey: null },
+      });
+      await this.audit.record(tx, {
+        actorId,
+        action: 'WATER_PHOTO_DELETED',
+        entity: 'FishingWater',
+        entityId: waterId,
+        diff: { organizationId },
+      });
+      return { water: updated, removed: stored.photoKey };
     });
     if (removed) {
       await this.removeFile(removed);
     }
+    return toWaterDetail(water, this.organizations);
   }
 
   /**
@@ -168,8 +195,14 @@ export class WaterProfileService {
         throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'Water has no photo');
       }
       try {
-        const content = await this.storage.read(key);
-        return { content, type, fileName: `lowisko-${waterId}.${WATER_PHOTO_EXTENSIONS[type]}` };
+        // Streamed: the photo is public, up to 5 MB, and must not sit in memory per request.
+        const { stream, size } = await this.storage.openStream(key);
+        return {
+          stream,
+          size,
+          type,
+          fileName: `lowisko-${waterId}.${WATER_PHOTO_EXTENSIONS[type]}`,
+        };
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
           throw error;
@@ -187,7 +220,9 @@ export class WaterProfileService {
 
   /**
    * Locks a water connected to the organization, then reads it with what was committed meanwhile.
-   * Another organization's or an unconnected water is as unknown as a missing one.
+   * Another organization's or an unconnected water is as unknown as a missing one. `FOR NO KEY
+   * UPDATE`: no key changes, so foreign-key checks of inserts referencing the water (catches,
+   * claims) need not wait for the change — and an upload holds the lock while it writes the file.
    */
   private async lockConnected(
     tx: Prisma.TransactionClient,
@@ -198,7 +233,7 @@ export class WaterProfileService {
       SELECT "id" FROM "FishingWater"
       WHERE "id" = ${waterId}::uuid AND "organizationId" = ${organizationId}::uuid
         AND "status" = 'CONNECTED'
-      FOR UPDATE`;
+      FOR NO KEY UPDATE`;
     if (locked.length === 0) {
       throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'Water not found');
     }

@@ -71,7 +71,7 @@ export function OrgApplicationPage() {
         <TextField
           label={t('orgs.apply.name')}
           maxLength={ORG_NAME_MAX_LENGTH}
-          error={errors.name && t('orgs.apply.nameError')}
+          error={errors.name && t('orgs.apply.nameError', { max: ORG_NAME_MAX_LENGTH })}
           {...register('name')}
         />
         <TextField
@@ -82,25 +82,20 @@ export function OrgApplicationPage() {
           error={errors.nip && t('orgs.apply.nipError')}
           {...register('nip')}
         />
-        <div className="flex flex-col gap-1">
-          <SelectField
-            label={t('orgs.apply.kind')}
-            aria-invalid={errors.kind ? true : undefined}
-            {...register('kind')}
-          >
-            <option value="" disabled>
-              {t('orgs.apply.kindPlaceholder')}
+        <SelectField
+          label={t('orgs.apply.kind')}
+          error={errors.kind && t('orgs.apply.kindError')}
+          {...register('kind')}
+        >
+          <option value="" disabled>
+            {t('orgs.apply.kindPlaceholder')}
+          </option>
+          {Object.values(OrganizationKind).map((kind) => (
+            <option key={kind} value={kind}>
+              {t(`orgs.kind.${kind}`)}
             </option>
-            {Object.values(OrganizationKind).map((kind) => (
-              <option key={kind} value={kind}>
-                {t(`orgs.kind.${kind}`)}
-              </option>
-            ))}
-          </SelectField>
-          {errors.kind && (
-            <p className="text-small text-destructive">{t('orgs.apply.kindError')}</p>
-          )}
-        </div>
+          ))}
+        </SelectField>
         <TextField
           label={t('orgs.apply.contactEmail')}
           type="email"

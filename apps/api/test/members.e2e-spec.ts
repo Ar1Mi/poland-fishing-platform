@@ -198,12 +198,43 @@ describe('members and invitations (FR-04)', () => {
     });
 
     it('keeps one pending invitation when the same one is sent twice at once', async () => {
-      await Promise.all([
-        invite({ email: 'twice@example.com', role: 'INSPECTOR' }).expect(201),
-        invite({ email: 'twice@example.com', role: 'INSPECTOR' }).expect(201),
-      ]);
+      // The first invitation holds the lock of the address and role and commits its row only
+      // once the second waits for it; the second then replaces it.
+      const key = `invitation:${admin.organizationId}:twice@example.com:INSPECTOR`;
+      let locked!: () => void;
+      let commit!: () => void;
+      const lockedPromise = new Promise<void>((resolve) => (locked = resolve));
+      const commitPromise = new Promise<void>((resolve) => (commit = resolve));
+      const first = prisma.$transaction(
+        async (tx) => {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${key}, 0))`;
+          await tx.invitation.create({
+            data: {
+              organizationId: admin.organizationId,
+              email: 'twice@example.com',
+              role: 'INSPECTOR',
+              tokenHash: 'first-invitation',
+              expiresAt: new Date(FIXED_NOW.getTime() + 7 * DAY_MS),
+            },
+          });
+          locked();
+          await commitPromise;
+        },
+        { timeout: 20_000 },
+      );
+      await lockedPromise;
+      const second = invite({ email: 'twice@example.com', role: 'INSPECTOR' }).then((r) => r);
+      await untilSomeQueryWaitsForLock();
+      commit();
+      await first;
 
-      expect(await prisma.invitation.count({ where: { email: 'twice@example.com' } })).toBe(1);
+      expect((await second).status).toBe(201);
+      expect(
+        await prisma.invitation.findMany({
+          where: { email: 'twice@example.com' },
+          select: { tokenHash: true },
+        }),
+      ).toEqual([{ tokenHash: hashOpaqueToken(mail.tokenFor('twice@example.com')) }]);
     });
 
     it('refuses to invite someone who already holds the role', async () => {
@@ -302,13 +333,37 @@ describe('members and invitations (FR-04)', () => {
 
     it('accepts a link opened twice at once only once', async () => {
       const invitee = await account('invitee@example.com');
+      // The first acceptance holds the invitation and commits only once the second, past its
+      // checks, waits for it.
+      let locked!: () => void;
+      let commit!: () => void;
+      const lockedPromise = new Promise<void>((resolve) => (locked = resolve));
+      const commitPromise = new Promise<void>((resolve) => (commit = resolve));
+      const first = prisma.$transaction(
+        async (tx) => {
+          await tx.invitation.updateMany({
+            where: { tokenHash: hashOpaqueToken(token) },
+            data: { acceptedAt: FIXED_NOW },
+          });
+          await tx.membership.create({
+            data: { userId: invitee.id, organizationId: admin.organizationId, role: 'INSPECTOR' },
+          });
+          locked();
+          await commitPromise;
+        },
+        { timeout: 20_000 },
+      );
+      await lockedPromise;
+      const second = accept(token, invitee.accessToken).then((result) => result);
+      await untilSomeQueryWaitsForLock();
+      commit();
+      await first;
 
-      const statuses = (
-        await Promise.all([accept(token, invitee.accessToken), accept(token, invitee.accessToken)])
-      ).map((response) => response.status);
-
-      expect(statuses.sort()).toEqual([200, 400]);
+      const response = await second;
+      expect(response.status).toBe(400);
+      expect(response.body).toMatchObject({ code: 'INVALID_TOKEN' });
       expect(await prisma.membership.count({ where: { userId: invitee.id } })).toBe(1);
+      expect(await prisma.auditLog.count({ where: { action: 'INVITATION_ACCEPTED' } })).toBe(0);
     });
 
     it('refuses an expired link with its own code', async () => {
@@ -392,6 +447,27 @@ describe('members and invitations (FR-04)', () => {
       await setRoles(inspector.id, ['ANGLER']).expect(400);
     });
 
+    it('cancels the invitations waiting for the address of a removed member', async () => {
+      await invite({ email: 'piotr@example.com', role: 'ORG_ADMIN' }).expect(201);
+      const token = mail.tokenFor('piotr@example.com');
+      // An invitation of another organization stays.
+      const foreign = await loginOrgMember(app, prisma, 'ORG_ADMIN');
+      await invite({ email: 'piotr@example.com', role: 'INSPECTOR' }, foreign).expect(201);
+
+      await remove(inspector.id).expect(204);
+
+      await accept(token, inspector.accessToken).expect(400);
+      expect(
+        await prisma.invitation.findMany({
+          where: { email: 'piotr@example.com' },
+          select: { organizationId: true },
+        }),
+      ).toEqual([{ organizationId: foreign.organizationId }]);
+      expect(
+        (await prisma.auditLog.findFirst({ where: { action: 'MEMBER_REMOVED' } }))?.diff,
+      ).toMatchObject({ cancelledInvitations: 1 });
+    });
+
     it('removes a member with every role', async () => {
       await remove(inspector.id).expect(204);
 
@@ -400,7 +476,7 @@ describe('members and invitations (FR-04)', () => {
         action: 'MEMBER_REMOVED',
         entity: 'Organization',
         entityId: admin.organizationId,
-        diff: { userId: inspector.id, roles: ['INSPECTOR'] },
+        diff: { userId: inspector.id, roles: ['INSPECTOR'], cancelledInvitations: 0 },
       });
     });
 

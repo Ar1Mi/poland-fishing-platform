@@ -78,6 +78,30 @@ describe('water profile of an organization (FR-05)', () => {
     await db.drop();
   });
 
+  describe('GET /orgs/:orgId/waters/:id', () => {
+    it('reads the card of an own water for its form, never from a cache', async () => {
+      const response = await request(server())
+        .get(`/api/v1/orgs/${admin.organizationId}/waters/${waterId}`)
+        .set(bearer(admin.accessToken))
+        .expect(200);
+
+      expect(response.body).toMatchObject({ id: waterId, description: 'Stary opis' });
+      expect(response.headers['cache-control']).toBe('no-store');
+    });
+
+    it('treats a water of another organization as unknown', async () => {
+      const foreign = await loginOrgMember(app, prisma, 'ORG_ADMIN');
+
+      await request(server())
+        .get(`/api/v1/orgs/${foreign.organizationId}/waters/${waterId}`)
+        .set(bearer(foreign.accessToken))
+        .expect(404);
+      await expectForeignOrgAdminForbidden(app, prisma, (orgId, token) =>
+        request(server()).get(`/api/v1/orgs/${orgId}/waters/${waterId}`).set(bearer(token)),
+      );
+    });
+  });
+
   describe('PATCH /orgs/:orgId/waters/:id', () => {
     it('changes the description and the season, trimmed, and logs who changed what', async () => {
       const response = await patch({
@@ -225,11 +249,13 @@ describe('water profile of an organization (FR-05)', () => {
     it('removes the photo and its file', async () => {
       await putPhoto(PNG).expect(200);
 
-      await request(server())
+      const removed = await request(server())
         .delete(`/api/v1/orgs/${admin.organizationId}/waters/${waterId}/photo`)
         .set(bearer(admin.accessToken))
-        .expect(204);
+        .expect(200);
 
+      // The client takes this card instead of reading one the PWA may have cached.
+      expect(removed.body).toMatchObject({ id: waterId, photoVersion: null });
       expect(await storedPhotos()).toEqual([]);
       const card = await request(server()).get(`/api/v1/waters/${waterId}`).expect(200);
       expect(card.body).toMatchObject({ photoVersion: null });
@@ -258,7 +284,9 @@ describe('water profile of an organization (FR-05)', () => {
     });
 
     it('is not served for a water without a photo, an unpublished one or a missing file', async () => {
-      await request(server()).get(`/api/v1/waters/${waterId}/photo`).expect(404);
+      const missing = await request(server()).get(`/api/v1/waters/${waterId}/photo`).expect(404);
+      // Only a served photo may be kept by browsers and proxies, never the error.
+      expect(missing.headers['cache-control'] ?? '').not.toMatch(/public/);
       const hidden = await createWater(prisma, {
         isPublished: false,
         photoKey: 'waters/00000000-0000-4000-8000-000000000002.png',

@@ -1,25 +1,15 @@
 import {
-  EffectivePermitStatus,
   PAGE_SIZE_DEFAULT,
   PAGE_SIZE_MAX,
+  PERMIT_NUMBER_QUERY_MAX_LENGTH,
   REVOKE_REASON_MAX_LENGTH,
+  SOLD_PERMIT_STATUSES,
+  type SoldPermitStatus,
 } from '@lowisko/shared';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
 import { IsIn, IsInt, IsNotEmpty, IsString, Max, MaxLength, Min } from 'class-validator';
 import { IfPresent, trim } from '../../users/dto/profile.dto';
-
-/** The statuses of a sold permit (paid, then maybe revoked): what the list filters by. */
-export const SOLD_PERMIT_STATUSES = [
-  EffectivePermitStatus.SCHEDULED,
-  EffectivePermitStatus.ACTIVE,
-  EffectivePermitStatus.EXPIRED,
-  EffectivePermitStatus.REVOKED,
-] as const;
-export type SoldPermitStatus = (typeof SOLD_PERMIT_STATUSES)[number];
-
-/** A permit number fragment: `ZW-2026-000123` has 14 characters, 7-digit numbers one more. */
-export const PERMIT_NUMBER_QUERY_MAX_LENGTH = 20;
 
 const integer = ({ value }: { value: unknown }) =>
   typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : value;

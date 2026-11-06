@@ -2,14 +2,11 @@ import { LoaderCircle } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
-import { matchesQuery } from '../../../shared/lib/search';
+import { matchesQuery, NAME_FILTER_FROM } from '../../../shared/lib/search';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Badge } from '../../../shared/ui/badge';
 import { TextField } from '../../../shared/ui/form-field';
 import { useOrgWaters } from '../../permits/api/usePermitTypes';
-
-/** More waters than this get a filter by name. */
-const FILTER_FROM = 8;
 
 /**
  * `/org/:orgId/waters` (FR-05): the waters connected to the organization, each leading to what
@@ -42,7 +39,7 @@ export function OrgWatersPage() {
           </Link>
         </>
       )}
-      {waters.isSuccess && waters.data.length > FILTER_FROM && (
+      {waters.isSuccess && waters.data.length > NAME_FILTER_FROM && (
         <TextField
           label={t('catalog.orgWaters.filter')}
           type="search"

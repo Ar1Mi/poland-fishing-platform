@@ -10,7 +10,7 @@ import { useId, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { formatPriceInput } from '../../../shared/lib/format';
-import { matchesQuery } from '../../../shared/lib/search';
+import { matchesQuery, NAME_FILTER_FROM } from '../../../shared/lib/search';
 import { Alert, AlertDescription } from '../../../shared/ui/alert';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Button } from '../../../shared/ui/button';
@@ -184,9 +184,6 @@ function LockedTerms({ type }: { type: OrgPermitType }) {
   );
 }
 
-/** More waters than this get a filter by name (a district of PZW has hundreds of obwody). */
-const WATER_FILTER_FROM = 8;
-
 /** Checkboxes over the organization's connected waters, with «select all» for big districts. */
 function WaterChoice({
   waters,
@@ -215,7 +212,7 @@ function WaterChoice({
       <p id={hintId} className="text-small text-muted-foreground">
         {t('permits.form.waters.hint')}
       </p>
-      {waters.length > WATER_FILTER_FROM && (
+      {waters.length > NAME_FILTER_FROM && (
         <TextField
           label={t('permits.form.waters.filter')}
           type="search"

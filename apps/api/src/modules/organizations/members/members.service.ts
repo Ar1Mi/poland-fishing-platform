@@ -4,7 +4,7 @@ import { DomainError } from '../../../common/errors/domain-error';
 import { PrismaService } from '../../../database/prisma.service';
 import type { Membership, Prisma } from '../../../generated/prisma/client';
 import { AuditService } from '../../audit/audit.service';
-import { UsersService } from '../../users/users.service';
+import { normalizeEmail, UsersService } from '../../users/users.service';
 import type { MemberDto } from '../dto/member.dto';
 
 /** Role order of the lists: the admin role first. */
@@ -63,8 +63,10 @@ export class MembersService {
       await tx.membership.deleteMany({
         where: { organizationId, userId, role: { in: removed } },
       });
+      // An invitation accepted meanwhile may have given the same role (no organization lock).
       await tx.membership.createMany({
         data: added.map((role) => ({ organizationId, userId, role })),
+        skipDuplicates: true,
       });
       await this.audit.record(tx, {
         actorId,
@@ -86,7 +88,10 @@ export class MembersService {
     return member!;
   }
 
-  /** Takes every role of the member; the last admin stays. */
+  /**
+   * Takes every role of the member; the last admin stays. The invitations waiting for the
+   * member's address go too: a link already sent must not bring the removed member back.
+   */
   async remove(organizationId: string, actorId: string, userId: string): Promise<void> {
     await this.prisma.$transaction(async (tx) => {
       const current = await this.lockAndRead(tx, organizationId, userId);
@@ -95,12 +100,18 @@ export class MembersService {
         await this.assertAnotherAdmin(tx, organizationId, userId);
       }
       await tx.membership.deleteMany({ where: { organizationId, userId } });
+      const user = await this.users.findById(userId, tx);
+      const cancelled = user
+        ? await tx.invitation.deleteMany({
+            where: { organizationId, email: normalizeEmail(user.email), acceptedAt: null },
+          })
+        : { count: 0 };
       await this.audit.record(tx, {
         actorId,
         action: 'MEMBER_REMOVED',
         entity: 'Organization',
         entityId: organizationId,
-        diff: { userId, roles },
+        diff: { userId, roles, cancelledInvitations: cancelled.count },
       });
     });
   }

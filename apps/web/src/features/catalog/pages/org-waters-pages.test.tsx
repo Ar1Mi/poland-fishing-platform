@@ -1,7 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import { jsonResponse, mockApi, noContent, renderRoute, sentBodies } from '../../../test/render';
+import { jsonResponse, mockApi, renderRoute, sentBodies } from '../../../test/render';
 import type { WaterDetail } from '../api/useWaters';
 
 const ORG_ID = '2d9f6c1e-1c1e-4f43-9a51-0d6c2f0d9a13';
@@ -84,7 +84,7 @@ describe('water profile of the organization', () => {
   const show = (handlers: Record<string, (request: Request) => Response> = {}, card = water) => {
     const fetch = mockApi({
       'GET /api/v1/me': () => jsonResponse(profile),
-      [`GET /api/v1/waters/${WATER_ID}`]: () => jsonResponse(card),
+      [`GET /api/v1/orgs/${ORG_ID}/waters/${WATER_ID}`]: () => jsonResponse(card),
       ...handlers,
     });
     renderRoute(`/org/${ORG_ID}/waters/${WATER_ID}`, { accessToken: 'access-1' });
@@ -137,10 +137,10 @@ describe('water profile of the organization', () => {
     let card: WaterDetail = { ...water, photoVersion: PHOTO };
     show(
       {
-        [`GET /api/v1/waters/${WATER_ID}`]: () => jsonResponse(card),
+        [`GET /api/v1/orgs/${ORG_ID}/waters/${WATER_ID}`]: () => jsonResponse(card),
         [`DELETE /api/v1/orgs/${ORG_ID}/waters/${WATER_ID}/photo`]: () => {
           card = { ...card, photoVersion: null };
-          return noContent();
+          return jsonResponse(card);
         },
       },
       card,

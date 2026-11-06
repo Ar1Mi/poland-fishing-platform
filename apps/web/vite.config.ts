@@ -69,7 +69,8 @@ export default defineConfig({
             handler: 'CacheFirst',
             options: {
               cacheName: 'water-photos',
-              expiration: { maxEntries: 30 },
+              // Up to 5 MB each, in the quota the offline catches share: few, and the first to go.
+              expiration: { maxEntries: 10, purgeOnQuotaError: true },
               cacheableResponse: { statuses: [200] },
             },
           },

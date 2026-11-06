@@ -16,6 +16,7 @@ export * from './permits/external-permit.js';
 export * from './permits/permit-types.js';
 export * from './permits/purchase.js';
 export * from './permits/revocation.js';
+export * from './permits/sold-permits.js';
 export * from './rules/catch/br-07-edit-window.js';
 export { CATCH_FUTURE_TOLERANCE_MINUTES } from './rules/catch/br-10-catch-in-future.js';
 export * from './rules/catch/types.js';

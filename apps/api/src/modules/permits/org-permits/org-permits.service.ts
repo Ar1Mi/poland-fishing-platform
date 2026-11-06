@@ -5,16 +5,18 @@ import {
   PAGE_SIZE_DEFAULT,
   type Page,
   PermitStatus,
+  type SoldPermitStatus,
   warsawDate,
 } from '@lowisko/shared';
 import { Injectable } from '@nestjs/common';
 import { ClockService } from '../../../common/clock/clock.service';
 import { DomainError } from '../../../common/errors/domain-error';
+import { escapeLike } from '../../../database/like';
 import { PrismaService } from '../../../database/prisma.service';
 import type { Permit, PermitType, Prisma } from '../../../generated/prisma/client';
 import { AuditService } from '../../audit/audit.service';
 import { UsersService } from '../../users/users.service';
-import type { ListOrgPermitsQueryDto, OrgPermitDto, SoldPermitStatus } from '../dto/org-permit.dto';
+import type { ListOrgPermitsQueryDto, OrgPermitDto } from '../dto/org-permit.dto';
 import { fromDbDate, toDbDate } from '../permit-dates';
 
 type StoredPermit = Permit & { permitType: Pick<PermitType, 'id' | 'name'> };
@@ -61,7 +63,8 @@ export class OrgPermitsService {
 
   /**
    * Only a permit that can still be used (SCHEDULED, ACTIVE) is revoked; the row is locked, so
-   * of two revocations one wins and the other sees REVOKED.
+   * of two revocations one wins and the other sees REVOKED. `FOR NO KEY UPDATE`: the key does not
+   * change, so a catch synced meanwhile (its FK check takes `KEY SHARE`) does not wait.
    */
   async revoke(
     organizationId: string,
@@ -75,7 +78,7 @@ export class OrgPermitsService {
         SELECT p."id" FROM "Permit" p
         JOIN "PermitType" t ON t."id" = p."permitTypeId"
         WHERE p."id" = ${id}::uuid AND t."organizationId" = ${organizationId}::uuid
-        FOR UPDATE OF p`;
+        FOR NO KEY UPDATE OF p`;
       if (locked.length === 0) {
         throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'Permit not found');
       }
@@ -153,9 +156,4 @@ function statusFilter(status: SoldPermitStatus | undefined, today: Date): Prisma
     case undefined:
       return { status: { in: [PermitStatus.PAID, PermitStatus.REVOKED] } };
   }
-}
-
-/** Prisma passes `contains` to ILIKE as is: `%` and `_` in a search must match themselves. */
-function escapeLike(value: string): string {
-  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
 }

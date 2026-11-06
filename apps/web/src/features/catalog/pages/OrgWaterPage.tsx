@@ -22,22 +22,24 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/ui/car
 import { FileField, TextAreaField } from '../../../shared/ui/form-field';
 import {
   useDeleteWaterPhoto,
+  useOrgWater,
   useSetWaterPhoto,
   useUpdateWaterProfile,
 } from '../api/useWaterProfile';
-import { useWater, type WaterDetail, waterPhotoUrl } from '../api/useWaters';
+import { type WaterDetail, waterPhotoUrl } from '../api/useWaters';
 
 const backLink = 'flex min-h-11 w-fit items-center gap-2 font-semibold text-primary';
 
 /**
  * `/org/:orgId/waters/:waterId` (FR-05): what the organization tells anglers on the water card —
  * description, season and photo. Name, type and position come from the catalogue import and are
- * not edited here. The API decides whether the water belongs to the organization.
+ * not edited here. The API decides whether the water belongs to the organization; the form reads
+ * the stored values (`useOrgWater`) and sends only what was changed.
  */
 export function OrgWaterPage() {
   const { t } = useTranslation();
   const { orgId = '', waterId = '' } = useParams();
-  const water = useWater(waterId);
+  const water = useOrgWater(orgId, waterId);
   return (
     <>
       <Link to={`/org/${orgId}/waters`} className={backLink}>
@@ -72,17 +74,24 @@ function ProfileForm({ orgId, water }: { orgId: string; water: WaterDetail }) {
   const {
     register,
     handleSubmit,
-    formState: { errors, isDirty },
+    formState: { errors, isDirty, dirtyFields },
     reset,
   } = useForm<WaterProfileFormValues, unknown, WaterProfileInput>({
     resolver: zodResolver(waterProfileSchema),
     defaultValues: { description: water.description ?? '', seasonInfo: water.seasonInfo ?? '' },
   });
+  // Only the changed fields: another admin may have changed the other one meanwhile.
   const submit = (values: WaterProfileInput) =>
-    update.mutate(values, {
-      onSuccess: (saved) =>
-        reset({ description: saved.description ?? '', seasonInfo: saved.seasonInfo ?? '' }),
-    });
+    update.mutate(
+      {
+        ...(dirtyFields.description && { description: values.description }),
+        ...(dirtyFields.seasonInfo && { seasonInfo: values.seasonInfo }),
+      },
+      {
+        onSuccess: (saved) =>
+          reset({ description: saved.description ?? '', seasonInfo: saved.seasonInfo ?? '' }),
+      },
+    );
   return (
     <form
       noValidate

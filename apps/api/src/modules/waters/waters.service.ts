@@ -1,6 +1,7 @@
 import { ErrorCode, WATERS_LIST_LIMIT, WaterStatus } from '@lowisko/shared';
 import { Injectable } from '@nestjs/common';
 import { DomainError } from '../../common/errors/domain-error';
+import { escapeLike } from '../../database/like';
 import { PrismaService } from '../../database/prisma.service';
 import type { FishingWater, Prisma } from '../../generated/prisma/client';
 import { OrganizationsService } from '../organizations/organizations.service';
@@ -117,11 +118,6 @@ export function waterFilter({
     lng: bbox ? { gte: bbox.minLng, lte: bbox.maxLng } : undefined,
     lat: bbox ? { gte: bbox.minLat, lte: bbox.maxLat } : undefined,
   };
-}
-
-/** Prisma passes `contains` to ILIKE as is: `%` and `_` in a search must match themselves. */
-function escapeLike(value: string): string {
-  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
 }
 
 function toSummary(water: FishingWater): WaterSummaryDto {

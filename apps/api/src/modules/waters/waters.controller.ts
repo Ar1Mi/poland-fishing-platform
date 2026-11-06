@@ -18,18 +18,19 @@ import {
   Post,
   Put,
   Query,
+  Res,
   StreamableFile,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
   ApiConsumes,
   ApiForbiddenResponse,
-  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -97,17 +98,25 @@ export class WatersController {
   }
 
   @Get(':id/photo')
-  // A new photo is a new URL (`?v=<photoVersion>`), so a copy may be kept.
-  @Header('Cache-Control', 'public, max-age=86400')
   @ApiOperation({ summary: 'Photo of the water card (FR-05); `v` only changes the URL' })
   @ApiProduces(...WATER_PHOTO_MIME_TYPES)
   @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
   @ApiBadRequestResponse(badId)
   @ApiNotFoundResponse({ ...error, description: 'NOT_FOUND (water, its photo or the file)' })
-  async photo(@Param('id', ParseUUIDPipe) id: string): Promise<StreamableFile> {
-    const { content, type, fileName } = await this.profiles.readPhoto(id);
+  async photo(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile> {
+    const { stream, size, type, fileName } = await this.profiles.readPhoto(id);
+    // Only on success (`@Header` would mark a 404 as cacheable too): a new photo is a new URL
+    // (`?v=<photoVersion>`), so the image may be kept.
+    response.setHeader('Cache-Control', 'public, max-age=86400');
     // An image tag shows it anyway; opened directly, an uploaded file is never our page.
-    return new StreamableFile(content, { type, disposition: `attachment; filename="${fileName}"` });
+    return new StreamableFile(stream, {
+      type,
+      length: size,
+      disposition: `attachment; filename="${fileName}"`,
+    });
   }
 }
 
@@ -128,6 +137,20 @@ export class OrgWatersController {
   @ApiOkResponse({ type: OrgWaterDto, isArray: true })
   list(@Param('orgId') orgId: string): Promise<OrgWaterDto[]> {
     return this.waters.listConnected(orgId);
+  }
+
+  @Get(':id')
+  // The edit form must see the stored values, not a copy kept by the PWA or a proxy.
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Card of a connected water for its edit form (not cached)' })
+  @ApiOkResponse({ type: WaterDetailDto })
+  @ApiBadRequestResponse(badId)
+  @ApiNotFoundResponse({ ...error, description: 'NOT_FOUND (not a water of the organization)' })
+  get(
+    @Param('orgId') orgId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<WaterDetailDto> {
+    return this.profiles.getConnected(orgId, id);
   }
 
   @Patch(':id')
@@ -179,17 +202,16 @@ export class OrgWatersController {
   }
 
   @Delete(':id/photo')
-  @HttpCode(204)
-  @ApiOperation({ summary: 'Remove the photo of the card' })
-  @ApiNoContentResponse()
+  @ApiOperation({ summary: 'Remove the photo of the card; answers the card without it' })
+  @ApiOkResponse({ type: WaterDetailDto })
   @ApiBadRequestResponse(badId)
   @ApiNotFoundResponse({ ...error, description: 'NOT_FOUND (not a water of the organization)' })
-  async deletePhoto(
+  deletePhoto(
     @Param('orgId') orgId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthUser,
-  ): Promise<void> {
-    await this.profiles.deletePhoto(orgId, user.id, id);
+  ): Promise<WaterDetailDto> {
+    return this.profiles.deletePhoto(orgId, user.id, id);
   }
 }
 

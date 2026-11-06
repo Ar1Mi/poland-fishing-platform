@@ -70,6 +70,17 @@ describe('permits sold by an organization (FR-10)', () => {
       ...data,
     });
 
+  const untilSomeQueryWaitsForLock = async () => {
+    for (let attempt = 0; attempt < 200; attempt += 1) {
+      const [row] = await prisma.$queryRaw<{ waiting: number }[]>`
+        SELECT count(*)::int AS "waiting" FROM pg_stat_activity
+        WHERE "datname" = current_database() AND "wait_event_type" = 'Lock'`;
+      if (row && row.waiting > 0) return;
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    throw new Error('No query waited for the lock');
+  };
+
   beforeEach(async () => {
     db = await createTestDatabase();
     prisma = prismaServiceFor(db.url);
@@ -157,23 +168,39 @@ describe('permits sold by an organization (FR-10)', () => {
       expect(page.total).toBe(expected.length);
     });
 
-    it('moves a permit to the next status at Warsaw midnight, not UTC midnight', async () => {
-      await sold('2026-10-06', '2026-10-06', { number: 'today' });
-      await sold('2026-10-07', '2026-10-07', { number: 'tomorrow' });
-      // 00:30 on 7 October in Warsaw is still 6 October in UTC.
-      now = new Date('2026-10-06T22:30:00.000Z');
-      admin = await loginOrgMember(app, prisma, 'ORG_ADMIN');
-      await prisma.permitType.update({
-        where: { id: typeId },
-        data: { organizationId: admin.organizationId },
-      });
+    it.each([
+      // 00:30 in Warsaw is still the day before in UTC.
+      ['an ordinary night', '2026-10-06', '2026-10-07', '2026-10-06T22:30:00.000Z'],
+      // The same across the New Year (UTC+1).
+      ['New Year', '2026-12-31', '2027-01-01', '2026-12-31T23:30:00.000Z'],
+      // The night of the change to winter time: 00:30 is still summer time (UTC+2).
+      ['the change to winter time', '2026-10-24', '2026-10-25', '2026-10-24T22:30:00.000Z'],
+    ])(
+      'moves a permit to the next status at Warsaw midnight, not UTC midnight (%s)',
+      async (_case, yesterday, today, instant) => {
+        await sold(yesterday, yesterday, { number: 'yesterday' });
+        await sold(today, today, { number: 'today' });
+        await sold(today, today, { number: 'revoked', status: 'REVOKED' });
+        now = new Date(instant);
+        admin = await loginOrgMember(app, prisma, 'ORG_ADMIN');
+        await prisma.permitType.update({
+          where: { id: typeId },
+          data: { organizationId: admin.organizationId },
+        });
 
-      const page = await list();
+        const page = await list();
 
-      expect(
-        Object.fromEntries(page.items.map((permit) => [permit.number, permit.status])),
-      ).toEqual({ today: 'EXPIRED', tomorrow: 'ACTIVE' });
-    });
+        expect(
+          Object.fromEntries(page.items.map((permit) => [permit.number, permit.status])),
+        ).toEqual({ yesterday: 'EXPIRED', today: 'ACTIVE', revoked: 'REVOKED' });
+        expect((await list({ status: 'ACTIVE' })).items.map((permit) => permit.number)).toEqual([
+          'today',
+        ]);
+        expect((await list({ status: 'EXPIRED' })).items.map((permit) => permit.number)).toEqual([
+          'yesterday',
+        ]);
+      },
+    );
 
     it('finds a permit by a part of its number, case-insensitively, % and _ as such', async () => {
       await sold('2026-10-01', '2026-10-31', { number: 'ZW-2026-000123' });
@@ -290,11 +317,39 @@ describe('permits sold by an organization (FR-10)', () => {
 
     it('lets one of two revocations at once through', async () => {
       const permit = await sold('2026-10-01', '2026-10-31');
+      // The first revocation holds the permit and commits only once the second waits for it.
+      let locked!: () => void;
+      let commit!: () => void;
+      const lockedPromise = new Promise<void>((resolve) => (locked = resolve));
+      const commitPromise = new Promise<void>((resolve) => (commit = resolve));
+      const first = prisma.$transaction(
+        async (tx) => {
+          await tx.$queryRaw`SELECT "id" FROM "Permit" WHERE "id" = ${permit.id}::uuid FOR NO KEY UPDATE`;
+          await tx.permit.update({
+            where: { id: permit.id },
+            data: { status: 'REVOKED', revokedAt: FIXED_NOW, revokeReason: 'Pierwsze' },
+          });
+          locked();
+          await commitPromise;
+        },
+        { timeout: 20_000 },
+      );
+      await lockedPromise;
+      const second = revoke(permit.id).then((result) => result);
+      await untilSomeQueryWaitsForLock();
+      commit();
+      await first;
 
-      const responses = await Promise.all([revoke(permit.id), revoke(permit.id)]);
-
-      expect(responses.map((response) => response.status).sort()).toEqual([200, 422]);
-      expect(await prisma.auditLog.count()).toBe(1);
+      const response = await second;
+      expect(response.status).toBe(422);
+      expect(response.body).toMatchObject({
+        code: 'PERMIT_NOT_REVOCABLE',
+        details: { status: 'REVOKED' },
+      });
+      expect(await prisma.permit.findUniqueOrThrow({ where: { id: permit.id } })).toMatchObject({
+        revokeReason: 'Pierwsze',
+      });
+      expect(await prisma.auditLog.count()).toBe(0);
     });
 
     it('requires a reason within the limit', async () => {
