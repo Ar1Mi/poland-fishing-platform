@@ -6,10 +6,11 @@ import {
 } from '@lowisko/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Lock } from 'lucide-react';
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { formatPriceInput } from '../../../shared/lib/format';
+import { matchesQuery } from '../../../shared/lib/search';
 import { Alert, AlertDescription } from '../../../shared/ui/alert';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Button } from '../../../shared/ui/button';
@@ -183,6 +184,9 @@ function LockedTerms({ type }: { type: OrgPermitType }) {
   );
 }
 
+/** More waters than this get a filter by name (a district of PZW has hundreds of obwody). */
+const WATER_FILTER_FROM = 8;
+
 /** Checkboxes over the organization's connected waters, with «select all» for big districts. */
 function WaterChoice({
   waters,
@@ -198,7 +202,10 @@ function WaterChoice({
   const { t } = useTranslation();
   const hintId = useId();
   const errorId = useId();
+  const [query, setQuery] = useState('');
   const all = waters.length > 0 && waters.every((water) => value.includes(water.id));
+  // A district has hundreds of waters: the filter only narrows what is shown, the choice stays.
+  const shown = waters.filter((water) => matchesQuery(water.name, query));
   return (
     <fieldset
       className="flex flex-col gap-1"
@@ -208,18 +215,38 @@ function WaterChoice({
       <p id={hintId} className="text-small text-muted-foreground">
         {t('permits.form.waters.hint')}
       </p>
+      {waters.length > WATER_FILTER_FROM && (
+        <TextField
+          label={t('permits.form.waters.filter')}
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          // Enter in the filter must not submit the permit type.
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') event.preventDefault();
+          }}
+        />
+      )}
       {waters.length > 1 && (
-        <Button
-          type="button"
-          variant="ghost"
-          className="w-fit px-0"
-          onClick={() => onChange(all ? [] : waters.map((water) => water.id))}
-        >
-          {all ? t('permits.form.waters.none') : t('permits.form.waters.all')}
-        </Button>
+        <div className="flex flex-wrap items-center gap-x-4">
+          <Button
+            type="button"
+            variant="ghost"
+            className="w-fit px-0"
+            onClick={() => onChange(all ? [] : waters.map((water) => water.id))}
+          >
+            {all ? t('permits.form.waters.none') : t('permits.form.waters.all')}
+          </Button>
+          <span className="text-small text-muted-foreground" aria-live="polite">
+            {t('permits.form.waters.chosen', { chosen: value.length, total: waters.length })}
+          </span>
+        </div>
+      )}
+      {shown.length === 0 && (
+        <p className="text-small text-muted-foreground">{t('permits.form.waters.noMatch')}</p>
       )}
       <ul className="flex max-h-80 flex-col overflow-y-auto">
-        {waters.map((water) => (
+        {shown.map((water) => (
           <li key={water.id}>
             <CheckboxField
               label={`${water.name} · ${water.region}`}

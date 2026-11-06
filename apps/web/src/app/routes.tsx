@@ -6,6 +6,8 @@ import { RegisterPage } from '../features/auth/pages/RegisterPage';
 import { ResetPasswordPage } from '../features/auth/pages/ResetPasswordPage';
 import { VerifyEmailPage } from '../features/auth/pages/VerifyEmailPage';
 import { CatalogPage } from '../features/catalog/pages/CatalogPage';
+import { OrgWaterPage } from '../features/catalog/pages/OrgWaterPage';
+import { OrgWatersPage } from '../features/catalog/pages/OrgWatersPage';
 import { MyCatchesPage } from '../features/catches/pages/MyCatchesPage';
 import { NewCatchPage } from '../features/catches/pages/NewCatchPage';
 import { WaterPage } from '../features/catalog/pages/WaterPage';
@@ -14,7 +16,11 @@ import { VerifyPage } from '../features/inspections/pages/VerifyPage';
 import { AdminClaimsPage } from '../features/claims/pages/AdminClaimsPage';
 import { OrgClaimsPage } from '../features/claims/pages/OrgClaimsPage';
 import { PrivacyPolicyPage } from '../features/legal/pages/PrivacyPolicyPage';
+import { AcceptInvitationPage } from '../features/orgs/pages/AcceptInvitationPage';
+import { AdminOrganizationsPage } from '../features/orgs/pages/AdminOrganizationsPage';
 import { MyOrganizationsPage } from '../features/orgs/pages/MyOrganizationsPage';
+import { OrgApplicationPage } from '../features/orgs/pages/OrgApplicationPage';
+import { OrgMembersPage } from '../features/orgs/pages/OrgMembersPage';
 import { BuyPermitPage } from '../features/permits/pages/BuyPermitPage';
 import { ExternalPermitPage } from '../features/permits/pages/ExternalPermitPage';
 import { ExternalPermitsPage } from '../features/permits/pages/ExternalPermitsPage';
@@ -22,6 +28,7 @@ import { FakePaymentPage } from '../features/permits/pages/FakePaymentPage';
 import { MyPermitPage } from '../features/permits/pages/MyPermitPage';
 import { MyPermitsPage } from '../features/permits/pages/MyPermitsPage';
 import { NewExternalPermitPage } from '../features/permits/pages/NewExternalPermitPage';
+import { OrgPermitsPage } from '../features/permits/pages/OrgPermitsPage';
 import { OrgPermitTypesPage } from '../features/permits/pages/OrgPermitTypesPage';
 import { OrgRulesPage } from '../features/rules/pages/OrgRulesPage';
 import { PaymentReturnPage } from '../features/permits/pages/PaymentReturnPage';
@@ -145,6 +152,46 @@ export const routes: RouteObject[] = [
         ),
       },
       {
+        path: 'org/new',
+        element: (
+          <RequireAuth>
+            <OrgApplicationPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'org/:orgId/members',
+        element: (
+          <RequireAuth>
+            <OrgMembersPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'org/:orgId/waters',
+        element: (
+          <RequireAuth>
+            <OrgWatersPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'org/:orgId/waters/:waterId',
+        element: (
+          <RequireAuth>
+            <OrgWaterPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'org/:orgId/permits',
+        element: (
+          <RequireAuth>
+            <OrgPermitsPage />
+          </RequireAuth>
+        ),
+      },
+      {
         path: 'org/:orgId/claims',
         element: (
           <RequireAuth>
@@ -173,6 +220,23 @@ export const routes: RouteObject[] = [
         element: (
           <RequireAuth>
             <OrgInspectionsPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'admin/orgs',
+        element: (
+          <RequireAuth>
+            <AdminOrganizationsPage />
+          </RequireAuth>
+        ),
+      },
+      // The link of the invitation email: the API checks that the account is the invited one.
+      {
+        path: 'invitations/accept',
+        element: (
+          <RequireAuth>
+            <AcceptInvitationPage />
           </RequireAuth>
         ),
       },

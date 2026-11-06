@@ -33,3 +33,11 @@ export function useWater(id: string, { enabled = true }: { enabled?: boolean } =
       request(() => api.GET('/api/v1/waters/{id}', { params: { path: { id } }, signal })),
   });
 }
+
+/**
+ * Address of the card photo: a new photo has a new version, so the browser keeps a copy
+ * (`Cache-Control: public` on the API). A plain `<img>`: the photo is public, no token needed.
+ */
+export function waterPhotoUrl(waterId: string, photoVersion: string): string {
+  return `/api/v1/waters/${waterId}/photo?v=${encodeURIComponent(photoVersion)}`;
+}

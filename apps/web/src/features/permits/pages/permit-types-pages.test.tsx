@@ -180,6 +180,33 @@ describe('organization permit types page', () => {
     expect(screen.queryByRole('button', { name: 'Odznacz wszystkie' })).toBeNull();
   });
 
+  it('filters a long list of waters by name and keeps the waters chosen outside the filter', async () => {
+    const district: OrgWater[] = Array.from({ length: 9 }, (_, index) => ({
+      id: `7b0c1d2e-0000-4000-8000-00000000002${index}`,
+      name: index === 0 ? 'Zalew Zegrzyński' : `Staw ${index}`,
+      type: 'POND',
+      region: 'mazowieckie',
+    }));
+    const fetch = showPage([], district, {
+      [`POST ${TYPES}`]: () => jsonResponse(daily, 201),
+    });
+    await userEvent.click(await screen.findByRole('button', { name: 'Dodaj rodzaj zezwolenia' }));
+
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Staw 1 · mazowieckie' }));
+    // Enter in the filter does not submit the type.
+    await userEvent.type(screen.getByLabelText('Szukaj łowiska'), 'zegrzynski{Enter}');
+    expect(screen.queryByRole('checkbox', { name: 'Staw 1 · mazowieckie' })).toBeNull();
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Zalew Zegrzyński · mazowieckie' }));
+    expect(screen.getByText('Zaznaczono 2 z 9')).toBeVisible();
+    await userEvent.type(screen.getByLabelText('Nazwa'), 'Okręgowe');
+    await userEvent.type(screen.getByLabelText('Cena (zł)'), '25');
+    await userEvent.click(screen.getByRole('button', { name: 'Dodaj' }));
+
+    expect(await screen.findByRole('status')).toBeVisible();
+    const [body] = (await sentBodies(fetch, `POST ${TYPES}`)) as { waterIds: string[] }[];
+    expect(body?.waterIds).toEqual([district[1]!.id, district[0]!.id]);
+  });
+
   it('explains wrong fields and sends nothing', async () => {
     const fetch = showPage([], [biale, czarne]);
     await userEvent.click(await screen.findByRole('button', { name: 'Dodaj rodzaj zezwolenia' }));

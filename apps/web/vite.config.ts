@@ -5,6 +5,8 @@ import { configDefaults, defineConfig } from 'vitest/config';
 
 /** Public API answers the catalogue shows; the rest of the API is personal and never cached. */
 const WATERS_API = /^\/api\/v1\/waters(\/|$)/;
+/** Card photos (T-23): up to 5 MB each, so not in the catalogue's JSON cache. */
+const WATER_PHOTO = /^\/api\/v1\/waters\/[^/]+\/photo$/;
 const SPECIES_API = /^\/api\/v1\/species(\/|$)/;
 
 export default defineConfig({
@@ -52,11 +54,22 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
-            urlPattern: ({ url, sameOrigin }) => sameOrigin && WATERS_API.test(url.pathname),
+            urlPattern: ({ url, sameOrigin }) =>
+              sameOrigin && WATERS_API.test(url.pathname) && !WATER_PHOTO.test(url.pathname),
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'catalog-api',
               expiration: { maxEntries: 200 },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+          {
+            // A new photo has a new URL (`?v=`): a stored one never goes stale.
+            urlPattern: ({ url, sameOrigin }) => sameOrigin && WATER_PHOTO.test(url.pathname),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'water-photos',
+              expiration: { maxEntries: 30 },
               cacheableResponse: { statuses: [200] },
             },
           },

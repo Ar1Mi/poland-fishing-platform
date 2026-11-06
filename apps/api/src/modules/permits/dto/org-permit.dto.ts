@@ -62,7 +62,7 @@ export class ListOrgPermitsQueryDto {
   pageSize?: number;
 }
 
-export class PermitHolderDto {
+export class OrgPermitHolderDto {
   @ApiProperty({ example: 'Jan' })
   firstName!: string;
 
@@ -102,11 +102,11 @@ export class OrgPermitDto {
   permitType!: OrgPermitTypeRefDto;
 
   @ApiProperty({
-    type: PermitHolderDto,
+    type: OrgPermitHolderDto,
     nullable: true,
     description: 'null: the account was anonymised',
   })
-  holder!: PermitHolderDto | null;
+  holder!: OrgPermitHolderDto | null;
 
   @ApiProperty({ format: 'date-time', description: 'Purchase' })
   createdAt!: string;

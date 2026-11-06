@@ -207,7 +207,9 @@ const detail = (data: Partial<WaterDetail>): WaterDetail => ({
   externalOwnerName: null,
   externalInfoUrl: null,
   source: 'RZGW',
-  updatedAt: '2026-10-24T23:30:00.000Z',
+  seasonInfo: null,
+  photoVersion: null,
+  importedAt: '2026-10-24T23:30:00.000Z',
   ...data,
 });
 
@@ -252,9 +254,31 @@ describe('water page', () => {
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');
     expect(screen.getByText('Zbiornik na Narwi')).toBeVisible();
     // Updated at 01:30 on 25 October in Warsaw.
-    expect(
-      screen.getByText('Źródło danych: RZGW Wody Polskie, aktualizacja 25 paź 2026'),
-    ).toBeVisible();
+    expect(screen.getByText('Źródło danych: RZGW Wody Polskie, stan na 25 paź 2026')).toBeVisible();
+  });
+
+  it('shows the season and the photo the organization wrote, by the photo version', async () => {
+    show(
+      detail({
+        seasonInfo: '1 V – 30 IX, 6:00–22:00',
+        photoVersion: '3f0c2a5e-8d7b-4a1e-9c2d-5b6a7c8d9e0f',
+      }),
+    );
+
+    expect(await screen.findByRole('heading', { name: 'Sezon' })).toBeVisible();
+    expect(screen.getByText('1 V – 30 IX, 6:00–22:00')).toBeVisible();
+    expect(screen.getByRole('img', { name: 'Zdjęcie łowiska Zalew Zegrzyński' })).toHaveAttribute(
+      'src',
+      `/api/v1/waters/${zegrze.id}/photo?v=3f0c2a5e-8d7b-4a1e-9c2d-5b6a7c8d9e0f`,
+    );
+  });
+
+  it('shows no season, photo or date where there are none (an angler suggestion)', async () => {
+    show(detail({ source: 'USER', importedAt: null }));
+
+    expect(await screen.findByText('Źródło danych: zgłoszenie wędkarza')).toBeVisible();
+    expect(screen.queryByRole('heading', { name: 'Sezon' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });
 
   it('says that online sales are suspended while the organization is blocked', async () => {

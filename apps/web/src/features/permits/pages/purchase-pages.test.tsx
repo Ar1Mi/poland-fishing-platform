@@ -44,7 +44,9 @@ const water: WaterDetail = {
   externalOwnerName: null,
   externalInfoUrl: null,
   source: 'MANUAL',
-  updatedAt: '2026-10-01T10:00:00.000Z',
+  seasonInfo: null,
+  photoVersion: null,
+  importedAt: '2026-10-01T10:00:00.000Z',
 };
 const weekly: PermitType = {
   id: 'a1000000-0000-4000-8000-000000000001',

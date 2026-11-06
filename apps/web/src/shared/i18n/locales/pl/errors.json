@@ -27,5 +27,9 @@
   "INTERNAL_ERROR": "Wystąpił błąd serwera. Spróbuj ponownie później.",
   "NETWORK_ERROR": "Brak połączenia z serwerem. Sprawdź internet i spróbuj ponownie.",
   "UNKNOWN_ERROR": "Coś poszło nie tak. Spróbuj ponownie.",
-  "PERMIT_NOT_VALID": "To zezwolenie nie jest ważne ani zaplanowane, dlatego nie ma kodu QR ani PDF."
+  "PERMIT_NOT_VALID": "To zezwolenie nie jest ważne ani zaplanowane, dlatego nie ma kodu QR ani PDF.",
+  "INVITATION_EMAIL_MISMATCH": "To zaproszenie jest dla innego adresu e-mail niż konto, na które jesteś zalogowany.",
+  "INVITATION_EXPIRED": "Zaproszenie wygasło. Poproś organizację o nowe.",
+  "ALREADY_MEMBER": "Ta osoba ma już tę rolę w organizacji.",
+  "LAST_ORG_ADMIN": "Organizacja musi mieć co najmniej jednego administratora. Najpierw nadaj tę rolę komuś innemu."
 }

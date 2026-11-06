@@ -42,7 +42,9 @@ const zegrzeDetail = {
   externalOwnerName: 'RZGW Warszawa',
   externalInfoUrl: null,
   source: 'RZGW',
-  updatedAt: '2026-10-01T10:00:00.000Z',
+  seasonInfo: null,
+  photoVersion: null,
+  importedAt: '2026-10-01T10:00:00.000Z',
 };
 const rejected: Claim = {
   id: 'c1000000-0000-4000-8000-000000000001',
