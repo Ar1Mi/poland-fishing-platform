@@ -42,6 +42,7 @@ describe('error codes', () => {
         'EDIT_WINDOW_CLOSED',
         'PERMIT_NOT_REVOCABLE',
         'PERMIT_NOT_VALID',
+        'INVITATION_EXPIRED',
       ],
       429: ['RATE_LIMITED'],
       500: ['INTERNAL_ERROR'],
