@@ -11,6 +11,8 @@ import { ExternalPermitsService } from './external-permits/external-permits.serv
 import { InspectionPermitsService } from './inspection-permits/inspection-permits.service';
 import { MyPermitsController } from './my-permits/my-permits.controller';
 import { MyPermitsService } from './my-permits/my-permits.service';
+import { OrgPermitsController } from './org-permits/org-permits.controller';
+import { OrgPermitsService } from './org-permits/org-permits.service';
 import { FakePaymentsController } from './payments/fake/fake-payments.controller';
 import { PAYMENT_PROVIDER } from './payments/payment-provider';
 import { createPaymentProvider } from './payments/payment-provider.factory';
@@ -33,7 +35,8 @@ import { QrTokenService } from './qr/qr-token.service';
  * The angler's permits with their QR token (ADR-0006) and PDF (T-15); the permits of catches
  * for the register (T-18) and of QR checks and protocols (T-19); the offline bundle of a permit
  * with the effective rules of its waters (T-21). External permits typed in by the angler with
- * their photo and offline bundle (T-22, FR-26).
+ * their photo and offline bundle (T-22, FR-26). The permits an organization sold and their
+ * revocation (T-23, FR-10).
  */
 @Module({
   imports: [OrganizationsModule, WatersModule, AuditModule, UsersModule, RulesModule],
@@ -42,6 +45,7 @@ import { QrTokenService } from './qr/qr-token.service';
     PermitTypesController,
     PermitsController,
     MyPermitsController,
+    OrgPermitsController,
     ExternalPermitsController,
     FakePaymentsController,
     P24PaymentsController,
@@ -50,6 +54,7 @@ import { QrTokenService } from './qr/qr-token.service';
     PermitTypesService,
     PermitPurchaseService,
     MyPermitsService,
+    OrgPermitsService,
     ExternalPermitsService,
     QrTokenService,
     PermitPdfService,
