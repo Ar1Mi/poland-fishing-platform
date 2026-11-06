@@ -60,11 +60,13 @@ describe('seedDemoData', () => {
     expect(await db.prisma.fishingWater.count({ where: { status: 'CONNECTED' } })).toBe(
       DEMO_WATERS.filter((water) => water.organization !== null).length,
     );
-    // Scenario Г: a water of the catalogue without an organization, with its użytkownik rybacki.
+    // Scenario Г: a water of the catalogue without an organization, with its użytkownik rybacki;
+    // scenario Д: one for a new organization to claim.
     expect(
       await db.prisma.fishingWater.findMany({
         where: { status: 'UNCLAIMED' },
         select: { name: true, organizationId: true, externalOwnerName: true, isPublished: true },
+        orderBy: { name: 'asc' },
       }),
     ).toEqual([
       {
@@ -73,7 +75,15 @@ describe('seedDemoData', () => {
         externalOwnerName: 'Gospodarstwo Rybackie „Wąsosze” (demo)',
         isPublished: true,
       },
+      {
+        name: 'Staw Głęboczek',
+        organizationId: null,
+        externalOwnerName: null,
+        isPublished: true,
+      },
     ]);
+    // The seed is the source of its waters: the card dates them by the run (ADR-0007).
+    expect(await db.prisma.fishingWater.count({ where: { importedAt: { not: OCTOBER } } })).toBe(0);
     expect(sielawa?.memberships.map(({ user, role }) => [user.email, role]).sort()).toEqual([
       ['admin.sielawa@lowisko.test', 'ORG_ADMIN'],
       ['straznik@lowisko.test', 'INSPECTOR'],

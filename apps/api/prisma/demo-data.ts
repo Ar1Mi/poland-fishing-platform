@@ -18,7 +18,7 @@ const demoId = (group: number, n: number): string =>
 export const DEMO_EMAIL_DOMAIN = 'lowisko.test';
 
 type OrgKey = 'sielawa' | 'lipowy';
-type WaterKey = 'srebrne' | 'narew' | 'lipowy' | 'wasosze';
+type WaterKey = 'srebrne' | 'narew' | 'lipowy' | 'wasosze' | 'gleboczek';
 
 export interface DemoOrganization {
   key: OrgKey;
@@ -100,6 +100,16 @@ export const DEMO_WATERS: readonly DemoWater[] = [
     lat: 52.6402,
     lng: 21.3311,
     sourceRef: 'DEMO-4',
+  },
+  {
+    // Scenario Д: a new organization claims it (Wąsosze stays unconnected for scenario Г).
+    key: 'gleboczek',
+    organization: null,
+    name: 'Staw Głęboczek',
+    type: 'POND',
+    lat: 52.2611,
+    lng: 21.4127,
+    sourceRef: 'DEMO-5',
   },
 ];
 

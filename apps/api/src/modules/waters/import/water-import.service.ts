@@ -1,5 +1,6 @@
 import { ErrorCode } from '@lowisko/shared';
 import { Injectable } from '@nestjs/common';
+import { ClockService } from '../../../common/clock/clock.service';
 import { DomainError } from '../../../common/errors/domain-error';
 import { PrismaService } from '../../../database/prisma.service';
 import { GeocoderUnavailableError } from './geocoder';
@@ -25,14 +26,16 @@ export interface WaterImportReport {
 
 /**
  * Catalogue import from CSV (FR-22). Upsert by `source + sourceRef`: a repeated import
- * updates the catalogue fields and never touches what the platform owns (status,
- * organization, description, publication). A bad row lands in `failed`, the rest go on.
+ * updates the catalogue fields and `importedAt` (the date of the data on the card, ADR-0007) and
+ * never touches what the platform owns (status, organization, description, season, photo,
+ * publication). A bad row lands in `failed`, the rest go on.
  */
 @Injectable()
 export class WaterImportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly geocoding: GeocodingService,
+    private readonly clock: ClockService,
   ) {}
 
   /** Throws VALIDATION_FAILED when the file as a whole is unusable. */
@@ -42,7 +45,11 @@ export class WaterImportService {
       records = parseWaterCsv(content);
     } catch (error) {
       if (error instanceof WaterCsvFormatError) {
-        throw new DomainError(ErrorCode.VALIDATION_FAILED, { file: error.message }, error.message);
+        throw new DomainError(
+          ErrorCode.VALIDATION_FAILED,
+          { fields: { file: [error.message] } },
+          error.message,
+        );
       }
       throw error;
     }
@@ -119,6 +126,8 @@ export class WaterImportService {
       externalInfoUrl: row.externalInfoUrl,
       lat,
       lng,
+      // Also when nothing changed: the source confirmed the row as of this import.
+      importedAt: this.clock.now(),
     };
     const existing = await this.prisma.fishingWater.findUnique({ where, select: { id: true } });
     await this.prisma.fishingWater.upsert({

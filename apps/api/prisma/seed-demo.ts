@@ -71,7 +71,7 @@ export async function seedDemoData(prisma: PrismaClient, options: DemoSeedOption
   await prisma.$transaction(
     async (tx) => {
       const orgIds = await seedOrganizations(tx);
-      const waterIds = await seedWaters(tx, orgIds);
+      const waterIds = await seedWaters(tx, orgIds, options.now);
       const userIds = await seedUsers(tx, orgIds, passwordHash, options.now);
       await seedPermitTypes(tx, orgIds, waterIds);
       await seedRules(tx, orgIds, waterIds);
@@ -108,7 +108,7 @@ async function seedOrganizations(tx: Tx) {
   return byKey(rows);
 }
 
-async function seedWaters(tx: Tx, orgIds: Record<string, string>) {
+async function seedWaters(tx: Tx, orgIds: Record<string, string>, now: Date) {
   const rows: [(typeof DEMO_WATERS)[number]['key'], string][] = [];
   for (const { key, organization, externalOwnerName, sourceRef, ...water } of DEMO_WATERS) {
     const data = {
@@ -117,6 +117,8 @@ async function seedWaters(tx: Tx, orgIds: Record<string, string>) {
       description: DEMO_WATER_DESCRIPTION,
       externalOwnerName: externalOwnerName ?? null,
       isPublished: true,
+      // The seed is the source of these rows, as an import is of the catalogue's (ADR-0007).
+      importedAt: now,
     };
     const owner = organization
       ? { status: 'CONNECTED' as const, organizationId: orgIds[organization] }
