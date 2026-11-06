@@ -84,6 +84,15 @@ export class WatersService {
     );
   }
 
+  /** Those of `ids` that are in the public catalogue: an angler picks waters from it (FR-26). */
+  async findPublishedIds(ids: string[]): Promise<Set<string>> {
+    const waters = await this.prisma.fishingWater.findMany({
+      where: { id: { in: ids }, isPublished: true },
+      select: { id: true },
+    });
+    return new Set(waters.map((water) => water.id));
+  }
+
   /** Names of waters for lists of other modules (permit types), keyed by id. */
   async findNames(ids: string[]): Promise<Map<string, string>> {
     const waters = await this.prisma.fishingWater.findMany({

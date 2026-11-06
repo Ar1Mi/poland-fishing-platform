@@ -2,7 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { jsonResponse, mockApi } from '../../test/render';
 import { endSession, startSession } from '../auth/session';
 import { enqueueCatch } from './catch-queue';
-import { type DevicePermit, deviceDb } from './db';
+import {
+  type DeviceExternalPermit,
+  type DevicePermit,
+  clearDeviceData,
+  deviceDb,
+  forgetDeviceOwner,
+} from './db';
 import { getDeviceRefresh, refreshAndSync, refreshDeviceData } from './device-data';
 
 const USER = '6f1c2c9e-0000-4000-8000-000000000001';
@@ -56,6 +62,25 @@ const endedBefore = permit(4, {
   qrToken: null,
 });
 const unpaid = permit(5, { status: 'PENDING_PAYMENT', qrToken: null });
+
+const external = (n: number, changes: Partial<DeviceExternalPermit>): DeviceExternalPermit => ({
+  id: `7e1c2c9e-0000-4000-8000-${String(n).padStart(12, '0')}`,
+  issuerName: 'Gospodarstwo Rybackie Wąsosze',
+  number: null,
+  status: 'ACTIVE',
+  validFrom: '2026-05-01',
+  validTo: '2026-12-31',
+  waters: [LAKE],
+  photoType: null,
+  createdAt: '2026-05-01T10:00:00.000Z',
+  ...changes,
+});
+const externalActive = external(1, {});
+const externalEnded = external(2, {
+  status: 'EXPIRED',
+  validFrom: '2026-09-01',
+  validTo: '2026-09-30',
+});
 const pikeRule = {
   speciesId: PIKE.id,
   minLengthCm: 50,
@@ -68,6 +93,7 @@ const api = (userId = USER) => ({
   'GET /api/v1/me': () => jsonResponse({ id: userId, firstName: 'Jan' }),
   'GET /api/v1/me/permits': () =>
     jsonResponse([scheduled, active, endedYesterday, endedBefore, unpaid]),
+  'GET /api/v1/me/external-permits': () => jsonResponse([externalActive, externalEnded]),
   'GET /api/v1/species': () => jsonResponse([PIKE]),
   ...Object.fromEntries(
     [active, scheduled, endedYesterday].map((item) => [
@@ -75,6 +101,12 @@ const api = (userId = USER) => ({
       () => jsonResponse({ permit: item, waterRules: [{ waterId: LAKE.id, rules: [pikeRule] }] }),
     ]),
   ),
+  // The general rules on the waters of the external permit.
+  [`GET /api/v1/me/external-permits/${externalActive.id}/offline-bundle`]: () =>
+    jsonResponse({
+      permit: externalActive,
+      waterRules: [{ waterId: LAKE.id, rules: [{ ...pikeRule, dailyLimitCount: null }] }],
+    }),
 });
 
 beforeEach(() => {
@@ -106,6 +138,33 @@ describe('device data', () => {
       userId: USER,
       refreshedAt: '2026-10-06T15:20:00.000Z',
     });
+  });
+
+  it('keeps the external permits valid now with the general rules of their waters', async () => {
+    mockApi(api());
+
+    await refreshDeviceData(USER, new Date());
+
+    // The one that ended in September is not fetched nor kept.
+    expect(await deviceDb.externalPermits.toArray()).toEqual([externalActive]);
+    expect(await deviceDb.rules.get(externalActive.id)).toEqual({
+      permitId: externalActive.id,
+      waterRules: [{ waterId: LAKE.id, rules: [{ ...pikeRule, dailyLimitCount: null }] }],
+    });
+  });
+
+  it.each([
+    ['a refused refresh (401)', () => forgetDeviceOwner()],
+    ['logout', () => clearDeviceData(USER)],
+  ])('forgets the external permits after %s', async (_case, forget) => {
+    mockApi(api());
+    await refreshDeviceData(USER, new Date());
+    expect(await deviceDb.externalPermits.count()).toBe(1);
+
+    await forget();
+
+    expect(await deviceDb.externalPermits.count()).toBe(0);
+    expect(await deviceDb.rules.get(externalActive.id)).toBeUndefined();
   });
 
   it("replaces another user's permits, but keeps their unsent catches for them", async () => {

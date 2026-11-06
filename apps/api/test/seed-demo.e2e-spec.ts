@@ -41,7 +41,7 @@ describe('seedDemoData', () => {
 
   const seed = (now = OCTOBER, password = PASSWORD) => seedDemoData(db.prisma, { password, now });
 
-  it('connects every demo water to its active organization', async () => {
+  it('connects the demo waters to their active organizations', async () => {
     await seed();
 
     const organizations = await db.prisma.organization.findMany({
@@ -58,8 +58,22 @@ describe('seedDemoData', () => {
     ]);
     expect(lipowy?.waters.map((water) => water.name)).toEqual(['Staw Lipowy']);
     expect(await db.prisma.fishingWater.count({ where: { status: 'CONNECTED' } })).toBe(
-      DEMO_WATERS.length,
+      DEMO_WATERS.filter((water) => water.organization !== null).length,
     );
+    // Scenario Г: a water of the catalogue without an organization, with its użytkownik rybacki.
+    expect(
+      await db.prisma.fishingWater.findMany({
+        where: { status: 'UNCLAIMED' },
+        select: { name: true, organizationId: true, externalOwnerName: true, isPublished: true },
+      }),
+    ).toEqual([
+      {
+        name: 'Jezioro Wąsosze',
+        organizationId: null,
+        externalOwnerName: 'Gospodarstwo Rybackie „Wąsosze” (demo)',
+        isPublished: true,
+      },
+    ]);
     expect(sielawa?.memberships.map(({ user, role }) => [user.email, role]).sort()).toEqual([
       ['admin.sielawa@lowisko.test', 'ORG_ADMIN'],
       ['straznik@lowisko.test', 'INSPECTOR'],
@@ -263,6 +277,27 @@ describe('seedDemoData', () => {
     await expect(new PasswordHasher().verify(jan.passwordHash, 'another-password')).resolves.toBe(
       true,
     );
+  });
+
+  it('leaves the owner of the unconnected demo water claimed during a demo', async () => {
+    await seed();
+    const lipowy = DEMO_ORGANIZATIONS.find((org) => org.key === 'lipowy')!;
+    await db.prisma.fishingWater.updateMany({
+      where: { name: 'Jezioro Wąsosze' },
+      data: { status: 'CONNECTED', organizationId: lipowy.id, name: 'Zmieniona nazwa' },
+    });
+
+    await seed(new Date('2026-10-20T10:00:00.000Z'));
+
+    const water = await db.prisma.fishingWater.findFirstOrThrow({
+      where: { source: 'MANUAL', sourceRef: 'DEMO-4' },
+    });
+    // The demo fields come back; the claim approved meanwhile stays.
+    expect(water).toMatchObject({
+      name: 'Jezioro Wąsosze',
+      status: 'CONNECTED',
+      organizationId: lipowy.id,
+    });
   });
 
   it.each([['short'], ['']])(

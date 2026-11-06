@@ -73,8 +73,10 @@ export function DeviceQueue({ userId, connected }: { userId: string; connected: 
                 return kind ? speciesName(kind, i18n.resolvedLanguage) : t('catches.queue.fish');
               }}
               waterName={(id) =>
-                device?.permits.flatMap((permit) => permit.waters).find((water) => water.id === id)
-                  ?.name ?? ''
+                // Waters of the permits of both kinds: a catch may be on an external one (T-22).
+                [...(device?.permits ?? []), ...(device?.externalPermits ?? [])]
+                  .flatMap((permit) => permit.waters)
+                  .find((water) => water.id === id)?.name ?? ''
               }
               // The row and its buttons are gone: the section keeps the focus.
               onRemoved={() => heading.current?.focus()}

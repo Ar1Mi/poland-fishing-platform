@@ -11,10 +11,12 @@ import { Button } from '../../../shared/ui/button';
 import { SelectField } from '../../../shared/ui/select';
 import { useOnline } from '../../../shared/offline/use-online';
 import { useCurrentUserId, useSessionStatus, useVerifiedUserId } from '../../auth/api/useAuth';
+import { useExternalPermits } from '../../permits/api/useExternalPermits';
 import { useMyPermits } from '../../permits/api/useMyPermits';
 import { useSpecies } from '../../rules/api/useRules';
 import { type Catch, useMyCatches } from '../api/useCatches';
 import { CatchRow } from '../components/CatchRow';
+import { externalPlacePermit, platformPlacePermit } from '../lib/catch-form';
 import { DeviceQueue } from '../components/DeviceQueue';
 
 /** How many seasons back the register can be browsed. */
@@ -45,7 +47,17 @@ export function MyCatchesPage() {
     enabled: connected,
   });
   const species = useSpecies();
-  const permits = useMyPermits();
+  const platformPermits = useMyPermits();
+  const externalPermits = useExternalPermits();
+  // A catch is corrected on the waters of its own permit, of either kind (T-22).
+  const permits =
+    platformPermits.data && externalPermits.data
+      ? [
+          ...platformPermits.data.map(platformPlacePermit),
+          ...externalPermits.data.map(externalPlacePermit),
+        ]
+      : undefined;
+  const permitsError = platformPermits.error ?? externalPermits.error;
   const [notice, setNotice] = useState<string | null>(null);
   const noticeRef = useRef<HTMLDivElement>(null);
   // The deleted row took the focused button with it: the notice gets the focus and is read out.
@@ -97,21 +109,25 @@ export function MyCatchesPage() {
           <AlertDescription className="text-body">{t('catches.register.offline')}</AlertDescription>
         </Alert>
       )}
-      {connected && (catches.isPending || species.isPending || permits.isPending) && (
-        <Badge variant="neutral" role="status">
-          <LoaderCircle aria-hidden className="animate-spin" />
-          {t('catches.register.loading')}
-        </Badge>
-      )}
-      {connected && (catches.isError || species.isError || permits.isError) && (
-        <ApiErrorAlert error={catches.error ?? species.error ?? permits.error} />
+      {connected &&
+        (catches.isPending ||
+          species.isPending ||
+          platformPermits.isPending ||
+          externalPermits.isPending) && (
+          <Badge variant="neutral" role="status">
+            <LoaderCircle aria-hidden className="animate-spin" />
+            {t('catches.register.loading')}
+          </Badge>
+        )}
+      {connected && (catches.isError || species.isError || permitsError) && (
+        <ApiErrorAlert error={catches.error ?? species.error ?? permitsError} />
       )}
       {connected && catches.data?.length === 0 && (
         <p className="text-body">{t('catches.register.empty')}</p>
       )}
       {connected &&
         species.data &&
-        permits.data &&
+        permits &&
         days.map(({ day, catches: ofDay }) => (
           <section key={day} aria-labelledby={`day-${day}`} className="flex flex-col gap-3">
             <DayHeading id={`day-${day}`} instant={ofDay[0]!.caughtAt} />
@@ -121,7 +137,7 @@ export function MyCatchesPage() {
                   <CatchRow
                     fish={fish}
                     species={species.data}
-                    permits={permits.data}
+                    permits={permits}
                     onDeleted={() => setNotice(t('catches.register.deleted'))}
                   />
                 </li>

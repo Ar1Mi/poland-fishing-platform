@@ -134,8 +134,7 @@ function Recorder({
   const [clientId, setClientId] = useState(newClientId);
   const [saved, setSaved] = useState<string | null>(null);
   const [saveError, setSaveError] = useState(false);
-  const permits = recordablePermits(device.permits, new Date());
-  const places = catchPlaces(permits);
+  const places = catchPlaces(recordablePermits(device, new Date()));
 
   if (places.length === 0) {
     return (
@@ -170,32 +169,29 @@ function Recorder({
     );
   }
 
-  const check = ({ place, ...fish }: CatchFormSubmit) => {
-    const permit = permits.find((item) => item.id === place.permitId);
-    return permit
-      ? checkOnDevice(
-          {
-            speciesId: fish.speciesId,
-            fishingWaterId: place.waterId,
-            caughtAt: fish.caughtAt,
-            lengthCm: fish.lengthCm,
-            weightG: fish.weightG,
-            kept: fish.kept,
-          },
-          permit,
-          device,
-          sameDayKeptOf(server, queue),
-          new Date(),
-        )
-      : [];
-  };
+  const check = ({ place, ...fish }: CatchFormSubmit) =>
+    checkOnDevice(
+      {
+        speciesId: fish.speciesId,
+        fishingWaterId: place.waterId,
+        caughtAt: fish.caughtAt,
+        lengthCm: fish.lengthCm,
+        weightG: fish.weightG,
+        kept: fish.kept,
+      },
+      place.permitId,
+      device,
+      sameDayKeptOf(server, queue),
+      new Date(),
+    );
 
   const onSubmit = ({ place, position, ...fish }: CatchFormSubmit) => {
     rememberChoice({ place: place.key, speciesId: fish.speciesId });
     const item: NewCatch = {
       clientId,
-      permitId: place.permitId,
-      externalPermitId: null,
+      // Exactly one of them (catch_exactly_one_permit).
+      permitId: place.external ? null : place.permitId,
+      externalPermitId: place.external ? place.permitId : null,
       fishingWaterId: place.waterId,
       speciesId: fish.speciesId,
       caughtAt: fish.caughtAt.toISOString(),

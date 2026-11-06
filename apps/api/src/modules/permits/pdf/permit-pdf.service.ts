@@ -1,14 +1,15 @@
-import { DISCOUNT_AGE, DiscountKind, type DateOnly, WARSAW_TIME_ZONE } from '@lowisko/shared';
+import { DISCOUNT_AGE, DiscountKind, type DateOnly } from '@lowisko/shared';
 import { Injectable } from '@nestjs/common';
-import { join } from 'node:path';
 import PDFDocument from 'pdfkit';
 import QRCode from 'qrcode';
+import {
+  PDF_FONTS,
+  collectPdf,
+  plainSpaces,
+  polishDate,
+  polishDateTime,
+} from '../../../common/pdf/pdf-text';
 import type { MyPermitDto } from '../dto/permit.dto';
-
-// apps/api/assets: the same depth from src/ (tests, tsx) and dist/ (build).
-const FONTS = join(__dirname, '../../../../assets/fonts');
-const REGULAR = join(FONTS, 'Onest-Regular.ttf');
-const BOLD = join(FONTS, 'Onest-Bold.ttf');
 
 export interface PermitPdfInput {
   permit: MyPermitDto;
@@ -37,19 +38,7 @@ const DISCOUNT_LABEL: Record<DiscountKind, string | null> = {
   SENIOR: `ulgowe — od ${DISCOUNT_AGE.SENIOR_FROM} lat`,
 };
 
-/** `2026-10-06` → `06.10.2026`. */
-const polishDate = (date: DateOnly): string => date.split('-').reverse().join('.');
-
-// pdfkit measures text by the font's glyphs; Intl puts (narrow) no-break spaces into amounts and
-// times, so they become plain spaces rather than depend on the glyphs being there.
-const plainSpaces = (text: string): string => text.replace(/\s/g, ' ');
-
 const price = new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' });
-const generatedAtFormat = new Intl.DateTimeFormat('pl-PL', {
-  timeZone: WARSAW_TIME_ZONE,
-  dateStyle: 'short',
-  timeStyle: 'short',
-});
 
 /** What the PDF says, apart from how it is drawn (unit-tested; PDF text is not readable back). */
 export function permitPdfContent({
@@ -84,7 +73,7 @@ export function permitPdfContent({
     qrCaption: 'Zeskanuj, aby sprawdzić ważność zezwolenia',
     verifyUrl,
     footer:
-      `Wygenerowano ${plainSpaces(generatedAtFormat.format(generatedAt))} w serwisie Łowisko. ` +
+      `Wygenerowano ${polishDateTime(generatedAt)} w serwisie Łowisko. ` +
       'Ważność zezwolenia potwierdza wyłącznie sprawdzenie kodu QR online.',
   };
 }
@@ -109,15 +98,9 @@ export class PermitPdfService {
         CreationDate: input.generatedAt,
       },
     });
-    doc.registerFont('regular', REGULAR);
-    doc.registerFont('bold', BOLD);
-
-    const chunks: Buffer[] = [];
-    const done = new Promise<Buffer>((resolve, reject) => {
-      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
-      doc.on('end', () => resolve(Buffer.concat(chunks)));
-      doc.on('error', reject);
-    });
+    doc.registerFont('regular', PDF_FONTS.regular);
+    doc.registerFont('bold', PDF_FONTS.bold);
+    const done = collectPdf(doc);
 
     const left = PAGE_MARGIN;
     const qrLeft = doc.page.width - PAGE_MARGIN - QR_SIZE;

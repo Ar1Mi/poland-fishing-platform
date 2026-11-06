@@ -1,32 +1,65 @@
 import {
   type CatchInput,
+  type PermitSnapshot,
   type RuleViolation,
   type SameDayCatch,
   addDays,
+  externalPermitStatus,
   resolveEffectiveRule,
   validateCatch,
   warsawDate,
 } from '@lowisko/shared';
-import type { DevicePermit, QueuedCatch } from '../../../shared/offline/db';
+import type { QueuedCatch } from '../../../shared/offline/db';
 import type { DeviceData } from '../../../shared/offline/use-device';
 import { storedStatus, withStatusAt } from '../../permits/lib/device-status';
 import type { Catch } from '../api/useCatches';
+import { type PlacePermit, externalPlacePermit, platformPlacePermit } from './catch-form';
 
 // The CatchValidator on the device (ADR-0003, ADR-0009): the same `validateCatch` the server
 // runs, with the permits, rules and catches the device holds. The server has the last word.
 
 /**
- * Permits a catch can be recorded on: active now, or ended yesterday — a catch of yesterday is
- * still recorded and changed on it (BR-01 is checked at `caughtAt`, the BR-07 window).
+ * Permits a catch can be recorded on, platform and external (T-22): active now, or ended
+ * yesterday — a catch of yesterday is still recorded and changed on it (BR-01 is checked at
+ * `caughtAt`, the BR-07 window). The status is the device's at `now`.
  */
-export function recordablePermits(permits: DevicePermit[], now: Date): DevicePermit[] {
+export function recordablePermits(
+  device: Pick<DeviceData, 'permits' | 'externalPermits'>,
+  now: Date,
+): PlacePermit[] {
   const yesterday = addDays(warsawDate(now), -1);
-  return permits
-    .map((permit) => withStatusAt(permit, now))
-    .filter(
-      (permit) =>
-        permit.status === 'ACTIVE' || (permit.status === 'EXPIRED' && permit.validTo === yesterday),
-    );
+  return [
+    ...device.permits.map((permit) => platformPlacePermit(withStatusAt(permit, now))),
+    ...device.externalPermits.map((permit) =>
+      externalPlacePermit({ ...permit, status: externalPermitStatus(permit, now) }),
+    ),
+  ].filter(
+    (permit) =>
+      permit.status === 'ACTIVE' || (permit.status === 'EXPIRED' && permit.validTo === yesterday),
+  );
+}
+
+/** The permit as BR-01 reads it: an external one has no status, only its dates. */
+function snapshotOf(permitId: string, device: DeviceData): PermitSnapshot | null {
+  const platform = device.permits.find((permit) => permit.id === permitId);
+  if (platform) {
+    return {
+      kind: 'PLATFORM',
+      status: storedStatus(platform.status),
+      validFrom: platform.validFrom,
+      validTo: platform.validTo,
+      waterIds: platform.waters.map((water) => water.id),
+    };
+  }
+  const external = device.externalPermits.find((permit) => permit.id === permitId);
+  return external
+    ? {
+        kind: 'EXTERNAL',
+        validFrom: external.validFrom,
+        validTo: external.validTo,
+        waterIds: external.waters.map((water) => water.id),
+      }
+    : null;
 }
 
 /**
@@ -63,32 +96,31 @@ export function sameDayKeptOf(server: Catch[] | undefined, queue: QueuedCatch[])
 /** No rule of any level for the species on the water. */
 const NO_RULE = resolveEffectiveRule([]);
 
-/** Violations of a catch on `permit`, as the server would find them now. */
+/**
+ * Violations of a catch on the permit `permitId`, as the server would find them now. The rules
+ * stored with the permit are those the server checks it against: of the water's owner for a
+ * platform permit, the general ones for an external permit.
+ */
 export function checkOnDevice(
   fish: CatchInput,
-  permit: DevicePermit,
+  permitId: string,
   device: DeviceData,
   sameDayKept: SameDayCatch[],
   now: Date,
 ): RuleViolation[] {
   const species = device.species.find((item) => item.id === fish.speciesId);
-  if (!species) {
-    // Only species of the device can be chosen; a stale choice is checked by the server.
+  const permit = snapshotOf(permitId, device);
+  if (!species || !permit) {
+    // Only species and permits of the device can be chosen; a stale choice is the server's.
     return [];
   }
   const rule = device.rules
-    .get(permit.id)
+    .get(permitId)
     ?.find((water) => water.waterId === fish.fishingWaterId)
     ?.rules.find((item) => item.speciesId === fish.speciesId);
   return validateCatch({
     catch: fish,
-    permit: {
-      kind: 'PLATFORM',
-      status: storedStatus(permit.status),
-      validFrom: permit.validFrom,
-      validTo: permit.validTo,
-      waterIds: permit.waters.map((water) => water.id),
-    },
+    permit,
     species: { id: species.id, isProtected: species.isProtected },
     effectiveRule: rule
       ? {

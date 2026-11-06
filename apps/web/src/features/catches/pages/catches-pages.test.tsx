@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { restoreSession } from '../../../shared/auth/session';
 import { enqueueCatch } from '../../../shared/offline/catch-queue';
-import { type WaterRules, deviceDb } from '../../../shared/offline/db';
+import { type DeviceExternalPermit, type WaterRules, deviceDb } from '../../../shared/offline/db';
 import { jsonResponse, mockApi, noContent, renderRoute, sentBodies } from '../../../test/render';
 import type { MyPermit } from '../../permits/api/usePurchase';
 import type { Species } from '../../rules/api/useRules';
@@ -72,17 +72,39 @@ const SALMON = fish('0b1d4c8e-6f2a-4d3b-9c5e-1a2b3c4d5e63', 'Łosoś');
 /** Puts the angler's permits, the rules of their waters and species on the device, as a refresh. */
 const onDevice = async ({
   permits = [permit],
+  externalPermits = [],
   waterRules = [],
   species = [BREAM, PIKE, SALMON],
-}: { permits?: MyPermit[]; waterRules?: WaterRules[]; species?: Species[] } = {}) => {
+}: {
+  permits?: MyPermit[];
+  externalPermits?: DeviceExternalPermit[];
+  waterRules?: WaterRules[];
+  species?: Species[];
+} = {}) => {
   await deviceDb.meta.put({
     key: 'owner',
     userId: profile.id,
     refreshedAt: new Date().toISOString(),
   });
   await deviceDb.permits.bulkPut(permits);
-  await deviceDb.rules.bulkPut(permits.map(({ id }) => ({ permitId: id, waterRules })));
+  await deviceDb.externalPermits.bulkPut(externalPermits);
+  await deviceDb.rules.bulkPut(
+    [...permits, ...externalPermits].map(({ id }) => ({ permitId: id, waterRules })),
+  );
   await deviceDb.species.bulkPut(species);
+};
+
+/** A permit bought outside the platform (T-22) for a water of its own. */
+const EXTERNAL: DeviceExternalPermit = {
+  id: '7e1c2c9e-0000-4000-8000-000000000001',
+  issuerName: 'Gospodarstwo Rybackie Wąsosze',
+  number: null,
+  status: 'ACTIVE',
+  validFrom: '2026-05-01',
+  validTo: '2026-12-31',
+  waters: [{ id: '3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e63', name: 'Jezioro Wąsosze' }],
+  photoType: null,
+  createdAt: '2026-05-01T10:00:00.000Z',
 };
 
 /** The rule of the pike on the river, as `GET /me/permits/:id/offline-bundle` gives it. */
@@ -192,6 +214,50 @@ describe('new catch page', () => {
       'href',
       '/me/catches',
     );
+  });
+
+  it('records a catch on an external permit, checked on the device against its rules', async () => {
+    const external = EXTERNAL;
+    // The general rule of the pike on the lake, as the external permit's bundle gives it.
+    await onDevice({
+      permits: [],
+      externalPermits: [external],
+      waterRules: [
+        {
+          waterId: external.waters[0]!.id,
+          rules: [
+            {
+              speciesId: PIKE.id,
+              minLengthCm: 50,
+              dailyLimitCount: null,
+              dailyLimitWeightG: null,
+              closedPeriods: [],
+            },
+          ],
+        },
+      ],
+    });
+    const fetch = mockApi({ ...forForm, 'POST /api/v1/catches/sync': verdict('ACCEPTED') });
+    renderRoute('/catch/new', { accessToken: 'access-1' });
+
+    await fillCatch({ water: 'Jezioro Wąsosze', length: '45' });
+    expect(await screen.findByText(/BR-02/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Zapisz połów' })).toBeDisabled();
+    await userEvent.clear(screen.getByLabelText('Długość (cm)'));
+    await userEvent.type(screen.getByLabelText('Długość (cm)'), '55');
+    await userEvent.click(screen.getByRole('button', { name: 'Zapisz połów' }));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Połów zapisany w rejestrze' }),
+    ).toBeVisible();
+    const [body] = (await sentBodies(fetch, 'POST /api/v1/catches/sync')) as {
+      items: Record<string, unknown>[];
+    }[];
+    expect(body!.items[0]).toMatchObject({
+      permitId: null,
+      externalPermitId: external.id,
+      fishingWaterId: external.waters[0]!.id,
+    });
   });
 
   it('shows why the server rejected the catch and presets the water and species of the next one', async () => {
@@ -581,6 +647,7 @@ const forRegister = (catches: () => Catch[]) => ({
   ...session,
   'GET /api/v1/me/catches': () => jsonResponse(catches()),
   'GET /api/v1/me/permits': () => jsonResponse([permit]),
+  'GET /api/v1/me/external-permits': () => jsonResponse([]),
   'GET /api/v1/species': () => jsonResponse([PIKE, BREAM]),
 });
 
@@ -668,6 +735,31 @@ describe('my catches page', () => {
     expect(await deviceDb.catchQueue.count()).toBe(0);
   });
 
+  it('names the water of a catch waiting on an external permit', async () => {
+    await onDevice({ externalPermits: [EXTERNAL] });
+    await enqueueCatch(
+      profile.id,
+      {
+        ...queuedPike,
+        permitId: null,
+        externalPermitId: EXTERNAL.id,
+        fishingWaterId: EXTERNAL.waters[0]!.id,
+      },
+      new Date(),
+    );
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    mockApi({
+      ...session,
+      'GET /api/v1/me/permits': () => jsonResponse([permit]),
+      'GET /api/v1/me/external-permits': () => jsonResponse([]),
+      'GET /api/v1/species': () => jsonResponse([PIKE, BREAM]),
+    });
+    renderRoute('/me/catches', { accessToken: 'access-1' });
+
+    const queue = await screen.findByRole('region', { name: 'Na tym urządzeniu' });
+    expect(await within(queue).findByText(/Jezioro Wąsosze/)).toBeVisible();
+  });
+
   it('shows only the catches on the device without network', async () => {
     await onDevice();
     await enqueueCatch(profile.id, queuedPike, new Date());
@@ -676,6 +768,7 @@ describe('my catches page', () => {
     mockApi({
       ...session,
       'GET /api/v1/me/permits': () => jsonResponse([permit]),
+      'GET /api/v1/me/external-permits': () => jsonResponse([]),
       'GET /api/v1/species': () => jsonResponse([PIKE, BREAM]),
     });
     renderRoute('/me/catches', { accessToken: 'access-1' });

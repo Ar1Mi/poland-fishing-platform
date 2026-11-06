@@ -6,6 +6,8 @@ import { RulesModule } from '../rules/rules.module';
 import { UsersModule } from '../users/users.module';
 import { WatersModule } from '../waters/waters.module';
 import { CatchPermitsService } from './catch-permits/catch-permits.service';
+import { ExternalPermitsController } from './external-permits/external-permits.controller';
+import { ExternalPermitsService } from './external-permits/external-permits.service';
 import { InspectionPermitsService } from './inspection-permits/inspection-permits.service';
 import { MyPermitsController } from './my-permits/my-permits.controller';
 import { MyPermitsService } from './my-permits/my-permits.service';
@@ -30,7 +32,8 @@ import { QrTokenService } from './qr/qr-token.service';
  * `PAYMENTS_PROVIDER` (ADR-0004; Przelewy24 since T-14), notifications and the timeout.
  * The angler's permits with their QR token (ADR-0006) and PDF (T-15); the permits of catches
  * for the register (T-18) and of QR checks and protocols (T-19); the offline bundle of a permit
- * with the effective rules of its waters (T-21).
+ * with the effective rules of its waters (T-21). External permits typed in by the angler with
+ * their photo and offline bundle (T-22, FR-26).
  */
 @Module({
   imports: [OrganizationsModule, WatersModule, AuditModule, UsersModule, RulesModule],
@@ -39,6 +42,7 @@ import { QrTokenService } from './qr/qr-token.service';
     PermitTypesController,
     PermitsController,
     MyPermitsController,
+    ExternalPermitsController,
     FakePaymentsController,
     P24PaymentsController,
   ],
@@ -46,6 +50,7 @@ import { QrTokenService } from './qr/qr-token.service';
     PermitTypesService,
     PermitPurchaseService,
     MyPermitsService,
+    ExternalPermitsService,
     QrTokenService,
     PermitPdfService,
     CatchPermitsService,
@@ -58,6 +63,6 @@ import { QrTokenService } from './qr/qr-token.service';
       useFactory: createPaymentProvider,
     },
   ],
-  exports: [CatchPermitsService, InspectionPermitsService],
+  exports: [CatchPermitsService, InspectionPermitsService, ExternalPermitsService],
 })
 export class PermitsModule {}

@@ -1,4 +1,11 @@
-import { ArrowLeft, CirclePause, ExternalLink, LoaderCircle, MapPinOff } from 'lucide-react';
+import {
+  ArrowLeft,
+  CirclePause,
+  ExternalLink,
+  FilePlus,
+  LoaderCircle,
+  MapPinOff,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate, useParams } from 'react-router';
 import { formatDate, formatPrice } from '../../../shared/lib/format';
@@ -97,6 +104,15 @@ function WaterDetails({ water }: { water: WaterDetail }) {
                 : t('catalog.water.permitsExternal')}
           </p>
           {connected && !suspended && <PermitOffer waterId={water.id} />}
+          {!connected && (
+            <Link
+              to={`/me/external-permits/new?waterId=${water.id}`}
+              className="flex min-h-11 w-fit items-center gap-2 font-semibold text-primary underline"
+            >
+              <FilePlus aria-hidden className="size-4" />
+              {t('catalog.water.addExternalPermit')}
+            </Link>
+          )}
           {externalUrl && (
             <a
               href={externalUrl}

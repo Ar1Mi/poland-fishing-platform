@@ -110,19 +110,23 @@ async function seedOrganizations(tx: Tx) {
 
 async function seedWaters(tx: Tx, orgIds: Record<string, string>) {
   const rows: [(typeof DEMO_WATERS)[number]['key'], string][] = [];
-  for (const { key, organization, sourceRef, ...water } of DEMO_WATERS) {
+  for (const { key, organization, externalOwnerName, sourceRef, ...water } of DEMO_WATERS) {
     const data = {
       ...water,
       region: 'mazowieckie',
       description: DEMO_WATER_DESCRIPTION,
-      status: 'CONNECTED' as const,
-      organizationId: orgIds[organization],
+      externalOwnerName: externalOwnerName ?? null,
       isPublished: true,
     };
+    const owner = organization
+      ? { status: 'CONNECTED' as const, organizationId: orgIds[organization] }
+      : { status: 'UNCLAIMED' as const, organizationId: null };
     const { id } = await tx.fishingWater.upsert({
       where: { source_sourceRef: { source: 'MANUAL', sourceRef } },
-      create: { ...data, source: 'MANUAL', sourceRef },
-      update: data,
+      create: { ...data, ...owner, source: 'MANUAL', sourceRef },
+      // An unconnected demo water may be claimed during a demo (scenario Д): a new run keeps
+      // its owner, or the organization's permit types would cover a water it no longer has.
+      update: organization ? { ...data, ...owner } : data,
     });
     rows.push([key, id]);
   }
@@ -198,6 +202,9 @@ async function seedRules(tx: Tx, orgIds: Record<string, string>, waterIds: Recor
     const owner = water
       ? DEMO_WATERS.find((candidate) => candidate.key === water)!.organization
       : organization!;
+    if (!owner) {
+      throw new Error(`Demo rule on ${water}: an unconnected water has no rules of its own`);
+    }
     const level = {
       speciesId,
       organizationId: orgIds[owner]!,

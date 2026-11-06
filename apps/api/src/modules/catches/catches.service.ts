@@ -144,6 +144,27 @@ export class CatchesService {
   }
 
   /**
+   * Kept fish recorded on the user's external permit in a season (Warsaw calendar year), accepted
+   * and rejected, earliest first: the rows of the register for the owner of the water (FR-27).
+   */
+  async keptOnExternalPermit(
+    userId: string,
+    externalPermitId: string,
+    season: number,
+  ): Promise<CatchDto[]> {
+    const rows = await this.prisma.catchRecord.findMany({
+      where: {
+        userId,
+        externalPermitId,
+        kept: true,
+        caughtAt: { gte: dayStart(`${season}-01-01`), lt: warsawDayEnd(`${season}-12-31`) },
+      },
+      orderBy: [{ caughtAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return this.toDtos(rows);
+  }
+
+  /**
    * Catches recorded on a platform permit during the Warsaw day `date`, accepted and rejected,
    * latest first: what an inspector of the permit's organization sees (T-19).
    */

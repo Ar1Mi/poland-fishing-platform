@@ -9,6 +9,7 @@ export * from './inspections/inspection-input.js';
 export * from './orgs/nip.js';
 export * from './orgs/schemas.js';
 export * from './permits/effective-status.js';
+export * from './permits/external-permit.js';
 export * from './permits/permit-types.js';
 export * from './permits/purchase.js';
 export * from './rules/catch/br-07-edit-window.js';
