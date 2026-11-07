@@ -1,16 +1,18 @@
 import {
   isRevocable,
   pageCount,
+  PERMIT_NUMBER_QUERY_MAX_LENGTH,
   REVOKE_REASON_MAX_LENGTH,
   revokePermitSchema,
 } from '@lowisko/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { LoaderCircle, Search } from 'lucide-react';
+import { CircleCheck, LoaderCircle, Search } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useParams, useSearchParams } from 'react-router';
 import { formatDate, formatPrice } from '../../../shared/lib/format';
+import { Alert, AlertDescription } from '../../../shared/ui/alert';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Badge } from '../../../shared/ui/badge';
 import { Button } from '../../../shared/ui/button';
@@ -51,6 +53,19 @@ export function OrgPermitsPage() {
     setParams(next, { replace: true });
   };
   const pages = permits.data ? pageCount(permits.data.total, permits.data.pageSize) : 1;
+  const filtered = status !== undefined || q !== '';
+  // The page fell past the end (a revocation under a filter, an old link): go to the last one.
+  const pastEnd =
+    permits.isSuccess && !permits.isPlaceholderData && permits.data.items.length === 0 && page > 1;
+  useEffect(() => {
+    if (pastEnd) update({ page: pages > 1 ? String(pages) : undefined });
+  });
+  // A revoked permit may leave the list (filter «Aktywne»): the result is said above it.
+  const [revokedNumber, setRevokedNumber] = useState<string | null>(null);
+  const announcement = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (revokedNumber) announcement.current?.focus();
+  }, [revokedNumber]);
 
   return (
     <>
@@ -85,7 +100,7 @@ export function OrgPermitsPage() {
           <TextField
             label={t('permits.orgList.number')}
             type="search"
-            maxLength={20}
+            maxLength={PERMIT_NUMBER_QUERY_MAX_LENGTH}
             value={number}
             onChange={(event) => setNumber(event.target.value)}
           />
@@ -106,8 +121,20 @@ export function OrgPermitsPage() {
         </Badge>
       )}
       {permits.isError && <ApiErrorAlert error={permits.error} />}
-      {permits.isSuccess && permits.data.items.length === 0 && (
-        <p className="text-body">{t('permits.orgList.empty')}</p>
+      {revokedNumber && (
+        <div ref={announcement} tabIndex={-1}>
+          <Alert variant="success" role="status">
+            <CircleCheck aria-hidden />
+            <AlertDescription>
+              {t('permits.orgList.revoked', { number: revokedNumber })}
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+      {permits.isSuccess && permits.data.items.length === 0 && !pastEnd && (
+        <p className="text-body">
+          {filtered ? t('permits.orgList.noMatch') : t('permits.orgList.empty')}
+        </p>
       )}
       {permits.isSuccess && permits.data.items.length > 0 && (
         <>
@@ -117,7 +144,7 @@ export function OrgPermitsPage() {
           <ul className="flex flex-col gap-3">
             {permits.data.items.map((permit) => (
               <li key={permit.id}>
-                <PermitRow orgId={orgId} permit={permit} />
+                <PermitRow orgId={orgId} permit={permit} onRevoked={setRevokedNumber} />
               </li>
             ))}
           </ul>
@@ -148,7 +175,15 @@ export function OrgPermitsPage() {
   );
 }
 
-function PermitRow({ orgId, permit }: { orgId: string; permit: OrgPermit }) {
+function PermitRow({
+  orgId,
+  permit,
+  onRevoked,
+}: {
+  orgId: string;
+  permit: OrgPermit;
+  onRevoked: (number: string) => void;
+}) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? 'pl';
   const [revoking, setRevoking] = useState(false);
@@ -203,6 +238,10 @@ function PermitRow({ orgId, permit }: { orgId: string; permit: OrgPermit }) {
               setRevoking(false);
               opener.current?.focus();
             }}
+            onRevoked={() => {
+              setRevoking(false);
+              onRevoked(permit.number);
+            }}
           />
         ) : (
           <Button
@@ -230,10 +269,12 @@ function RevokeForm({
   orgId,
   permit,
   onClose,
+  onRevoked,
 }: {
   orgId: string;
   permit: OrgPermit;
   onClose: () => void;
+  onRevoked: () => void;
 }) {
   const { t } = useTranslation();
   const revoke = useRevokePermit(orgId);
@@ -253,7 +294,9 @@ function RevokeForm({
       aria-labelledby={`revoke-${permit.id}`}
       className="flex flex-col gap-3 border-t border-border pt-3"
       onSubmit={(event) =>
-        void handleSubmit(({ reason }) => revoke.mutate({ id: permit.id, reason }))(event)
+        void handleSubmit(({ reason }) =>
+          revoke.mutate({ id: permit.id, reason }, { onSuccess: onRevoked }),
+        )(event)
       }
     >
       <h3 id={`revoke-${permit.id}`} ref={title} tabIndex={-1} className="text-body font-semibold">
@@ -263,7 +306,7 @@ function RevokeForm({
       <TextAreaField
         label={t('permits.orgList.reasonField')}
         maxLength={REVOKE_REASON_MAX_LENGTH}
-        error={errors.reason && t('permits.orgList.reasonError')}
+        error={errors.reason && t('permits.orgList.reasonError', { max: REVOKE_REASON_MAX_LENGTH })}
         {...register('reason')}
       />
       {revoke.isError && <ApiErrorAlert error={revoke.error} />}

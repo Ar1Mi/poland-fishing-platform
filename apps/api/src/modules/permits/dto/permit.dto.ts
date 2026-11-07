@@ -90,6 +90,21 @@ export class MyPermitDto {
   @ApiProperty({
     type: String,
     nullable: true,
+    format: 'date-time',
+    description: 'When the organization revoked the permit (T-23); null otherwise',
+  })
+  revokedAt!: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'Why, in the words of the organization (a refund is noted here); null otherwise',
+  })
+  revokeReason!: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
     description:
       'JWS for the QR code `${WEB_URL}/verify/<qrToken>` (ADR-0006), expires at the end of ' +
       'validTo; only while the status is SCHEDULED or ACTIVE, otherwise null',

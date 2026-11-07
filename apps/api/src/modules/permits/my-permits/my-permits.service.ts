@@ -183,6 +183,9 @@ export class MyPermitsService {
       organization: { id: type.organizationId, name: organizationName },
       waters: permitWaters(type.waters, waterNames),
       createdAt: permit.createdAt.toISOString(),
+      // The angler learns why the organization revoked the permit (FR-10, T-23).
+      revokedAt: permit.revokedAt?.toISOString() ?? null,
+      revokeReason: permit.revokeReason,
       qrToken: WITH_QR.has(status) ? await this.qrTokens.sign(permit.id, validTo) : null,
     };
   }

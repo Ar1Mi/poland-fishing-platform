@@ -287,18 +287,27 @@ describe('permits sold by an organization (FR-10)', () => {
       ]);
     });
 
-    it('revokes a scheduled permit, and the angler sees it revoked without a QR code', async () => {
+    it('revokes a scheduled permit; the angler sees when and why, without a QR code', async () => {
       const angler = await createVerifiedUser(prisma);
       const permit = await sold('2026-11-01', '2026-11-30', { userId: angler.id });
 
-      await revoke(permit.id).expect(200);
+      await revoke(permit.id, { reason: 'Rezygnacja, zwrot przelewem' }).expect(200);
 
       const { accessToken } = await login(app, angler.email);
       const mine = await request(server())
         .get(`/api/v1/me/permits/${permit.id}`)
         .set(bearer(accessToken))
         .expect(200);
-      expect(mine.body).toMatchObject({ status: 'REVOKED', qrToken: null });
+      expect(mine.body).toMatchObject({
+        status: 'REVOKED',
+        revokedAt: FIXED_NOW.toISOString(),
+        revokeReason: 'Rezygnacja, zwrot przelewem',
+        qrToken: null,
+      });
+      const list = await request(server()).get('/api/v1/me/permits').set(bearer(accessToken));
+      expect(list.body).toMatchObject([
+        { id: permit.id, revokeReason: 'Rezygnacja, zwrot przelewem' },
+      ]);
     });
 
     it.each([

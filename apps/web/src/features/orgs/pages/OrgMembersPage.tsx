@@ -1,4 +1,10 @@
-import { type InvitationInput, invitationSchema, OrgRole } from '@lowisko/shared';
+import {
+  INVITATION_TTL_DAYS,
+  type InvitationInput,
+  invitationSchema,
+  memberRolesSchema,
+  OrgRole,
+} from '@lowisko/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CircleCheck, LoaderCircle } from 'lucide-react';
 import { useId, useState } from 'react';
@@ -90,7 +96,9 @@ function InviteForm({ orgId }: { orgId: string }) {
       <h2 id={titleId} className="text-h2">
         {t('orgs.members.inviteTitle')}
       </h2>
-      <p className="text-small text-muted-foreground">{t('orgs.members.inviteHint')}</p>
+      <p className="text-small text-muted-foreground">
+        {t('orgs.members.inviteHint', { days: INVITATION_TTL_DAYS })}
+      </p>
       <TextField
         label={t('orgs.members.email')}
         type="email"
@@ -250,7 +258,10 @@ function MemberCard({ orgId, member }: { orgId: string; member: Member }) {
             type="button"
             variant="secondary"
             size="compact"
-            disabled={!changed || roles.length === 0 || setRoles.isPending}
+            // Without roles the member is removed instead (`memberRolesSchema` needs one).
+            disabled={
+              !changed || !memberRolesSchema.safeParse({ roles }).success || setRoles.isPending
+            }
             onClick={() => setRoles.mutate({ userId: member.userId, roles })}
           >
             {t('orgs.members.saveRoles')}

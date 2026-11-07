@@ -1,9 +1,9 @@
-import { Download, LoaderCircle, Plus, WifiOff } from 'lucide-react';
+import { CircleX, Download, LoaderCircle, Plus, WifiOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router';
-import { formatPrice } from '../../../shared/lib/format';
+import { formatDate, formatPrice } from '../../../shared/lib/format';
 import { saveFile } from '../../../shared/lib/save-file';
-import { Alert, AlertDescription } from '../../../shared/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '../../../shared/ui/alert';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Badge } from '../../../shared/ui/badge';
 import { Button } from '../../../shared/ui/button';
@@ -46,6 +46,25 @@ export function MyPermitPage() {
       {data && (
         <>
           <PermitTicket permit={data} />
+          {data.status === 'REVOKED' && (
+            // FR-10: the organization revoked it; a refund, if any, is noted in the reason.
+            <Alert variant="destructive">
+              <CircleX aria-hidden />
+              <AlertTitle>
+                {data.revokedAt
+                  ? t('permits.detail.revokedOn', { date: formatDate(data.revokedAt, locale) })
+                  : t('permits.detail.revoked')}
+              </AlertTitle>
+              {data.revokeReason && (
+                <AlertDescription className="text-body whitespace-pre-line">
+                  {t('permits.detail.revokeReason', { reason: data.revokeReason })}
+                </AlertDescription>
+              )}
+              <AlertDescription className="text-body">
+                {t('permits.detail.revokedHint', { organization: data.organization.name })}
+              </AlertDescription>
+            </Alert>
+          )}
           {data.status === 'ACTIVE' && (
             <Button asChild variant="accent" className="w-fit">
               <Link to="/catch/new">

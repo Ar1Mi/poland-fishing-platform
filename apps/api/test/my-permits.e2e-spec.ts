@@ -113,6 +113,9 @@ describe('my permits', () => {
         organization: { name: 'Koło PZW 7' },
         // The waters of the type, which the permit covers (BR-01), by name.
         waters: [{ name: 'Jezioro Łańskie' }, { name: 'Zalew Zegrzyński' }],
+        // Set only by a revocation (T-23).
+        revokedAt: null,
+        revokeReason: null,
       });
     });
 

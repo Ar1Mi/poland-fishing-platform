@@ -132,7 +132,23 @@ describe('permits sold by the organization', () => {
           `POST /api/v1/orgs/${ORG_ID}/permits/b1000000-0000-4000-8000-000000000001/revoke`,
         ),
       ).toEqual([{ reason: 'Rezygnacja, zwrot przelewem' }]),
-    );
+    ); // Said and focused above the list: under a filter the row may leave it.
+    const done = await screen.findByText('Zezwolenie ZW-2026-000123 unieważnione.');
+    expect(done.closest('[tabindex="-1"]')).toHaveFocus();
+  });
+
+  it('says that nothing matches a filter, and leaves a page past the end', async () => {
+    const fetch = mockApi({
+      'GET /api/v1/me': () => jsonResponse(profile),
+      [`GET /api/v1/orgs/${ORG_ID}/permits`]: (request) => {
+        const page = Number(new URL(request.url).searchParams.get('page') ?? 1);
+        return jsonResponse(page > 1 ? pageOf([], 0, page) : pageOf([], 0));
+      },
+    });
+    renderRoute(`/org/${ORG_ID}/permits?status=REVOKED&page=3`, { accessToken: 'access-1' });
+
+    expect(await screen.findByText('Żadne zezwolenie nie pasuje do filtra.')).toBeVisible();
+    expect(queries(fetch).at(-1)).toEqual({ status: 'REVOKED', page: '1' });
   });
 
   it('shows why a permit could not be revoked', async () => {

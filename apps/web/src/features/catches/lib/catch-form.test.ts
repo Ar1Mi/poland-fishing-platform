@@ -23,6 +23,8 @@ const myPermit = (id: string, name: string, waters: [string, string][]): MyPermi
   organization: { id: 'org', name: 'Koło PZW 7' },
   waters: waters.map(([waterId, waterName]) => ({ id: waterId, name: waterName })),
   createdAt: '2026-10-01T10:00:00.000Z',
+  revokedAt: null,
+  revokeReason: null,
   qrToken: 'token',
 });
 

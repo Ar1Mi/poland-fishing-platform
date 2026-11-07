@@ -28,6 +28,9 @@ import {
 } from '../api/useWaterProfile';
 import { type WaterDetail, waterPhotoUrl } from '../api/useWaters';
 
+/** The upload limit in the hint, in megabytes. */
+const PHOTO_MB = WATER_PHOTO_MAX_BYTES / (1024 * 1024);
+
 const backLink = 'flex min-h-11 w-fit items-center gap-2 font-semibold text-primary';
 
 /**
@@ -104,7 +107,7 @@ function ProfileForm({ orgId, water }: { orgId: string; water: WaterDetail }) {
       </h2>
       <TextAreaField
         label={t('catalog.orgWater.season')}
-        hint={t('catalog.orgWater.seasonHint')}
+        hint={t('catalog.orgWater.seasonHint', { max: WATER_SEASON_INFO_MAX_LENGTH })}
         rows={2}
         maxLength={WATER_SEASON_INFO_MAX_LENGTH}
         error={errors.seasonInfo && t('catalog.orgWater.tooLong')}
@@ -145,7 +148,7 @@ function PhotoCard({ orgId, water }: { orgId: string; water: WaterDetail }) {
       chosen && !isWaterPhotoType(chosen.type)
         ? t('catalog.orgWater.photoType')
         : chosen && chosen.size > WATER_PHOTO_MAX_BYTES
-          ? t('catalog.orgWater.photoTooBig')
+          ? t('catalog.orgWater.photoTooBig', { mb: PHOTO_MB })
           : null,
     );
   };
@@ -187,7 +190,7 @@ function PhotoCard({ orgId, water }: { orgId: string; water: WaterDetail }) {
                 ? t('catalog.orgWater.replacePhoto')
                 : t('catalog.orgWater.addPhoto')
             }
-            hint={t('catalog.orgWater.photoHint')}
+            hint={t('catalog.orgWater.photoHint', { mb: PHOTO_MB })}
             accept={WATER_PHOTO_MIME_TYPES.join(',')}
             error={fileError ?? undefined}
             onChange={(event) => choose(event.target.files?.[0])}

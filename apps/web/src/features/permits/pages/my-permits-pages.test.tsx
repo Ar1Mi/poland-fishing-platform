@@ -35,6 +35,8 @@ const permitOf = (n: number, changes: Partial<MyPermit>): MyPermit => ({
   organization: { id: '2d9f6c1e-1c1e-4f43-9a51-0d6c2f0d9a13', name: 'Koło PZW 7' },
   waters: [{ id: '3c4d5e6f-7a8b-4c9d-8e0f-1a2b3c4d5e6f', name: 'Zalew Zegrzyński' }],
   createdAt: '2026-10-01T10:00:00.000Z',
+  revokedAt: null,
+  revokeReason: null,
   qrToken: 'header.payload.signature',
   ...changes,
 });
@@ -194,6 +196,26 @@ describe('my permit page', () => {
     expect(await screen.findByText('Wygasłe')).toBeVisible();
     expect(screen.queryByTitle(/Kod QR/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Pobierz PDF' })).not.toBeInTheDocument();
+  });
+
+  it('tells when and why the organization revoked the permit, without its QR', async () => {
+    show(
+      permitOf(3, {
+        status: 'REVOKED',
+        qrToken: null,
+        // 00:30 on 6 October in Warsaw.
+        revokedAt: '2026-10-05T22:30:00.000Z',
+        revokeReason: 'Rezygnacja, zwrot przelewem',
+      }),
+    );
+
+    expect(
+      await screen.findByText('Zezwolenie unieważnione przez organizację 6 paź 2026'),
+    ).toBeVisible();
+    expect(screen.getByText('Powód: Rezygnacja, zwrot przelewem')).toBeVisible();
+    expect(screen.getByText(/skontaktuj się z organizacją Koło PZW 7/)).toBeVisible();
+    expect(screen.queryByTitle(/Kod QR/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Dodaj połów/ })).not.toBeInTheDocument();
   });
 
   it('translates an API error', async () => {

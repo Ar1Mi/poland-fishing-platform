@@ -46,6 +46,8 @@ interface MyPermit {
   organization: { id: string; name: string };
   waters: { id: string; name: string }[];
   createdAt: string;
+  revokedAt: string | null;
+  revokeReason: string | null;
   qrToken: string | null;
 }
 
@@ -188,6 +190,8 @@ describe('permit purchase', () => {
         organization: { id: organizationId, name: 'Koło PZW 7' },
         waters: [{ id: water.id, name: water.name }],
         createdAt: FIXED_NOW.toISOString(),
+        revokedAt: null,
+        revokeReason: null,
         qrToken: null,
       });
       const url = new URL(paymentUrl);

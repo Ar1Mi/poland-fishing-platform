@@ -17,7 +17,7 @@ const sectionLink = 'flex min-h-11 w-fit items-center font-semibold text-primary
  */
 export function AcceptInvitationPage() {
   const { t } = useTranslation();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const token = params.get('token') ?? '';
   const me = useMe();
   const accept = useAcceptInvitation();
@@ -66,7 +66,10 @@ export function AcceptInvitationPage() {
             type="button"
             className="w-fit"
             disabled={accept.isPending}
-            onClick={() => accept.mutate(token)}
+            // Accepted, the link is spent: its token leaves the address (and the history entry).
+            onClick={() =>
+              accept.mutate(token, { onSuccess: () => setParams({}, { replace: true }) })
+            }
           >
             {t('orgs.accept.submit')}
           </Button>
