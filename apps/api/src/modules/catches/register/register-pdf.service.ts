@@ -1,4 +1,4 @@
-import { CatchErrorCode, CatchSyncStatus, warsawDate } from '@lowisko/shared';
+import { CatchSyncStatus, warsawDate } from '@lowisko/shared';
 import { Injectable } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 import {
@@ -10,6 +10,7 @@ import {
 } from '../../../common/pdf/pdf-text';
 import type { ExternalPermitDto } from '../../permits/dto/external-permit.dto';
 import type { CatchDto } from '../dto/catch.dto';
+import { VIOLATION_LABEL } from '../violation-labels';
 
 export interface RegisterPdfInput {
   season: number;
@@ -36,22 +37,6 @@ export interface RegisterPdfContent {
   total: string;
   footer: string;
 }
-
-/**
- * Why a fish did not meet the rules, as the owner of the water reads it. The register is a Polish
- * document for Polish waters, not translated with the interface.
- */
-const VIOLATION_LABEL: Record<CatchErrorCode, string> = {
-  PERMIT_NOT_ACTIVE: 'poza terminem zezwolenia',
-  PERMIT_WATER_MISMATCH: 'łowisko spoza zezwolenia',
-  BELOW_MIN_LENGTH: 'poniżej wymiaru ochronnego',
-  CLOSED_SEASON: 'okres ochronny',
-  DAILY_COUNT_LIMIT: 'ponad dzienny limit sztuk',
-  DAILY_WEIGHT_LIMIT: 'ponad dzienny limit wagi',
-  PROTECTED_SPECIES: 'gatunek chroniony',
-  CATCH_IN_FUTURE: 'data w przyszłości',
-  WEIGHT_REQUIRED: 'brak wagi',
-};
 
 // Kilograms only for display: the weight is stored as whole grams.
 const kilograms = new Intl.NumberFormat('pl-PL', { maximumFractionDigits: 3, useGrouping: false });
