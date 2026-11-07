@@ -45,6 +45,13 @@ interface ErrorBody {
   details: { fields: Record<string, string[]> };
 }
 
+/** The body as UTF-8 text, BOM included: supertest leaves `text/csv` unparsed. */
+const textParser = (res: request.Response, done: (error: Error | null, body: string) => void) => {
+  const chunks: Buffer[] = [];
+  res.on('data', (chunk: Buffer) => chunks.push(chunk));
+  res.on('end', () => done(null, Buffer.concat(chunks).toString('utf8')));
+};
+
 // FIXED_NOW is 2026-10-06 17:20 in Warsaw: the default period is the season 2026.
 describe('statistics and catch export of an organization (FR-19)', () => {
   let db: TestDatabase;
@@ -345,14 +352,3 @@ describe('statistics and catch export of an organization (FR-19)', () => {
     });
   });
 });
-
-/** supertest buffers `text/csv` as a string only when told how. */
-function textParser(
-  response: NodeJS.ReadableStream & { setEncoding(encoding: string): void },
-  done: (error: Error | null, body: string) => void,
-): void {
-  let body = '';
-  response.setEncoding('utf8');
-  response.on('data', (chunk: string) => (body += chunk));
-  response.on('end', () => done(null, body));
-}
