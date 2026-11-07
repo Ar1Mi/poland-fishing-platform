@@ -28,6 +28,7 @@ import { PermitTypesService } from './permit-types/permit-types.service';
 import { PermitPurchaseService } from './purchase/permit-purchase.service';
 import { PermitsController } from './purchase/permits.controller';
 import { QrTokenService } from './qr/qr-token.service';
+import { ReportPermitsService } from './report-permits/report-permits.service';
 
 /**
  * Permit types (T-12), the purchase and its payment (T-13, ADR-0012): the provider chosen by
@@ -36,7 +37,7 @@ import { QrTokenService } from './qr/qr-token.service';
  * for the register (T-18) and of QR checks and protocols (T-19); the offline bundle of a permit
  * with the effective rules of its waters (T-21). External permits typed in by the angler with
  * their photo and offline bundle (T-22, FR-26). The permits an organization sold and their
- * revocation (T-23, FR-10).
+ * revocation (T-23, FR-10). Sales and the organization's permits for its statistics (T-24).
  */
 @Module({
   imports: [OrganizationsModule, WatersModule, AuditModule, UsersModule, RulesModule],
@@ -60,6 +61,7 @@ import { QrTokenService } from './qr/qr-token.service';
     PermitPdfService,
     CatchPermitsService,
     InspectionPermitsService,
+    ReportPermitsService,
     PaymentsService,
     PaymentExpiryJob,
     {
@@ -68,6 +70,11 @@ import { QrTokenService } from './qr/qr-token.service';
       useFactory: createPaymentProvider,
     },
   ],
-  exports: [CatchPermitsService, InspectionPermitsService, ExternalPermitsService],
+  exports: [
+    CatchPermitsService,
+    InspectionPermitsService,
+    ExternalPermitsService,
+    ReportPermitsService,
+  ],
 })
 export class PermitsModule {}
