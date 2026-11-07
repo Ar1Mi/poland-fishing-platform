@@ -146,6 +146,8 @@ model FishingWater {
   lat               Float?
   lng               Float?
   description       String?
+  seasonInfo        String? // сезон ловли словами организации (FR-05), улов по нему не проверяется
+  photoKey          String? // фото для карточки, ключ StorageService (waters/<uuid>.<ext>)
   status            WaterStatus @default(UNCLAIMED)
   organizationId    String?     @db.Uuid
   externalOwnerName String? // użytkownik rybacki для неподключённых
@@ -153,6 +155,7 @@ model FishingWater {
   source            WaterSource
   sourceRef         String // идентификатор в источнике (номер obwodu и т.п.)
   isPublished       Boolean     @default(true) // false — предложение рыбака на модерации
+  importedAt        DateTime?   @db.Timestamptz(3) // последний импорт полей каталога (ADR-0007); updatedAt меняют и правки организации
   createdAt         DateTime    @default(now()) @db.Timestamptz(3)
   updatedAt         DateTime    @updatedAt @db.Timestamptz(3)
 

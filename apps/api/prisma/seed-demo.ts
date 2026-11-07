@@ -71,7 +71,7 @@ export async function seedDemoData(prisma: PrismaClient, options: DemoSeedOption
   await prisma.$transaction(
     async (tx) => {
       const orgIds = await seedOrganizations(tx);
-      const waterIds = await seedWaters(tx, orgIds);
+      const waterIds = await seedWaters(tx, orgIds, options.now);
       const userIds = await seedUsers(tx, orgIds, passwordHash, options.now);
       await seedPermitTypes(tx, orgIds, waterIds);
       await seedRules(tx, orgIds, waterIds);
@@ -108,16 +108,18 @@ async function seedOrganizations(tx: Tx) {
   return byKey(rows);
 }
 
-async function seedWaters(tx: Tx, orgIds: Record<string, string>) {
+async function seedWaters(tx: Tx, orgIds: Record<string, string>, now: Date) {
   const rows: [(typeof DEMO_WATERS)[number]['key'], string][] = [];
   for (const { key, organization, externalOwnerName, sourceRef, ...water } of DEMO_WATERS) {
-    const data = {
+    const catalog = {
       ...water,
       region: 'mazowieckie',
-      description: DEMO_WATER_DESCRIPTION,
       externalOwnerName: externalOwnerName ?? null,
       isPublished: true,
+      // The seed is the source of these rows, as an import is of the catalogue's (ADR-0007).
+      importedAt: now,
     };
+    const data = { ...catalog, description: DEMO_WATER_DESCRIPTION };
     const owner = organization
       ? { status: 'CONNECTED' as const, organizationId: orgIds[organization] }
       : { status: 'UNCLAIMED' as const, organizationId: null };
@@ -125,8 +127,9 @@ async function seedWaters(tx: Tx, orgIds: Record<string, string>) {
       where: { source_sourceRef: { source: 'MANUAL', sourceRef } },
       create: { ...data, ...owner, source: 'MANUAL', sourceRef },
       // An unconnected demo water may be claimed during a demo (scenario Д): a new run keeps
-      // its owner, or the organization's permit types would cover a water it no longer has.
-      update: organization ? { ...data, ...owner } : data,
+      // its owner, or the organization's permit types would cover a water it no longer has, and
+      // its description, which belongs to that organization then (FR-05).
+      update: organization ? { ...data, ...owner } : catalog,
     });
     rows.push([key, id]);
   }

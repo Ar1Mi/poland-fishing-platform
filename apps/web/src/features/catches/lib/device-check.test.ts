@@ -30,6 +30,8 @@ const permit = (changes: Partial<DevicePermit> = {}): DevicePermit => ({
     { id: RIVER, name: 'Narew' },
   ],
   createdAt: '2026-10-01T10:00:00.000Z',
+  revokedAt: null,
+  revokeReason: null,
   qrToken: 'token',
   ...changes,
 });

@@ -50,6 +50,17 @@ export class UsersService {
     return new Map(users.map(({ id, ...name }) => [id, name]));
   }
 
+  /** Names and addresses of active users for the member list of an organization, keyed by id. */
+  async findContacts(
+    ids: string[],
+  ): Promise<Map<string, Pick<User, 'firstName' | 'lastName' | 'email'>>> {
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: ids }, deletedAt: null },
+      select: { id: true, firstName: true, lastName: true, email: true },
+    });
+    return new Map(users.map(({ id, ...contact }) => [id, contact]));
+  }
+
   findByEmail(email: string, db: Db = this.prisma): Promise<User | null> {
     return db.user.findFirst({ where: { email: normalizeEmail(email), deletedAt: null } });
   }

@@ -1,6 +1,7 @@
 import { ErrorCode, WATERS_LIST_LIMIT, WaterStatus } from '@lowisko/shared';
 import { Injectable } from '@nestjs/common';
 import { DomainError } from '../../common/errors/domain-error';
+import { escapeLike } from '../../database/like';
 import { PrismaService } from '../../database/prisma.service';
 import type { FishingWater, Prisma } from '../../generated/prisma/client';
 import { OrganizationsService } from '../organizations/organizations.service';
@@ -49,10 +50,7 @@ export class WatersService {
     if (!water) {
       throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'Water not found');
     }
-    const organization = water.organizationId
-      ? await this.organizations.findPublicProfile(water.organizationId)
-      : null;
-    return { ...toSummary(water), ...toDetailFields(water), organization };
+    return toWaterDetail(water, this.organizations);
   }
 
   /** Waters connected to the organization (what its permit types may cover), by name. */
@@ -122,11 +120,6 @@ export function waterFilter({
   };
 }
 
-/** Prisma passes `contains` to ILIKE as is: `%` and `_` in a search must match themselves. */
-function escapeLike(value: string): string {
-  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
-}
-
 function toSummary(water: FishingWater): WaterSummaryDto {
   const { id, name, type, status, region, lat, lng } = water;
   return { id, name, type, status, region, lat, lng };
@@ -135,9 +128,27 @@ function toSummary(water: FishingWater): WaterSummaryDto {
 function toDetailFields(water: FishingWater) {
   return {
     description: water.description,
+    seasonInfo: water.seasonInfo,
+    photoVersion: photoVersionOf(water.photoKey),
     externalOwnerName: water.externalOwnerName,
     externalInfoUrl: water.externalInfoUrl,
     source: water.source,
-    updatedAt: water.updatedAt.toISOString(),
+    importedAt: water.importedAt?.toISOString() ?? null,
   };
+}
+
+/** The random part of the key (`waters/<uuid>.<ext>`): a new photo is a new image URL. */
+export function photoVersionOf(photoKey: string | null): string | null {
+  return photoKey ? photoKey.slice(photoKey.indexOf('/') + 1, photoKey.lastIndexOf('.')) : null;
+}
+
+/** The public card of a water row (also what an organization's edit answers). */
+export async function toWaterDetail(
+  water: FishingWater,
+  organizations: OrganizationsService,
+): Promise<WaterDetailDto> {
+  const organization = water.organizationId
+    ? await organizations.findPublicProfile(water.organizationId)
+    : null;
+  return { ...toSummary(water), ...toDetailFields(water), organization };
 }

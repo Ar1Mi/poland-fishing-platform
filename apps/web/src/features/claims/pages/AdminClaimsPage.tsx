@@ -27,6 +27,7 @@ import {
 } from '../api/useClaims';
 import { ClaimStatusBadge } from '../components/ClaimStatusBadge';
 import { saveFile } from '../../../shared/lib/save-file';
+import { AdminNav } from '../../orgs/components/AdminNav';
 
 const STATUSES = Object.values(ClaimStatus);
 const ALL = 'ALL';
@@ -49,6 +50,7 @@ export function AdminClaimsPage() {
   const claims = useAdminClaims(status);
   return (
     <>
+      <AdminNav />
       <h1 className="text-h1">{t('claims.admin.title')}</h1>
       <SelectField
         label={t('claims.admin.filter')}

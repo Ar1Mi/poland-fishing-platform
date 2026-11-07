@@ -3,7 +3,7 @@ import request from 'supertest';
 import type { PrismaService } from '../src/database/prisma.service';
 import { WATER_IMPORT_MAX_BYTES } from '../src/modules/waters/waters.controller';
 import { createVerifiedUser, login } from './auth-helpers';
-import { createTestApp } from './create-test-app';
+import { createTestApp, FIXED_NOW } from './create-test-app';
 import { prismaServiceFor } from './db/prisma-service';
 import { createTestDatabase, type TestDatabase } from './db/test-database';
 import { createOrganization, createWater } from './factories';
@@ -97,7 +97,10 @@ describe('POST /admin/waters/import', () => {
       status: 'CONNECTED',
       organizationId: organization.id,
       description: 'Opis koła',
+      seasonInfo: 'Cały rok',
+      photoKey: 'waters/00000000-0000-4000-8000-000000000001.jpg',
       isPublished: false,
+      importedAt: new Date('2026-01-02T10:00:00.000Z'),
     });
 
     const response = await upload(
@@ -115,9 +118,29 @@ describe('POST /admin/waters/import', () => {
         status: 'CONNECTED',
         organizationId: organization.id,
         description: 'Opis koła',
+        seasonInfo: 'Cały rok',
+        photoKey: 'waters/00000000-0000-4000-8000-000000000001.jpg',
         isPublished: false,
+        importedAt: FIXED_NOW,
       }),
     ]);
+  });
+
+  it('dates a new water and a row the source confirmed unchanged by the import', async () => {
+    let now = FIXED_NOW;
+    await app.close();
+    app = await createTestApp({ prisma, geocoder, now: () => now });
+    const superAdmin = await createVerifiedUser(prisma, { isSuperAdmin: true });
+    ({ accessToken: superAdminToken } = await login(app, superAdmin.email));
+    const row = csv('RZGW,WA-1,Staw,POND,mazowieckie,,,52,21,');
+
+    await upload(row).expect(200);
+    expect((await prisma.fishingWater.findFirstOrThrow()).importedAt).toEqual(now);
+
+    // Within the life of the access token.
+    now = new Date(FIXED_NOW.getTime() + 5 * 60_000);
+    await upload(row).expect(200);
+    expect((await prisma.fishingWater.findFirstOrThrow()).importedAt).toEqual(now);
   });
 
   it('treats the same sourceRef from another source as another water', async () => {
@@ -237,6 +260,7 @@ describe('POST /admin/waters/import', () => {
     expect(response.body).toMatchObject({
       code: 'VALIDATION_FAILED',
       message: expect.stringContaining(message) as unknown,
+      details: { fields: { file: [expect.stringContaining(message)] } },
     });
     expect(await prisma.fishingWater.count()).toBe(0);
   });
@@ -249,7 +273,7 @@ describe('POST /admin/waters/import', () => {
 
     expect(response.body).toMatchObject({
       code: 'VALIDATION_FAILED',
-      details: { file: 'is required' },
+      details: { fields: { file: ['file is required'] } },
     });
   });
 

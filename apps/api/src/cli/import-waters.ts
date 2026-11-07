@@ -11,6 +11,7 @@ import { PrismaService } from '../database/prisma.service';
 import { DomainError } from '../common/errors/domain-error';
 import { GeocodingService } from '../modules/waters/import/geocoding.service';
 import { NominatimGeocoder } from '../modules/waters/import/nominatim-geocoder';
+import { ClockService } from '../common/clock/clock.service';
 import { WaterImportService } from '../modules/waters/import/water-import.service';
 
 /** A problem of the invocation or of the environment: printed without a stack trace. */
@@ -50,7 +51,11 @@ async function main(): Promise<void> {
       baseUrl: env.NOMINATIM_URL,
       userAgent: env.NOMINATIM_USER_AGENT,
     });
-    const importer = new WaterImportService(prisma, new GeocodingService(prisma, geocoder));
+    const importer = new WaterImportService(
+      prisma,
+      new GeocodingService(prisma, geocoder),
+      new ClockService(),
+    );
     const report = await importer.import(readFileSync(csvPath));
 
     console.log(

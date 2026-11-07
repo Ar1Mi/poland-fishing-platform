@@ -53,14 +53,17 @@
     "externalLink": "Regulamin i zezwolenia u zarządcy",
     "externalLinkHint": "(otwiera się w nowej karcie)",
     "description": "Opis",
-    "source": "Źródło danych: {{source}}, aktualizacja {{date}}",
+    "source": "Źródło danych: {{source}}, stan na {{date}}",
     "noPosition": "Brak położenia na mapie.",
     "suspendedBadge": "Sprzedaż online wstrzymana",
     "permitsSuspended": "Sprzedaż zezwoleń w serwisie jest obecnie wstrzymana.",
     "claimTitle": "Zarządzasz tym łowiskiem?",
     "claimLead": "Złóż wniosek z dokumentem, a po jego zatwierdzeniu sprzedasz tu zezwolenia online.",
     "claim": "Złóż wniosek o łowisko",
-    "claimAs": "Złóż wniosek jako {{name}}"
+    "claimAs": "Złóż wniosek jako {{name}}",
+    "sourceOnly": "Źródło danych: {{source}}",
+    "season": "Sezon",
+    "photoAlt": "Zdjęcie łowiska {{name}}"
   },
   "source": {
     "RZGW": "RZGW Wody Polskie",
@@ -71,5 +74,34 @@
   },
   "card": {
     "priceFrom": "od {{price}}"
+  },
+  "orgWaters": {
+    "title": "Łowiska organizacji",
+    "loading": "Ładowanie łowisk…",
+    "empty": "Organizacja nie ma jeszcze podłączonych łowisk.",
+    "toClaims": "Złóż wniosek o łowisko",
+    "filter": "Szukaj łowiska",
+    "noMatch": "Żadne łowisko nie pasuje do wyszukiwania."
+  },
+  "orgWater": {
+    "back": "Wróć do łowisk organizacji",
+    "lead": "To, co tu wpiszesz, wędkarze zobaczą na karcie łowiska. Nazwę, rodzaj i położenie podaje katalog.",
+    "profileTitle": "Opis i sezon",
+    "season": "Sezon",
+    "seasonHint": "Np. „1 V – 30 IX, 6:00–22:00; zimą tylko z brzegu”. Do {{max}} znaków.",
+    "description": "Opis łowiska",
+    "tooLong": "Tekst jest za długi.",
+    "save": "Zapisz opis i sezon",
+    "saved": "Zapisano. Karta łowiska pokazuje nowe dane.",
+    "photoTitle": "Zdjęcie",
+    "noPhoto": "Łowisko nie ma jeszcze zdjęcia.",
+    "addPhoto": "Dodaj zdjęcie",
+    "replacePhoto": "Zamień zdjęcie",
+    "photoHint": "JPEG, PNG lub WebP, do {{mb}} MB.",
+    "photoType": "Wybierz zdjęcie JPEG, PNG lub WebP.",
+    "photoTooBig": "Zdjęcie jest większe niż {{mb}} MB.",
+    "savePhoto": "Zapisz zdjęcie",
+    "deletePhoto": "Usuń zdjęcie",
+    "toCard": "Zobacz kartę łowiska"
   }
 }

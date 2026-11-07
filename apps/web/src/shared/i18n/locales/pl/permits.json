@@ -47,7 +47,10 @@
       "hint": "Zezwolenie obejmuje zaznaczone łowiska organizacji.",
       "error": "Zaznacz co najmniej jedno łowisko.",
       "all": "Zaznacz wszystkie",
-      "none": "Odznacz wszystkie"
+      "none": "Odznacz wszystkie",
+      "filter": "Szukaj łowiska",
+      "chosen": "Zaznaczono {{chosen}} z {{total}}",
+      "noMatch": "Żadne łowisko nie pasuje do wyszukiwania."
     },
     "locked": "Zezwolenia tego rodzaju zostały już sprzedane, dlatego ważność, ulga i łowiska się nie zmienią. Możesz zmienić nazwę i cenę kolejnych zakupów albo utworzyć nowy rodzaj.",
     "submitNew": "Dodaj",
@@ -146,7 +149,11 @@
     "organization": "Wydaje",
     "terms": "Rodzaj",
     "downloadPdf": "Pobierz PDF",
-    "backToList": "Wszystkie zezwolenia"
+    "backToList": "Wszystkie zezwolenia",
+    "revoked": "Zezwolenie unieważnione przez organizację",
+    "revokedOn": "Zezwolenie unieważnione przez organizację {{date}}",
+    "revokeReason": "Powód: {{reason}}",
+    "revokedHint": "Nie uprawnia już do połowu ani do zapisu połowów. W sprawie zwrotu pieniędzy skontaktuj się z organizacją {{organization}}."
   },
   "qr": {
     "alt": "Kod QR zezwolenia {{number}}",
@@ -260,5 +267,41 @@
       "waiting": "Na tym urządzeniu czekają na wysłanie połowy zapisane na tym zezwoleniu. Najpierw wyślij je do rejestru — zezwolenia z połowami nie można usunąć.",
       "toRegister": "Przejdź do rejestru połowów"
     }
+  },
+  "orgList": {
+    "title": "Sprzedane zezwolenia",
+    "status": "Status",
+    "all": "Wszystkie",
+    "number": "Numer zezwolenia",
+    "search": "Szukaj po numerze",
+    "loading": "Ładowanie zezwoleń…",
+    "empty": "Brak sprzedanych zezwoleń.",
+    "total_one": "{{count}} zezwolenie",
+    "total_few": "{{count}} zezwolenia",
+    "total_many": "{{count}} zezwoleń",
+    "total_other": "{{count}} zezwolenia",
+    "pages": "Strony listy",
+    "previous": "Poprzednia",
+    "next": "Następna",
+    "page": "Strona {{page}} z {{pages}}",
+    "holder": "Wędkarz",
+    "anonymised": "Konto usunięte",
+    "type": "Rodzaj",
+    "validity": "Ważne",
+    "range": "{{from}} – {{to}}",
+    "price": "Cena",
+    "bought": "Kupione",
+    "revokedAt": "Data unieważnienia",
+    "reason": "Powód",
+    "revoke": "Unieważnij",
+    "revokeLabel": "Unieważnij zezwolenie {{number}}",
+    "revokeTitle": "Unieważnienie zezwolenia {{number}}",
+    "revokeHint": "Unieważnienia nie można cofnąć: zezwolenie przestaje być ważne przy kontroli i w rejestrze połowów. Zwrot pieniędzy, jeśli jest, wykonujesz poza serwisem — zapisz go w powodzie.",
+    "reasonField": "Powód unieważnienia",
+    "reasonError": "Podaj powód (do {{max}} znaków).",
+    "revokeYes": "Unieważnij zezwolenie",
+    "revokeNo": "Anuluj",
+    "noMatch": "Żadne zezwolenie nie pasuje do filtra.",
+    "revoked": "Zezwolenie {{number}} unieważnione."
   }
 }

@@ -21,6 +21,8 @@ const input = (changes: Partial<PermitPdfInput> = {}): PermitPdfInput => ({
       { id: 'water-2', name: 'Zalew Zegrzyński' },
     ],
     createdAt: '2026-10-06T15:20:00.000Z',
+    revokedAt: null,
+    revokeReason: null,
     qrToken: 'token',
   },
   holder: { firstName: 'Józef', lastName: 'Żółć', birthDate: '1980-03-09', anglerCardNo: null },

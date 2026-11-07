@@ -191,6 +191,7 @@ describe('waters catalogue', () => {
         source: 'RZGW',
         externalOwnerName: 'RZGW Warszawa',
         externalInfoUrl: 'https://www.gov.pl/web/wody-polskie',
+        importedAt: new Date('2026-09-01T08:00:00.000Z'),
       });
 
       const response = await request(app.getHttpServer())
@@ -210,7 +211,9 @@ describe('waters catalogue', () => {
         externalOwnerName: 'RZGW Warszawa',
         externalInfoUrl: 'https://www.gov.pl/web/wody-polskie',
         source: 'RZGW',
-        updatedAt: water.updatedAt.toISOString(),
+        seasonInfo: null,
+        photoVersion: null,
+        importedAt: '2026-09-01T08:00:00.000Z',
       });
     });
 

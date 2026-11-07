@@ -28,6 +28,10 @@ export function MyOrganizationsPage() {
       {organizations.data?.map((organization) => (
         <OrganizationCard key={organization.id} organization={organization} />
       ))}
+      {/* Scenario Д starts here: a representative of a club or a fishery applies. */}
+      <Link to="/org/new" className={sectionLink}>
+        {t('orgs.mine.apply')}
+      </Link>
     </>
   );
 }
@@ -51,6 +55,9 @@ function OrganizationCard({ organization }: { organization: MyOrganization }) {
           <>
             {isAdmin && (
               <nav aria-label={organization.name} className="flex flex-col">
+                <Link to={`/org/${organization.id}/waters`} className={sectionLink}>
+                  {t('orgs.mine.waters')}
+                </Link>
                 <Link to={`/org/${organization.id}/claims`} className={sectionLink}>
                   {t('orgs.mine.claims')}
                 </Link>
@@ -60,8 +67,14 @@ function OrganizationCard({ organization }: { organization: MyOrganization }) {
                 <Link to={`/org/${organization.id}/rules`} className={sectionLink}>
                   {t('orgs.mine.rules')}
                 </Link>
+                <Link to={`/org/${organization.id}/permits`} className={sectionLink}>
+                  {t('orgs.mine.permits')}
+                </Link>
                 <Link to={`/org/${organization.id}/inspections`} className={sectionLink}>
                   {t('orgs.mine.inspections')}
+                </Link>
+                <Link to={`/org/${organization.id}/members`} className={sectionLink}>
+                  {t('orgs.mine.members')}
                 </Link>
               </nav>
             )}

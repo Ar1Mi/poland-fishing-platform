@@ -4,7 +4,9 @@ import {
   parseBbox,
   REGIONS,
   type Region,
+  WATER_DESCRIPTION_MAX_LENGTH,
   WATER_QUERY_MAX_LENGTH,
+  WATER_SEASON_INFO_MAX_LENGTH,
   WATERS_LIST_LIMIT,
   WaterSource,
   WaterStatus,
@@ -121,8 +123,24 @@ export class WaterOwnerDto {
 }
 
 export class WaterDetailDto extends WaterSummaryDto {
-  @ApiProperty({ type: String, nullable: true })
+  @ApiProperty({ type: String, nullable: true, description: 'Written by the organization' })
   description!: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description: 'Fishing season in the words of the organization; catches are not checked by it',
+  })
+  seasonInfo!: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'Changes with every new photo: the image is `GET /waters/:id/photo?v=<photoVersion>`; ' +
+      'null without a photo',
+  })
+  photoVersion!: string | null;
 
   @ApiProperty({
     type: WaterOwnerDto,
@@ -144,8 +162,45 @@ export class WaterDetailDto extends WaterSummaryDto {
   @ApiProperty({ enum: Object.values(WaterSource), enumName: 'WaterSource' })
   source!: WaterSource;
 
-  @ApiProperty({ format: 'date-time', description: 'Last change of the catalogue entry' })
-  updatedAt!: string;
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    format: 'date-time',
+    description:
+      "Last import of the catalogue fields (ADR-0007); null for an angler's suggestion (USER)",
+  })
+  importedAt!: string | null;
+}
+
+/** Blank text clears the field; the DTO turns it into null. */
+const blankToNull = ({ value }: { value: unknown }) => {
+  const trimmed = trim({ value });
+  return trimmed === '' ? null : trimmed;
+};
+
+/**
+ * `PATCH /orgs/:orgId/waters/:id` (FR-05): a missing field stays, `null` or blank clears it
+ * (`@IsOptional` lets null through).
+ */
+export class UpdateWaterProfileDto {
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: WATER_DESCRIPTION_MAX_LENGTH })
+  @IsOptional()
+  @Transform(blankToNull)
+  @IsString()
+  @MaxLength(WATER_DESCRIPTION_MAX_LENGTH)
+  description?: string | null;
+
+  @ApiPropertyOptional({
+    type: String,
+    nullable: true,
+    maxLength: WATER_SEASON_INFO_MAX_LENGTH,
+    example: '1 V – 30 IX, 6:00–22:00',
+  })
+  @IsOptional()
+  @Transform(blankToNull)
+  @IsString()
+  @MaxLength(WATER_SEASON_INFO_MAX_LENGTH)
+  seasonInfo?: string | null;
 }
 
 /** A water of the organization admin's own list (`GET /orgs/:orgId/waters`). */

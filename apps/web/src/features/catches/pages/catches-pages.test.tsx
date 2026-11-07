@@ -54,6 +54,8 @@ const permit: MyPermit = {
   organization: { id: '2d9f6c1e-1c1e-4f43-9a51-0d6c2f0d9a13', name: 'Koło PZW 7' },
   waters: [RIVER, LAKE],
   createdAt: '2026-10-01T10:00:00.000Z',
+  revokedAt: null,
+  revokeReason: null,
   qrToken: 'header.payload.signature',
 };
 

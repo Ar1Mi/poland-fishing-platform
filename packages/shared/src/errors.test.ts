@@ -21,7 +21,7 @@ describe('error codes', () => {
     const documented: Record<number, ErrorCode[]> = {
       400: ['VALIDATION_FAILED', 'INVALID_TOKEN', 'PAYMENT_AMOUNT_MISMATCH'],
       401: ['UNAUTHENTICATED', 'INVALID_CREDENTIALS', 'EMAIL_NOT_VERIFIED', 'TOKEN_EXPIRED'],
-      403: ['FORBIDDEN', 'ORG_SCOPE_VIOLATION', 'ORG_NOT_ACTIVE'],
+      403: ['FORBIDDEN', 'ORG_SCOPE_VIOLATION', 'ORG_NOT_ACTIVE', 'INVITATION_EMAIL_MISMATCH'],
       404: ['NOT_FOUND'],
       409: [
         'EMAIL_TAKEN',
@@ -32,6 +32,8 @@ describe('error codes', () => {
         'PERMIT_TYPE_IN_USE',
         'RULE_ALREADY_EXISTS',
         'EXTERNAL_PERMIT_IN_USE',
+        'ALREADY_MEMBER',
+        'LAST_ORG_ADMIN',
       ],
       422: [
         'PERMIT_START_IN_PAST',
@@ -40,6 +42,7 @@ describe('error codes', () => {
         'EDIT_WINDOW_CLOSED',
         'PERMIT_NOT_REVOCABLE',
         'PERMIT_NOT_VALID',
+        'INVITATION_EXPIRED',
       ],
       429: ['RATE_LIMITED'],
       500: ['INTERNAL_ERROR'],

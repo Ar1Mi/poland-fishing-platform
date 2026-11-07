@@ -11,10 +11,108 @@
     "status": {
       "PENDING": "Organizacja czeka na aktywację przez administratora serwisu.",
       "BLOCKED": "Organizacja jest zablokowana. Skontaktuj się z administratorem serwisu."
-    }
+    },
+    "waters": "Łowiska",
+    "permits": "Sprzedane zezwolenia",
+    "members": "Członkowie i zaproszenia",
+    "apply": "Zgłoś organizację do serwisu"
   },
   "role": {
     "ORG_ADMIN": "Administrator",
     "INSPECTOR": "Strażnik"
+  },
+  "kind": {
+    "PZW": "Koło lub okręg PZW",
+    "RZGW": "RZGW Wody Polskie",
+    "PRIVATE": "Łowisko prywatne"
+  },
+  "orgStatus": {
+    "PENDING": "Czeka na aktywację",
+    "ACTIVE": "Aktywna",
+    "BLOCKED": "Zablokowana"
+  },
+  "apply": {
+    "title": "Zgłoszenie organizacji",
+    "lead": "Zgłoś koło, okręg lub łowisko prywatne. Zostaniesz jego administratorem, a po aktywacji przez administratora serwisu złożysz wnioski o swoje łowiska i zaczniesz sprzedawać zezwolenia.",
+    "name": "Nazwa organizacji",
+    "nameError": "Podaj nazwę (do {{max}} znaków).",
+    "nip": "NIP",
+    "nipHint": "10 cyfr; spacje i myślniki są dozwolone.",
+    "nipError": "Nieprawidłowy NIP — sprawdź cyfry.",
+    "kind": "Rodzaj",
+    "kindPlaceholder": "Wybierz rodzaj",
+    "kindError": "Wybierz rodzaj organizacji.",
+    "contactEmail": "E-mail kontaktowy organizacji",
+    "contactEmailError": "Podaj poprawny adres e-mail.",
+    "submit": "Wyślij zgłoszenie",
+    "sentTitle": "Zgłoszenie „{{name}}” wysłane",
+    "sent": "Organizacja czeka na aktywację przez administratora serwisu. Zobaczysz jej status w „Moje organizacje”.",
+    "toMine": "Przejdź do „Moje organizacje”"
+  },
+  "adminNav": {
+    "label": "Administracja serwisu",
+    "orgs": "Organizacje",
+    "claims": "Wnioski o łowiska"
+  },
+  "admin": {
+    "title": "Organizacje",
+    "filter": "Status",
+    "all": "Wszystkie",
+    "loading": "Ładowanie organizacji…",
+    "empty": "Brak organizacji o tym statusie.",
+    "nip": "NIP",
+    "kind": "Rodzaj",
+    "contactEmail": "E-mail",
+    "appliedAt": "Zgłoszona",
+    "activate": "Aktywuj",
+    "reactivate": "Aktywuj ponownie",
+    "activateLabel": "Aktywuj organizację {{name}}",
+    "block": "Zablokuj",
+    "blockLabel": "Zablokuj organizację {{name}}",
+    "blockConfirm": "Zablokować organizację? Wstrzyma to sprzedaż zezwoleń i zamknie jej członkom strony organizacji. Sprzedane zezwolenia pozostają ważne.",
+    "blockYes": "Tak, zablokuj",
+    "blockNo": "Nie blokuj"
+  },
+  "members": {
+    "title": "Członkowie i zaproszenia",
+    "listTitle": "Członkowie",
+    "loading": "Ładowanie członków…",
+    "inviteTitle": "Zaproś do organizacji",
+    "inviteHint": "Wyślemy link ważny {{days}} dni. Przyjąć zaproszenie może tylko konto z tym adresem e-mail; kto go nie ma, najpierw zakłada konto.",
+    "email": "E-mail",
+    "emailError": "Podaj poprawny adres e-mail.",
+    "role": "Rola",
+    "invite": "Wyślij zaproszenie",
+    "invited": "Zaproszenie wysłane na {{email}}.",
+    "pendingTitle": "Zaproszenia oczekujące",
+    "validUntil": "link ważny do {{date}}",
+    "expired": "link wygasł",
+    "resend": "Wyślij ponownie",
+    "resendLabel": "Wyślij ponownie zaproszenie dla {{email}}",
+    "cancel": "Anuluj",
+    "cancelLabel": "Anuluj zaproszenie dla {{email}}",
+    "anonymised": "Konto usunięte",
+    "you": "(Ty)",
+    "since": "W organizacji od {{date}}",
+    "rolesLegend": "Role: {{name}}",
+    "saveRoles": "Zapisz role",
+    "saved": "Role zapisane.",
+    "remove": "Usuń z organizacji",
+    "removeLabel": "Usuń z organizacji: {{name}}",
+    "removeConfirm": "Usunąć {{name}} z organizacji? Straci dostęp do jej stron i kontroli zezwoleń.",
+    "removeYes": "Tak, usuń",
+    "removeNo": "Nie usuwaj"
+  },
+  "accept": {
+    "title": "Zaproszenie do organizacji",
+    "lead": "Przyjmij zaproszenie, aby dołączyć do organizacji.",
+    "leadAs": "Przyjmiesz zaproszenie jako {{email}}. Zaproszenie działa tylko dla konta z adresem, na który przyszło.",
+    "submit": "Przyjmij zaproszenie",
+    "noToken": "W linku brakuje kodu zaproszenia. Otwórz link z wiadomości e-mail jeszcze raz.",
+    "mismatchHint": "Wyloguj się i zaloguj na konto z adresem, na który przyszło zaproszenie — albo poproś organizację o zaproszenie na ten adres.",
+    "joined": "Dołączyłeś do organizacji {{name}} jako {{role}}",
+    "inspectorHint": "Aby skontrolować wędkarza, zeskanuj aparatem telefonu kod QR z jego zezwolenia.",
+    "adminHint": "Sekcje organizacji znajdziesz w „Moje organizacje”.",
+    "toMine": "Przejdź do „Moje organizacje”"
   }
 }

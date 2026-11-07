@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, open, readFile, rm, writeFile } from 'node:fs/promises';
+import type { Readable } from 'node:stream';
 import { dirname, join, resolve } from 'node:path';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -32,6 +33,21 @@ export class StorageService {
 
   async read(key: string): Promise<Buffer> {
     return readFile(this.pathOf(key));
+  }
+
+  /**
+   * Streams the file instead of reading it into memory (a public file served to anyone). The
+   * file is opened here, so a missing one rejects with ENOENT before anything is sent.
+   */
+  async openStream(key: string): Promise<{ stream: Readable; size: number }> {
+    const handle = await open(this.pathOf(key), 'r');
+    try {
+      const { size } = await handle.stat();
+      return { stream: handle.createReadStream({ autoClose: true }), size };
+    } catch (error) {
+      await handle.close();
+      throw error;
+    }
   }
 
   /** Removing a missing file is not an error (cleanup after a failed insert). */

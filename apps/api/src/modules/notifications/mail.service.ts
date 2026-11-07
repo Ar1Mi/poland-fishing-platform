@@ -1,10 +1,15 @@
-import type { Locale } from '@lowisko/shared';
+import { INVITATION_TTL_DAYS, type Locale, type OrgRole } from '@lowisko/shared';
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PinoLogger } from 'nestjs-pino';
 import type { Env } from '../../config/env';
 import { MAIL_TRANSPORT, type MailTransport } from './mail-transport';
-import { emailVerificationTemplate, passwordResetTemplate, type MailContent } from './templates';
+import {
+  emailVerificationTemplate,
+  invitationTemplate,
+  passwordResetTemplate,
+  type MailContent,
+} from './templates';
 
 export interface MailRecipient {
   email: string;
@@ -38,13 +43,26 @@ export class MailService {
     await this.send(to, passwordResetTemplate[to.locale]({ firstName: to.firstName, link }));
   }
 
+  /** Link to the web page `/invitations/accept` that posts the token after login (FR-04). */
+  async sendInvitation(
+    to: { email: string; locale: Locale },
+    invitation: { organizationName: string; role: OrgRole },
+    token: string,
+  ): Promise<void> {
+    const link = this.webLink('/invitations/accept', token);
+    await this.send(
+      to,
+      invitationTemplate[to.locale]({ ...invitation, link, validDays: INVITATION_TTL_DAYS }),
+    );
+  }
+
   private webLink(path: string, token: string): string {
     const url = new URL(path, this.config.get('WEB_URL', { infer: true }));
     url.searchParams.set('token', token);
     return url.toString();
   }
 
-  private async send(to: MailRecipient, content: MailContent): Promise<void> {
+  private async send(to: { email: string }, content: MailContent): Promise<void> {
     try {
       await this.transport.sendMail({
         from: this.config.get('MAIL_FROM', { infer: true }),

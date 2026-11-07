@@ -242,7 +242,9 @@ describe('rules on the water card', () => {
     externalOwnerName: null,
     externalInfoUrl: null,
     source: 'RZGW',
-    updatedAt: '2026-10-24T23:30:00.000Z',
+    seasonInfo: null,
+    photoVersion: null,
+    importedAt: '2026-10-24T23:30:00.000Z',
   };
   const effective: EffectiveRule[] = [
     {

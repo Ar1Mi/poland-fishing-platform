@@ -17,7 +17,7 @@ import { activeAdminOrgs, useMyOrgs } from '../../orgs/api/useMyOrgs';
 import { useWaterPermitTypes } from '../../permits/api/usePermitTypes';
 import { PermitTypeTerms } from '../../permits/components/PermitTypeTerms';
 import { WaterRules } from '../../rules/components/WaterRules';
-import { useWater, type WaterDetail } from '../api/useWaters';
+import { useWater, type WaterDetail, waterPhotoUrl } from '../api/useWaters';
 import { WaterStatusBadge } from '../components/WaterStatusBadge';
 import { safeExternalUrl } from '../lib/external-url';
 
@@ -78,6 +78,13 @@ function WaterDetails({ water }: { water: WaterDetail }) {
         ) : (
           <WaterStatusBadge status={water.status} />
         )}
+        {water.photoVersion && (
+          <img
+            src={waterPhotoUrl(water.id, water.photoVersion)}
+            alt={t('catalog.water.photoAlt', { name: water.name })}
+            className="aspect-video w-full rounded-lg border border-border object-cover"
+          />
+        )}
         {(water.lat === null || water.lng === null) && (
           <p className="flex items-center gap-1 text-small text-muted-foreground">
             <MapPinOff aria-hidden className="size-4" />
@@ -129,6 +136,16 @@ function WaterDetails({ water }: { water: WaterDetail }) {
       </Card>
       <WaterRules waterId={water.id} />
       {water.status === 'UNCLAIMED' && <ClaimOffer waterId={water.id} />}
+      {water.seasonInfo && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('catalog.water.season')}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="whitespace-pre-line">{water.seasonInfo}</p>
+          </CardContent>
+        </Card>
+      )}
       {water.description && (
         <Card>
           <CardHeader>
@@ -140,10 +157,12 @@ function WaterDetails({ water }: { water: WaterDetail }) {
         </Card>
       )}
       <p className="text-small text-muted-foreground">
-        {t('catalog.water.source', {
-          source: t(`catalog.source.${water.source}`),
-          date: formatDate(water.updatedAt, i18n.resolvedLanguage ?? 'pl'),
-        })}
+        {water.importedAt
+          ? t('catalog.water.source', {
+              source: t(`catalog.source.${water.source}`),
+              date: formatDate(water.importedAt, i18n.resolvedLanguage ?? 'pl'),
+            })
+          : t('catalog.water.sourceOnly', { source: t(`catalog.source.${water.source}`) })}
       </p>
     </>
   );
