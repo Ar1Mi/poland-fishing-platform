@@ -1,0 +1,56 @@
+{
+  "stats": {
+    "title": "Statystyki",
+    "loading": "Ładowanie statystyk…",
+    "period": {
+      "label": "Okres statystyk",
+      "from": "Od",
+      "to": "Do",
+      "show": "Pokaż",
+      "issue": {
+        "INVALID": "Podaj prawidłową datę.",
+        "ORDER": "Koniec okresu nie może być przed jego początkiem.",
+        "TOO_LONG": "Okres może trwać najwyżej 366 dni.",
+        "OUT_OF_SEASONS": "Daty muszą przypadać w latach 2000–2100."
+      }
+    },
+    "sales": {
+      "title": "Sprzedaż zezwoleń",
+      "count": "Sprzedane",
+      "revenue": "Wpływy",
+      "revoked": "Unieważnione",
+      "revokedHint": "Cena unieważnionych zezwoleń jest wliczona we wpływy: ewentualny zwrot odbywa się poza serwisem.",
+      "empty": "W tym okresie nie sprzedano żadnego zezwolenia.",
+      "byMonth": "Sprzedane zezwolenia w miesiącach",
+      "monthValue_one": "{{month}}: {{count}} zezwolenie, {{revenue}}",
+      "monthValue_few": "{{month}}: {{count}} zezwolenia, {{revenue}}",
+      "monthValue_many": "{{month}}: {{count}} zezwoleń, {{revenue}}",
+      "monthValue_other": "{{month}}: {{count}} zezwolenia, {{revenue}}",
+      "byType": "Wpływy według rodzaju zezwolenia",
+      "typeValue_one": "{{count}} zezwolenie · {{revenue}}",
+      "typeValue_few": "{{count}} zezwolenia · {{revenue}}",
+      "typeValue_many": "{{count}} zezwoleń · {{revenue}}",
+      "typeValue_other": "{{count}} zezwolenia · {{revenue}}"
+    },
+    "catches": {
+      "title": "Połowy",
+      "hint": "Połowy przyjęte w rejestrze na zezwoleniach organizacji, według dnia połowu.",
+      "count": "Połowy",
+      "kept": "Zabrane",
+      "released": "Wypuszczone",
+      "empty": "W tym okresie nie zapisano żadnego połowu.",
+      "bySpecies": "Według gatunku",
+      "byWater": "Według łowiska",
+      "value_one": "{{count}} ryba · zabrane: {{kept}}",
+      "value_few": "{{count}} ryby · zabrane: {{kept}}",
+      "value_many": "{{count}} ryb · zabrane: {{kept}}",
+      "value_other": "{{count}} ryby · zabrane: {{kept}}",
+      "unknownSpecies": "Gatunek spoza słownika"
+    },
+    "export": {
+      "title": "Eksport połowów",
+      "hint": "Plik CSV dla arkusza kalkulacyjnego: wszystkie połowy z okresu na zezwoleniach organizacji, także odrzucone z przyczyną. Zawiera numer zezwolenia, bez danych wędkarza i miejsca połowu.",
+      "download": "Pobierz plik CSV"
+    }
+  }
+}

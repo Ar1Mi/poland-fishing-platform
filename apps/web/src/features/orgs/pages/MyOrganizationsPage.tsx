@@ -73,6 +73,9 @@ function OrganizationCard({ organization }: { organization: MyOrganization }) {
                 <Link to={`/org/${organization.id}/inspections`} className={sectionLink}>
                   {t('orgs.mine.inspections')}
                 </Link>
+                <Link to={`/org/${organization.id}/stats`} className={sectionLink}>
+                  {t('orgs.mine.stats')}
+                </Link>
                 <Link to={`/org/${organization.id}/members`} className={sectionLink}>
                   {t('orgs.mine.members')}
                 </Link>
