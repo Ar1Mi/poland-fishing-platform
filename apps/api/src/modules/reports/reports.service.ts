@@ -1,5 +1,7 @@
 import {
+  CATCH_SEASONS,
   ErrorCode,
+  STATS_RANGE_MAX_DAYS,
   seasonRange,
   type StatsRange,
   statsRangeIssue,
@@ -78,7 +80,7 @@ export class ReportsService {
 }
 
 const RANGE_MESSAGE = {
-  OUT_OF_SEASONS: 'the dates must fall in the years 2000–2100',
+  OUT_OF_SEASONS: `the dates must fall in the years ${CATCH_SEASONS.FIRST}–${CATCH_SEASONS.LAST}`,
   ORDER: 'to must not be before from',
-  TOO_LONG: 'the period must not be longer than 366 days',
+  TOO_LONG: `the period must not be longer than ${STATS_RANGE_MAX_DAYS} days`,
 } as const;

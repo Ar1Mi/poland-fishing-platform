@@ -107,7 +107,9 @@ describe('statistics of the organization', () => {
 
     const sales = await screen.findByRole('region', { name: 'Sprzedaż zezwoleń' });
     expect(within(sales).getByText('Sprzedane').nextSibling).toHaveTextContent('5');
-    expect(within(sales).getByText(/^375,00\s*zł$/)).toBeVisible();
+    expect(within(sales).getByText('Wpływy', { selector: 'dt' }).nextSibling).toHaveTextContent(
+      /^375,00\s*zł$/,
+    );
     expect(within(sales).getByText(/^25,00\s*zł$/)).toBeVisible();
     expect(within(sales).getByText(/zwrot odbywa się poza serwisem/)).toBeVisible();
     const columns = within(sales).getByRole('figure', {
@@ -236,6 +238,37 @@ describe('statistics of the organization', () => {
     expect(asked(fetch)).toHaveLength(1);
   });
 
+  it('marks only the start when only the start is wrong', async () => {
+    const user = userEvent.setup();
+    const fetch = show(() => jsonResponse(statsOf()));
+    await screen.findByRole('region', { name: 'Sprzedaż zezwoleń' });
+
+    await user.clear(screen.getByLabelText('Od'));
+    await user.click(screen.getByRole('button', { name: 'Pokaż' }));
+
+    expect(await screen.findByText('Podaj prawidłową datę.')).toBeVisible();
+    expect(screen.getByLabelText('Od')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByLabelText('Do')).not.toHaveAttribute('aria-invalid');
+    expect(asked(fetch)).toHaveLength(1);
+  });
+
+  it('shows the count and the revenue of every month in a table on demand', async () => {
+    const user = userEvent.setup();
+    show(() => jsonResponse(statsOf()));
+
+    await user.click(await screen.findByText('Pokaż miesiące w tabeli'));
+
+    const table = screen.getByRole('table');
+    expect(within(table).getAllByRole('row')).toHaveLength(13);
+    const october = within(table).getByRole('row', { name: /październik 2026/ });
+    expect(october).toBeVisible();
+    expect(
+      within(october)
+        .getAllByRole('cell')
+        .map((cell) => cell.textContent),
+    ).toEqual(['5', expect.stringMatching(/^375,00\s*zł$/)]);
+  });
+
   it('translates a refusal of the API', async () => {
     show(() => jsonResponse({ code: 'FORBIDDEN', message: 'Missing role', details: {} }, 403));
 
@@ -256,7 +289,7 @@ describe('statistics of the organization', () => {
       const csvPath = `/api/v1/orgs/${ORG_ID}/catches.csv`;
       const fetch = show(() => jsonResponse(statsOf()), {
         [`GET ${csvPath}`]: () =>
-          new Response('﻿Data;Godzina\r\n', {
+          new Response('\uFEFFData;Godzina\r\n', {
             headers: { 'Content-Type': 'text/csv; charset=utf-8' },
           }),
       });
@@ -270,6 +303,19 @@ describe('statistics of the organization', () => {
         .map(([sent]) => sent)
         .find((sent) => new URL(sent.url).pathname === csvPath);
       expect(request?.headers.get('Authorization')).toBe('Bearer access-1');
+    });
+
+    it('translates a refused export and saves nothing', async () => {
+      show(() => jsonResponse(statsOf()), {
+        [`GET /api/v1/orgs/${ORG_ID}/catches.csv`]: () =>
+          jsonResponse({ code: 'ORG_NOT_ACTIVE', message: 'Blocked', details: {} }, 403),
+      });
+
+      await userEvent.click(await screen.findByRole('button', { name: 'Pobierz plik CSV' }));
+
+      const exportCard = screen.getByRole('region', { name: 'Eksport połowów' });
+      expect(await within(exportCard).findByRole('alert')).toBeVisible();
+      expect(click).not.toHaveBeenCalled();
     });
   });
 });

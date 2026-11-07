@@ -1,12 +1,14 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
+  CATCH_SEASONS,
+  STATS_RANGE_MAX_DAYS,
   seasonRange,
   type StatsRange,
   statsRangeFormSchema,
   type StatsRangeFormValues,
   warsawDate,
 } from '@lowisko/shared';
-import { Download, LoaderCircle } from 'lucide-react';
+import { ChevronDown, Download, LoaderCircle } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -110,7 +112,6 @@ function PeriodForm({
     resolver: zodResolver(statsRangeFormSchema),
     defaultValues: period,
   });
-  const toIssue = errors.to?.message ?? (errors.from && 'INVALID');
   return (
     <form
       noValidate
@@ -129,7 +130,14 @@ function PeriodForm({
         type="date"
         label={t('reports.stats.period.to')}
         className="sm:w-48"
-        error={toIssue && t(`reports.stats.period.issue.${issueKey(toIssue)}`)}
+        error={
+          errors.to &&
+          t(`reports.stats.period.issue.${issueKey(errors.to.message)}`, {
+            max: STATS_RANGE_MAX_DAYS,
+            first: CATCH_SEASONS.FIRST,
+            last: CATCH_SEASONS.LAST,
+          })
+        }
         {...register('to')}
       />
       <Button type="submit" className="w-fit sm:mt-7">
@@ -140,7 +148,7 @@ function PeriodForm({
 }
 
 const ISSUES = ['INVALID', 'ORDER', 'TOO_LONG', 'OUT_OF_SEASONS'] as const;
-const issueKey = (message: string): (typeof ISSUES)[number] =>
+const issueKey = (message: string | undefined): (typeof ISSUES)[number] =>
   ISSUES.find((issue) => issue === message) ?? 'INVALID';
 
 function Figure({ label, value, hint }: { label: string; value: string; hint?: string }) {
@@ -199,6 +207,44 @@ function SalesCard({ sales, locale }: { sales: OrgStats['sales']; locale: string
               narrowLabel: monthNarrow.format(startOf(month)),
             }))}
           />
+          {/* The exact figures for the eye too: the columns show only counts, and only from 640 px. */}
+          <details className="group">
+            <summary className="flex min-h-11 w-fit cursor-pointer list-none items-center gap-1 font-semibold text-primary [&::-webkit-details-marker]:hidden">
+              <ChevronDown
+                aria-hidden
+                className="size-5 transition-transform group-open:rotate-180"
+              />
+              {t('reports.stats.sales.monthTable.show')}
+            </summary>
+            <table className="w-full text-small">
+              <thead>
+                <tr className="border-b border-border">
+                  <th scope="col" className="caption py-2 text-left text-muted-foreground">
+                    {t('reports.stats.sales.monthTable.month')}
+                  </th>
+                  <th scope="col" className="caption py-2 text-right text-muted-foreground">
+                    {t('reports.stats.sales.monthTable.count')}
+                  </th>
+                  <th scope="col" className="caption py-2 text-right text-muted-foreground">
+                    {t('reports.stats.sales.monthTable.revenue')}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {sales.byMonth.map(({ month, count, revenueGrosze }) => (
+                  <tr key={month} className="border-b border-border last:border-0">
+                    <th scope="row" className="py-2 text-left font-normal">
+                      {monthLong.format(startOf(month))}
+                    </th>
+                    <td className="py-2 text-right font-mono">{count}</td>
+                    <td className="py-2 text-right font-mono">
+                      {formatPrice(revenueGrosze, locale)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </details>
           <BarList
             title={t('reports.stats.sales.byType')}
             bars={sales.byPermitType.map(({ permitType, count, revenueGrosze }) => ({

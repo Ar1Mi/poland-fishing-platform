@@ -4,6 +4,15 @@ import { PrismaService } from '../../../database/prisma.service';
 import { Prisma } from '../../../generated/prisma/client';
 import { type SalesSummary, summarizeSales } from './sales-summary';
 
+declare const orgPermitsRelation: unique symbol;
+
+/**
+ * SQL of the relation `("id", "number")` of an organization's sold permits. Only
+ * `ReportPermitsService.ofOrganization` makes one, so a query that joins it cannot be handed
+ * arbitrary SQL by mistake: a plain `Prisma.Sql` does not type-check.
+ */
+export type OrgPermitsRelation = Prisma.Sql & { readonly [orgPermitsRelation]: true };
+
 /** What the statistics of an organization (ReportsModule, FR-19) need of permits. */
 @Injectable()
 export class ReportPermitsService {
@@ -38,15 +47,17 @@ export class ReportPermitsService {
   }
 
   /**
-   * The permits of the organization's types in any status, as a relation `("id", "number")` for
-   * the catch queries of CatchesModule to join: the catches on them are the ones the organization
-   * sees (T-19, T-24). The SQL of the permit tables stays here; the caller only joins the result
-   * by `"id"`, so its query needs neither a list of ids nor these tables.
+   * The permits the organization sold (`PAID`, `REVOKED` of its types — as in its list of sold
+   * permits, T-23) as a relation `("id", "number")` for the catch queries of CatchesModule to join:
+   * the catches on them are the ones the organization sees (T-19, T-24). A catch on an abandoned
+   * or cancelled payment stays out — the organization sold nothing to that angler. The SQL of the
+   * permit tables stays here; the caller only joins the result by `"id"` (ADR-0014).
    */
-  ofOrganization(organizationId: string): Prisma.Sql {
+  ofOrganization(organizationId: string): OrgPermitsRelation {
     return Prisma.sql`
       SELECT p."id", p."number" FROM "Permit" p
       JOIN "PermitType" t ON t."id" = p."permitTypeId"
-      WHERE t."organizationId" = ${organizationId}::uuid`;
+      WHERE t."organizationId" = ${organizationId}::uuid
+        AND p."status" IN (${PermitStatus.PAID}::"PermitStatus", ${PermitStatus.REVOKED}::"PermitStatus")` as OrgPermitsRelation;
   }
 }

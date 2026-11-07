@@ -46,14 +46,11 @@ describe('catchesCsv', () => {
     expect(csv.split('\r\n')[1]).toContain(';62;;wypuszczona;');
   });
 
-  it('names the violations of a rejected catch in Polish with the rule', () => {
+  it('lists the violations of a rejected catch in one cell', () => {
     const csv = catchesCsv([
       fish({
         status: 'REJECTED',
-        violations: [
-          { ruleId: 'BR-02', code: 'BELOW_MIN_LENGTH', details: { minLengthCm: 70 } },
-          { ruleId: 'BR-04', code: 'DAILY_COUNT_LIMIT' },
-        ],
+        violations: ['poniżej wymiaru ochronnego (BR-02)', 'ponad dzienny limit sztuk (BR-04)'],
       }),
     ]);
 
@@ -70,7 +67,7 @@ describe('catchesCsv', () => {
 });
 
 describe('csvCell', () => {
-  it.each(['=HYPERLINK("http://example.test")', '+48', '-1', '@SUM(A1)', '\tx'])(
+  it.each(['=HYPERLINK("http://example.test")', '+48', '-1', '@SUM(A1)', '\tx', '\rx'])(
     'shows %j as text, not as a formula',
     (value) => {
       const cell = csvCell(value);

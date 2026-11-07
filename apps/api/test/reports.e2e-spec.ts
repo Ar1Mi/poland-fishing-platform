@@ -140,7 +140,11 @@ describe('statistics and catch export of an organization (FR-19)', () => {
       // Not sales: not paid, cancelled, another organization's type.
       await permit({ status: 'PENDING_PAYMENT' });
       await permit({ status: 'CANCELLED' });
-      await createPermit(prisma, { status: 'PAID', pricePaidGrosze: 99900 });
+      await createPermit(prisma, {
+        status: 'PAID',
+        pricePaidGrosze: 99900,
+        createdAt: new Date('2026-10-06T08:00:00.000Z'),
+      });
 
       const { from, to, sales } = await stats();
 
@@ -198,11 +202,13 @@ describe('statistics and catch export of an organization (FR-19)', () => {
       await fish(permitId, { kept: false });
       await fish(permitId, { speciesId: perchId, fishingWaterId: lake.id, kept: false });
       await fish(permitId, { speciesId: perchId, fishingWaterId: lake.id, kept: false });
-      // Not counted: rejected, on another organization's permit, on an external permit (even on
-      // the organization's water), outside the period.
+      // Not counted: rejected, on another organization's permit, on its own permit never paid,
+      // on an external permit (even on the organization's water), outside the period.
       await fish(permitId, { syncStatus: 'REJECTED', violations: [] });
       const foreign = await createPermit(prisma, { userId: anglerId, status: 'PAID' });
       await fish(foreign.id);
+      const unpaid = await permit({ status: 'PENDING_PAYMENT' });
+      await fish(unpaid.id);
       const external = await createExternalPermit(prisma, { userId: anglerId });
       await fish('', { permitId: null, externalPermitId: external.id });
       await fish(permitId, { caughtAt: new Date('2025-12-31T22:59:59.999Z') });
@@ -316,8 +322,15 @@ describe('statistics and catch export of an organization (FR-19)', () => {
         syncStatus: 'REJECTED',
         violations: [{ ruleId: 'BR-02', code: 'BELOW_MIN_LENGTH', details: { minLengthCm: 15 } }],
       });
+      // Left out: another organization's permit, its own permit whose payment was cancelled (a
+      // catch synced on it is rejected, but the organization sold nothing), an external permit.
       const foreign = await createPermit(prisma, { userId: anglerId, status: 'PAID' });
       await fish(foreign.id);
+      const cancelled = await permit({ status: 'CANCELLED', number: 'ZW-2026-000124' });
+      await fish(cancelled.id, {
+        syncStatus: 'REJECTED',
+        violations: [{ ruleId: 'BR-01', code: 'PERMIT_NOT_ACTIVE', details: {} }],
+      });
       const external = await createExternalPermit(prisma, { userId: anglerId });
       await fish('', { permitId: null, externalPermitId: external.id });
 
@@ -330,6 +343,19 @@ describe('statistics and catch export of an organization (FR-19)', () => {
         '',
       ]);
       expect(body).not.toContain('Kowalski');
+    });
+
+    it('takes catches by the Warsaw day they were caught on', async () => {
+      const { id: permitId } = await permit();
+      // 1 November 00:00 in Warsaw (winter time) is 31 October 23:00 UTC.
+      await fish(permitId, { caughtAt: new Date('2026-10-31T22:59:59.999Z'), lengthCm: 40 });
+      await fish(permitId, { caughtAt: new Date('2026-10-31T23:00:00.000Z'), lengthCm: 41 });
+
+      const body = await csv({ from: '2026-11-01', to: '2026-11-30' });
+
+      expect(body.split('\r\n').slice(1, -1)).toEqual([
+        expect.stringMatching(/^2026-11-01;00:00;.*;41;/),
+      ]);
     });
 
     it('rejects an invalid period like the statistics', async () => {

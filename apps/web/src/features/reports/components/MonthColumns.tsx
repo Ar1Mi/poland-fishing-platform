@@ -29,14 +29,15 @@ export function MonthColumns({ title, columns }: { title: string; columns: Month
         {columns.map((column) => (
           <li key={column.month} className="flex min-w-0 flex-1 flex-col items-center gap-1">
             <span className="sr-only">{column.label}</span>
-            {/* The top padding keeps room for the value over the tallest column. */}
-            <div aria-hidden className="flex w-full flex-1 items-end justify-center pt-5">
+            {/* Room for the value over the tallest column; on a phone a column is ~20 px wide, too
+                narrow for a count of hundreds, so values show from 640 px (the table has them). */}
+            <div aria-hidden className="flex w-full flex-1 items-end justify-center pt-1 sm:pt-5">
               <div
                 className="relative w-full max-w-8 rounded-t-sm bg-primary"
                 style={{ height: `${barShare(column.value, max)}%` }}
               >
                 {column.value > 0 && (
-                  <span className="absolute bottom-full left-1/2 mb-0.5 -translate-x-1/2 font-mono text-label text-muted-foreground">
+                  <span className="absolute bottom-full left-1/2 mb-0.5 hidden -translate-x-1/2 font-mono text-label text-muted-foreground sm:block">
                     {column.value}
                   </span>
                 )}

@@ -1,6 +1,5 @@
 import { CatchSyncStatus, warsawDateTimeLocal } from '@lowisko/shared';
 import type { ExportedCatch } from '../catches/report-catches/report-catches.service';
-import { VIOLATION_LABEL } from '../catches/violation-labels';
 
 // The catch export of an organization (FR-19) is made to open with a double click in a Polish
 // Excel: `;` separates (`,` is the decimal comma there), the BOM tells it the text is UTF-8,
@@ -62,9 +61,7 @@ export function catchesCsv(catches: ExportedCatch[]): string {
       fish.weightG,
       fish.kept ? 'zabrana' : 'wypuszczona',
       fish.status === CatchSyncStatus.ACCEPTED ? 'przyjęty' : 'odrzucony',
-      fish.violations
-        .map((violation) => `${VIOLATION_LABEL[violation.code]} (${violation.ruleId})`)
-        .join(', ') || null,
+      fish.violations.join(', ') || null,
     ]);
   });
   return BOM + line([...COLUMNS]) + lines.join('');

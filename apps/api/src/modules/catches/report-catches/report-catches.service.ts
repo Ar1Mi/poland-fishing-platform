@@ -1,14 +1,15 @@
 import {
-  type CatchSyncStatus,
+  CatchSyncStatus,
   type RuleViolation,
   type StatsRange,
   statsRangeBounds,
 } from '@lowisko/shared';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../database/prisma.service';
-import type { Prisma } from '../../../generated/prisma/client';
+import type { OrgPermitsRelation } from '../../permits/report-permits/report-permits.service';
 import { SpeciesService } from '../../rules/species.service';
 import { WatersService } from '../../waters/waters.service';
+import { VIOLATION_LABEL } from '../violation-labels';
 
 /** Accepted catches of one species on one water, kept or released (T-24). */
 export interface CatchCount {
@@ -29,14 +30,16 @@ export interface ExportedCatch {
   weightG: number | null;
   kept: boolean;
   status: CatchSyncStatus;
-  violations: RuleViolation[];
+  /** Why a rejected catch broke the rules, in Polish with the rule: `okres ochronny (BR-03)`. */
+  violations: string[];
 }
 
 /**
  * The catches an organization sees in its statistics and export (FR-19): the ones recorded on its
  * permits — never on other permits or external ones, even on its waters (minimisation, as at an
  * inspection, T-19). Which permits those are is PermitsModule's: `permits` is its relation
- * `("id", "number")` (`ReportPermitsService.ofOrganization`), joined by the catch's permit.
+ * `("id", "number")` (`ReportPermitsService.ofOrganization`), joined by the catch's permit
+ * (ADR-0014).
  */
 @Injectable()
 export class ReportCatchesService {
@@ -47,7 +50,7 @@ export class ReportCatchesService {
   ) {}
 
   /** Accepted catches in the period (Warsaw days of `caughtAt`) by species, water and kept. */
-  async counts(permits: Prisma.Sql, range: StatsRange): Promise<CatchCount[]> {
+  async counts(permits: OrgPermitsRelation, range: StatsRange): Promise<CatchCount[]> {
     const { start, end } = statsRangeBounds(range);
     const rows = await this.prisma.$queryRaw<
       { speciesId: string; waterId: string; kept: boolean; count: number }[]
@@ -55,7 +58,7 @@ export class ReportCatchesService {
       SELECT c."speciesId", c."fishingWaterId" AS "waterId", c."kept", count(*)::int AS "count"
       FROM "CatchRecord" c
       JOIN (${permits}) p ON p."id" = c."permitId"
-      WHERE c."syncStatus" = 'ACCEPTED'
+      WHERE c."syncStatus" = ${CatchSyncStatus.ACCEPTED}::"CatchSyncStatus"
         AND c."caughtAt" >= ${start} AND c."caughtAt" < ${end}
       GROUP BY c."speciesId", c."fishingWaterId", c."kept"`;
     const names = await this.waters.findNames([...new Set(rows.map((row) => row.waterId))]);
@@ -69,7 +72,7 @@ export class ReportCatchesService {
    * Catches in the period, accepted and rejected (with the violations), earliest first. The
    * whole period at once: at most a season (`STATS_RANGE_MAX_DAYS`) of one organization.
    */
-  async forExport(permits: Prisma.Sql, range: StatsRange): Promise<ExportedCatch[]> {
+  async forExport(permits: OrgPermitsRelation, range: StatsRange): Promise<ExportedCatch[]> {
     const { start, end } = statsRangeBounds(range);
     const [rows, species] = await Promise.all([
       this.prisma.$queryRaw<
@@ -100,7 +103,9 @@ export class ReportCatchesService {
       ...row,
       waterName: waterNames.get(waterId) ?? '',
       speciesName: speciesNames.get(speciesId) ?? '',
-      violations: violations ?? [],
+      violations: (violations ?? []).map(
+        (violation) => `${VIOLATION_LABEL[violation.code]} (${violation.ruleId})`,
+      ),
     }));
   }
 }

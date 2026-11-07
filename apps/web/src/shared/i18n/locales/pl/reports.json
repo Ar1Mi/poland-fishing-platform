@@ -10,8 +10,8 @@
       "issue": {
         "INVALID": "Podaj prawidłową datę.",
         "ORDER": "Koniec okresu nie może być przed jego początkiem.",
-        "TOO_LONG": "Okres może trwać najwyżej 366 dni.",
-        "OUT_OF_SEASONS": "Daty muszą przypadać w latach 2000–2100."
+        "TOO_LONG": "Okres może trwać najwyżej {{max}} dni.",
+        "OUT_OF_SEASONS": "Daty muszą przypadać w latach {{first}}–{{last}}."
       }
     },
     "sales": {
@@ -26,6 +26,12 @@
       "monthValue_few": "{{month}}: {{count}} zezwolenia, {{revenue}}",
       "monthValue_many": "{{month}}: {{count}} zezwoleń, {{revenue}}",
       "monthValue_other": "{{month}}: {{count}} zezwolenia, {{revenue}}",
+      "monthTable": {
+        "show": "Pokaż miesiące w tabeli",
+        "month": "Miesiąc",
+        "count": "Zezwolenia",
+        "revenue": "Wpływy"
+      },
       "byType": "Wpływy według rodzaju zezwolenia",
       "typeValue_one": "{{count}} zezwolenie · {{revenue}}",
       "typeValue_few": "{{count}} zezwolenia · {{revenue}}",

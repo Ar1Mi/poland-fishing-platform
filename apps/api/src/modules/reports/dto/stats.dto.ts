@@ -1,10 +1,11 @@
-import { STATS_RANGE_MAX_DAYS } from '@lowisko/shared';
+import { CATCH_SEASONS, STATS_RANGE_MAX_DAYS } from '@lowisko/shared';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { IfPresent, IsDateOnly } from '../../users/dto/profile.dto';
 
 const PERIOD =
   'Warsaw calendar day, inclusive. `from` and `to` together or neither (the current season, ' +
-  `1 January – 31 December); at most ${STATS_RANGE_MAX_DAYS} days, years 2000–2100.`;
+  `1 January – 31 December); at most ${STATS_RANGE_MAX_DAYS} days, ` +
+  `years ${CATCH_SEASONS.FIRST}–${CATCH_SEASONS.LAST}.`;
 
 /** `?from=&to=` of the statistics and the catch export (T-24). */
 export class StatsQueryDto {
