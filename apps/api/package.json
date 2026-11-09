@@ -70,6 +70,7 @@
     "rootDir": "src",
     "testEnvironment": "node",
     "testRegex": "\\.spec\\.ts$",
+    "globalSetup": "<rootDir>/../test/unit-time-zone.ts",
     "transform": {
       "^.+\\.ts$": [
         "ts-jest",

@@ -12,7 +12,8 @@ describe('PermitExpiryReminderJob', () => {
 
   const setup = async (
     nodeEnv: string,
-    sendDue: () => Promise<ReminderRun> = () => Promise.resolve({ sent: 0, failed: 0 }),
+    sendDue: () => Promise<ReminderRun> = () =>
+      Promise.resolve({ sent: 0, rejected: 0, failed: 0 }),
   ) => {
     const mails = { sendDueExpiryReminders: jest.fn(sendDue) };
     const logger = { setContext: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() };
@@ -87,16 +88,24 @@ describe('PermitExpiryReminderJob', () => {
   });
 
   it('logs what it sent and what it left for the next run', async () => {
-    const { job, logger } = await setup('production', () =>
-      Promise.resolve({ sent: 4, failed: 2 }),
-    );
+    const run = { sent: 4, rejected: 1, failed: 2 };
+    const { job, logger } = await setup('production', () => Promise.resolve(run));
 
     await job.run();
 
     expect(logger.warn).toHaveBeenCalledWith(
-      { sent: 4, failed: 2 },
-      'Permit expiry reminders stopped, the rest go next run',
+      run,
+      'Some permit expiry reminders failed, they go in the next run',
     );
+  });
+
+  it('logs a run that sent reminders', async () => {
+    const run = { sent: 3, rejected: 0, failed: 0 };
+    const { job, logger } = await setup('production', () => Promise.resolve(run));
+
+    await job.run();
+
+    expect(logger.info).toHaveBeenCalledWith(run, 'Permit expiry reminders sent');
   });
 
   it('logs a failed run and keeps running', async () => {

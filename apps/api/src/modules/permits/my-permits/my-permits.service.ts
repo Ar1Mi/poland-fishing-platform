@@ -77,15 +77,18 @@ export class MyPermitsService {
     );
   }
 
-  /** A permit of someone else is as unknown as a missing one. */
-  async get(userId: string, id: string): Promise<MyPermitDto> {
+  /**
+   * A permit of someone else is as unknown as a missing one. `signQr: false` leaves `qrToken`
+   * null: an email about the permit (T-25) does not carry the token, so it does not need the key.
+   */
+  async get(userId: string, id: string, { signQr = true } = {}): Promise<MyPermitDto> {
     const permit = await this.find(userId, id);
     const [organization, waterNames] = await Promise.all([
       this.organizations.findPublicProfile(permit.permitType.organizationId),
       this.waterNames([permit]),
     ]);
     // The type keeps its organization (FK), so the profile always exists.
-    return this.toDto(permit, organization?.name ?? '', waterNames);
+    return this.toDto(permit, organization?.name ?? '', waterNames, signQr);
   }
 
   /**
@@ -159,6 +162,7 @@ export class MyPermitsService {
     permit: PermitWithType,
     organizationName: string,
     waterNames: Map<string, string>,
+    signQr = true,
   ): Promise<MyPermitDto> {
     const validFrom = fromDbDate(permit.validFrom);
     const validTo = fromDbDate(permit.validTo);
@@ -186,7 +190,7 @@ export class MyPermitsService {
       // The angler learns why the organization revoked the permit (FR-10, T-23).
       revokedAt: permit.revokedAt?.toISOString() ?? null,
       revokeReason: permit.revokeReason,
-      qrToken: WITH_QR.has(status) ? await this.qrTokens.sign(permit.id, validTo) : null,
+      qrToken: signQr && WITH_QR.has(status) ? await this.qrTokens.sign(permit.id, validTo) : null,
     };
   }
 }

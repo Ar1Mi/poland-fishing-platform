@@ -2,7 +2,11 @@ import { addDays, isExpiryReminderDue, permitValidTo } from '@lowisko/shared';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import type { PrismaService } from '../src/database/prisma.service';
-import { PermitMailsService } from '../src/modules/permits/mails/permit-mails.service';
+import {
+  PermitMailsService,
+  REMINDER_BATCH,
+  REMINDER_FAILURES_TO_STOP,
+} from '../src/modules/permits/mails/permit-mails.service';
 import { PaymentsService } from '../src/modules/permits/payments/payments.service';
 import { createVerifiedUser, login } from './auth-helpers';
 import { createTestApp, FIXED_NOW } from './create-test-app';
@@ -63,23 +67,50 @@ describe('permit emails (FR-21)', () => {
     });
   };
 
-  const buy = async (permitTypeId: string, accessToken: string) =>
+  const buy = async (permitTypeId: string, accessToken: string, validFrom = '2026-10-10') =>
     (
       await request(server())
         .post('/api/v1/permits')
         .set(bearer(accessToken))
-        .send({ permitTypeId, validFrom: '2026-10-10' })
+        .send({ permitTypeId, validFrom })
         .expect(201)
     ).body as Purchase;
 
-  /** «Zapłać» or «Odrzuć» on the fake payment page; «Zapłać» is a notification like P24's. */
-  const complete = (paymentUrl: string, outcome: 'PAID' | 'REJECTED') =>
+  /**
+   * «Zapłać» or «Odrzuć» on the fake payment page; «Zapłać» is a notification like P24's, and
+   * `amountGrosze` lets it notify a wrong amount.
+   */
+  const complete = (paymentUrl: string, outcome: 'PAID' | 'REJECTED', amountGrosze?: number) =>
     request(server())
       .post(
         `/api/v1/payments/fake/${new URL(paymentUrl).pathname.replace('/payment/fake/', '')}/complete`,
       )
-      .send({ outcome })
-      .expect(200);
+      .send({ outcome, amountGrosze });
+
+  /** Another transaction takes `lock` and holds it until `release` is called. */
+  const holdLock = async (
+    lock: (tx: Parameters<Parameters<PrismaService['$transaction']>[0]>[0]) => Promise<unknown>,
+  ) => {
+    let locked!: () => void;
+    let unlock!: () => void;
+    const lockedPromise = new Promise<void>((resolve) => (locked = resolve));
+    const unlockPromise = new Promise<void>((resolve) => (unlock = resolve));
+    const holder = prisma.$transaction(
+      async (tx) => {
+        await lock(tx);
+        locked();
+        await unlockPromise;
+      },
+      { timeout: 20_000 },
+    );
+    await lockedPromise;
+    return {
+      release: async () => {
+        unlock();
+        await holder;
+      },
+    };
+  };
 
   beforeEach(async () => {
     db = await createTestDatabase();
@@ -108,7 +139,7 @@ describe('permit emails (FR-21)', () => {
       const { permit, paymentUrl } = await buy((await typeOnSale()).id, angler.accessToken);
       expect(mail.to(angler.email)).toEqual([]);
 
-      await complete(paymentUrl, 'PAID');
+      await complete(paymentUrl, 'PAID').expect(200);
 
       const [message, ...more] = mail.to(angler.email);
       expect(more).toEqual([]);
@@ -129,8 +160,8 @@ describe('permit emails (FR-21)', () => {
       const angler = await loginAngler();
       const { paymentUrl } = await buy((await typeOnSale()).id, angler.accessToken);
 
-      await complete(paymentUrl, 'PAID');
-      await complete(paymentUrl, 'PAID');
+      await complete(paymentUrl, 'PAID').expect(200);
+      await complete(paymentUrl, 'PAID').expect(200);
 
       expect(mail.to(angler.email)).toHaveLength(1);
     });
@@ -141,11 +172,34 @@ describe('permit emails (FR-21)', () => {
       const refused = await buy(type.id, angler.accessToken);
       await buy(type.id, angler.accessToken);
 
-      await complete(refused.paymentUrl, 'REJECTED');
+      await complete(refused.paymentUrl, 'REJECTED').expect(200);
       now = new Date(FIXED_NOW.getTime() + 31 * 60_000);
       expect(await app.get(PaymentsService).expireAbandoned()).toBe(1);
 
       expect(mail.to(angler.email)).toEqual([]);
+    });
+
+    it('sends nothing for a notification with a wrong amount', async () => {
+      const angler = await loginAngler();
+      const { paymentUrl } = await buy((await typeOnSale()).id, angler.accessToken);
+
+      await complete(paymentUrl, 'PAID', 1).expect(400);
+
+      expect(mail.to(angler.email)).toEqual([]);
+    });
+
+    it('sends nothing for a payment that came after the permit’s last day', async () => {
+      const angler = await loginAngler();
+      const oneDay = await typeOnSale({ name: 'Dzienne', durationDays: 1 });
+      const { permit, paymentUrl } = await buy(oneDay.id, angler.accessToken, '2026-10-06');
+
+      now = new Date('2026-10-06T22:10:00.000Z'); // 00:10 on 7 October in Warsaw
+      expect((await complete(paymentUrl, 'PAID').expect(200)).body).toEqual({ status: 'FAILED' });
+
+      expect(mail.to(angler.email)).toEqual([]);
+      expect((await prisma.permit.findUniqueOrThrow({ where: { id: permit.id } })).status).toBe(
+        'CANCELLED',
+      );
     });
 
     it('sends the email of a free permit at once, without a price', async () => {
@@ -163,7 +217,7 @@ describe('permit emails (FR-21)', () => {
       const { permit, paymentUrl } = await buy((await typeOnSale()).id, angler.accessToken);
       mail.failNext = true;
 
-      await complete(paymentUrl, 'PAID');
+      await complete(paymentUrl, 'PAID').expect(200);
 
       expect(mail.to(angler.email)).toEqual([]);
       expect((await prisma.permit.findUniqueOrThrow({ where: { id: permit.id } })).status).toBe(
@@ -220,6 +274,24 @@ describe('permit emails (FR-21)', () => {
       ]) {
         expect(message?.text).toContain(part);
       }
+    });
+
+    it('keeps the revocation when the mail server is down', async () => {
+      const angler = await createUser(prisma);
+      const permit = await createPermit(prisma, {
+        userId: angler.id,
+        status: 'PAID',
+        validFrom: new Date('2026-10-01'),
+        validTo: new Date('2026-10-31'),
+      });
+      mail.down = true;
+
+      expect((await revoke(permit.id, 'Zwrot')).status).toBe(200);
+
+      expect(mail.sent).toEqual([]);
+      expect((await prisma.permit.findUniqueOrThrow({ where: { id: permit.id } })).status).toBe(
+        'REVOKED',
+      );
     });
 
     it('sends nothing when the permit cannot be revoked', async () => {
@@ -283,7 +355,7 @@ describe('permit emails (FR-21)', () => {
       }
       await permitOf(otherUser!.id, '2026-09-01', '2026-10-05');
 
-      expect(await reminders()).toEqual({ sent: 2, failed: 0 });
+      expect(await reminders()).toEqual({ sent: 2, rejected: 0, failed: 0 });
 
       expect(await reminded()).toEqual([week.id, five.id].sort());
       expect(mail.to(fourUser!.email)).toEqual([]);
@@ -295,22 +367,29 @@ describe('permit emails (FR-21)', () => {
       expect(message?.text).toContain('Łowiska: Zalew Zegrzyński');
       expect(message?.text).toContain(permitLink(week.id));
 
-      expect(await reminders()).toEqual({ sent: 0, failed: 0 });
+      expect(await reminders()).toEqual({ sent: 0, rejected: 0, failed: 0 });
       expect(mail.to(weekUser.email)).toHaveLength(1);
       expect(mail.to(fiveUser!.email)).toHaveLength(1);
     });
 
-    it('selects exactly the permits the shared rule says are due', async () => {
+    // An ordinary day, the turn of the year, the day the clocks move forward (28 March 2027).
+    it.each([
+      ['2026-10-06', '2026-10-06T10:00:00.000Z'],
+      ['2026-12-30', '2026-12-30T11:00:00.000Z'],
+      ['2027-03-28', '2027-03-28T10:00:00.000Z'],
+    ])('selects on %s exactly the permits the shared rule says are due', async (today, instant) => {
+      now = new Date(instant);
       const user = await createUser(prisma);
-      const today = '2026-10-06';
+      const type = await typeOnSale();
       const permits: { id: string; validFrom: string; validTo: string }[] = [];
       for (let lastDayOffset = -1; lastDayOffset <= 5; lastDayOffset += 1) {
-        for (const durationDays of [1, 3, 4, 5, 6, 30]) {
+        for (const durationDays of [1, 3, 4, 5, 6, 7, 14, 30, 365]) {
           const validTo = addDays(today, lastDayOffset);
           const validFrom = addDays(validTo, -(durationDays - 1));
           expect(permitValidTo(validFrom, durationDays)).toBe(validTo);
           const { id } = await createPermit(prisma, {
             userId: user.id,
+            permitTypeId: type.id,
             status: 'PAID',
             validFrom: new Date(validFrom),
             validTo: new Date(validTo),
@@ -322,7 +401,7 @@ describe('permit emails (FR-21)', () => {
       await reminders();
 
       const due = permits.filter((permit) => isExpiryReminderDue(permit, today));
-      expect(due.length).toBeGreaterThan(0);
+      expect(due.length).toBeGreaterThan(REMINDER_BATCH);
       expect(await reminded()).toEqual(due.map(({ id }) => id).sort());
       expect(mail.to(user.email)).toHaveLength(due.length);
     });
@@ -333,9 +412,9 @@ describe('permit emails (FR-21)', () => {
       const permit = await permitOf(user.id, '2026-10-01', '2026-10-10');
 
       now = new Date('2026-10-06T21:59:00.000Z'); // 23:59 on 6 October in Warsaw
-      expect(await reminders()).toEqual({ sent: 0, failed: 0 });
+      expect(await reminders()).toEqual({ sent: 0, rejected: 0, failed: 0 });
       now = new Date('2026-10-06T22:00:00.000Z'); // 00:00 on 7 October in Warsaw
-      expect(await reminders()).toEqual({ sent: 1, failed: 0 });
+      expect(await reminders()).toEqual({ sent: 1, rejected: 0, failed: 0 });
 
       expect(await reminded()).toEqual([permit.id]);
     });
@@ -353,25 +432,118 @@ describe('permit emails (FR-21)', () => {
       const user = await createUser(prisma, { deletedAt: new Date('2026-10-01T00:00:00.000Z') });
       const permit = await permitOf(user.id, '2026-10-03', '2026-10-09');
 
-      expect(await reminders()).toEqual({ sent: 0, failed: 0 });
+      expect(await reminders()).toEqual({ sent: 0, rejected: 0, failed: 0 });
 
       expect(mail.sent).toEqual([]);
       expect(await reminded()).toEqual([permit.id]);
     });
 
-    it('stops at a failed email and sends the rest on the next run', async () => {
-      const first = await createUser(prisma);
-      const second = await createUser(prisma);
-      await permitOf(first.id, '2026-10-02', '2026-10-08');
-      await permitOf(second.id, '2026-10-03', '2026-10-09');
-      mail.failNext = true;
+    it('sends the others when one email fails for now, and that one in the next run', async () => {
+      const users = await Promise.all([createUser(prisma), createUser(prisma), createUser(prisma)]);
+      const permits = [];
+      for (const user of users) {
+        permits.push(await permitOf(user.id, '2026-10-03', '2026-10-09'));
+      }
+      const [first, failing, last] = users;
+      mail.failOnceFor.add(failing.email);
 
-      expect(await reminders()).toEqual({ sent: 0, failed: 2 });
+      expect(await reminders()).toEqual({ sent: 2, rejected: 0, failed: 1 });
+      // Only the failed one is unmarked: the others are not reminded twice.
+      expect(await reminded()).toEqual(
+        permits
+          .filter(({ userId }) => userId !== failing.id)
+          .map(({ id }) => id)
+          .sort(),
+      );
+
+      expect(await reminders()).toEqual({ sent: 1, rejected: 0, failed: 0 });
+      for (const user of [first, failing, last]) {
+        expect(mail.to(user.email)).toHaveLength(1);
+      }
+    });
+
+    it('does not hold the others back for a mailbox refused for good, nor try it again', async () => {
+      const refused = await createUser(prisma);
+      const others = [await createUser(prisma), await createUser(prisma)];
+      // The refused mailbox's permit ends first, so it is taken first.
+      const refusedPermit = await permitOf(refused.id, '2026-10-02', '2026-10-08');
+      for (const user of others) {
+        await permitOf(user.id, '2026-10-03', '2026-10-09');
+      }
+      mail.refused.add(refused.email);
+
+      expect(await reminders()).toEqual({ sent: 2, rejected: 1, failed: 0 });
+      expect(await reminded()).toContain(refusedPermit.id);
+
+      expect(await reminders()).toEqual({ sent: 0, rejected: 0, failed: 0 });
+      expect(mail.attemptsTo(refused.email)).toBe(1);
+      for (const user of others) {
+        expect(mail.to(user.email)).toHaveLength(1);
+      }
+    });
+
+    it('tries a failing mailbox once per run, whatever the number of batches', async () => {
+      const unreachable = await createUser(prisma);
+      const user = await createUser(prisma);
+      const type = await typeOnSale();
+      const due = (userId: string, validTo: string) =>
+        createPermit(prisma, {
+          userId,
+          permitTypeId: type.id,
+          status: 'PAID',
+          validFrom: new Date('2026-10-01'),
+          validTo: new Date(validTo),
+        });
+      await due(unreachable.id, '2026-10-06');
+      for (let index = 0; index < REMINDER_BATCH; index += 1) {
+        await due(user.id, '2026-10-09');
+      }
+      mail.unreachable.add(unreachable.email);
+
+      expect(await reminders()).toEqual({ sent: REMINDER_BATCH, rejected: 0, failed: 1 });
+
+      expect(mail.attemptsTo(unreachable.email)).toBe(1);
+    });
+
+    it('stops after three failures in a row and leaves the rest to the next run', async () => {
+      const user = await createUser(prisma);
+      for (let index = 0; index < 5; index += 1) {
+        await permitOf(user.id, '2026-10-03', '2026-10-09');
+      }
+      mail.down = true;
+
+      expect(await reminders()).toEqual({ sent: 0, rejected: 0, failed: 5 });
+      expect(mail.attempts).toHaveLength(REMINDER_FAILURES_TO_STOP);
       expect(await reminded()).toEqual([]);
 
-      expect(await reminders()).toEqual({ sent: 2, failed: 0 });
-      expect(mail.to(first.email)).toHaveLength(1);
-      expect(mail.to(second.email)).toHaveLength(1);
+      mail.down = false;
+      expect(await reminders()).toEqual({ sent: 5, rejected: 0, failed: 0 });
+      expect(mail.to(user.email)).toHaveLength(5);
+    });
+
+    it('skips a permit another run holds instead of waiting for it', async () => {
+      const user = await createUser(prisma);
+      const held = await permitOf(user.id, '2026-10-02', '2026-10-08');
+      const free = await permitOf(user.id, '2026-10-03', '2026-10-09');
+      const lock = await holdLock(
+        (tx) => tx.$queryRaw`SELECT "id" FROM "Permit" WHERE "id" = ${held.id}::uuid FOR UPDATE`,
+      );
+      try {
+        // Without SKIP LOCKED the run would wait for the lock until the timeout.
+        const run = await Promise.race([
+          reminders(),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('The run waited for a locked permit')), 5_000),
+          ),
+        ]);
+        expect(run).toEqual({ sent: 1, rejected: 0, failed: 0 });
+        expect(await reminded()).toEqual([free.id]);
+      } finally {
+        await lock.release();
+      }
+
+      expect(await reminders()).toEqual({ sent: 1, rejected: 0, failed: 0 });
+      expect(await reminded()).toEqual([held.id, free.id].sort());
     });
 
     it('reminds every permit once when two runs go at the same time', async () => {

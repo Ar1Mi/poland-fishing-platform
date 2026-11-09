@@ -19,7 +19,9 @@ const permit: PermitMail = {
 };
 
 describe('mailDate and mailPrice', () => {
-  it('write a calendar day in the recipient’s language, whatever the zone', () => {
+  it('write a calendar day in the recipient’s language, whatever the process zone', () => {
+    // The unit tests run behind UTC (test/unit-time-zone.ts), where a day read in the process zone
+    // would be the day before.
     expect(mailDate('pl', '2026-11-10')).toBe('10 listopada 2026');
     expect(mailDate('en', '2026-11-10')).toBe('10 November 2026');
     expect(mailDate('ru', '2026-11-10')).toBe('10 ноября 2026 г.');

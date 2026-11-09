@@ -45,19 +45,21 @@ describe('PaymentExpiryJob', () => {
   });
 
   it('logs how many payments it cancelled', async () => {
-    const { job, logger } = await setup('production', () => Promise.resolve(3));
+    const { moduleRef, job, logger } = await setup('production', () => Promise.resolve(3));
 
     await job.run();
 
     expect(logger.info).toHaveBeenCalledWith({ cancelled: 3 }, 'Abandoned payments cancelled');
+    await moduleRef.close();
   });
 
   it('logs a failed sweep and keeps running', async () => {
     const err = new Error('database unavailable');
-    const { job, logger } = await setup('production', () => Promise.reject(err));
+    const { moduleRef, job, logger } = await setup('production', () => Promise.reject(err));
 
     await expect(job.run()).resolves.toBeUndefined();
 
     expect(logger.error).toHaveBeenCalledWith({ err }, 'Cancelling abandoned payments failed');
+    await moduleRef.close();
   });
 });

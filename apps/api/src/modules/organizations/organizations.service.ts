@@ -106,14 +106,15 @@ export class OrganizationsService {
   }
 
   /**
-   * Name and contact address of an organization for emails to anglers (a revoked permit, T-25);
-   * null if unknown.
+   * The contact address of an organization for emails to anglers (a revoked permit, T-25); null
+   * if unknown.
    */
-  findContact(id: string): Promise<Pick<Organization, 'name' | 'contactEmail'> | null> {
-    return this.prisma.organization.findUnique({
+  async findContactEmail(id: string): Promise<string | null> {
+    const organization = await this.prisma.organization.findUnique({
       where: { id },
-      select: { name: true, contactEmail: true },
+      select: { contactEmail: true },
     });
+    return organization?.contactEmail ?? null;
   }
 
   /** Activation or blocking; setting the current status again is a no-op. */

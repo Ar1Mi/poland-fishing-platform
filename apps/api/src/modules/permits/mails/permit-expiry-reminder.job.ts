@@ -28,11 +28,11 @@ export class PermitExpiryReminderJob {
   })
   async run(): Promise<void> {
     try {
-      const { sent, failed } = await this.mails.sendDueExpiryReminders();
-      if (failed > 0) {
-        this.logger.warn({ sent, failed }, 'Permit expiry reminders stopped, the rest go next run');
-      } else if (sent > 0) {
-        this.logger.info({ sent }, 'Permit expiry reminders sent');
+      const run = await this.mails.sendDueExpiryReminders();
+      if (run.failed > 0) {
+        this.logger.warn(run, 'Some permit expiry reminders failed, they go in the next run');
+      } else if (run.sent > 0 || run.rejected > 0) {
+        this.logger.info(run, 'Permit expiry reminders sent');
       }
     } catch (err) {
       this.logger.error({ err }, 'Sending permit expiry reminders failed');

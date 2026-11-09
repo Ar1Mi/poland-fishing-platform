@@ -25,14 +25,28 @@ export interface MailRecipient {
   locale: Locale;
 }
 
+/**
+ * What became of an email: sent; refused for good by the recipient's server (5xx to RCPT TO — a
+ * mailbox that does not exist), which sending again would not change; or failed for now (no
+ * connection, a timeout, the server's own trouble), which a later attempt may fix.
+ */
+export type MailOutcome = 'sent' | 'rejected' | 'failed';
+
+/** The fields of a nodemailer error worth logging: they hold no address and no message body. */
+interface SmtpError {
+  code?: string;
+  responseCode?: number;
+  command?: string;
+}
+
 /** The permit an email is about: its page link is built from `id`. */
 export type MailPermit<T extends PermitMail> = Omit<T, 'firstName' | 'link'> & { id: string };
 
 /**
  * Account and permit emails. Sending never throws: a mail server outage must not fail the
  * request (the account already exists, the permit is paid), so the failure goes to the log
- * instead. Permit emails tell whether the message went out: the expiry reminder retries a
- * failed one later.
+ * instead. Permit emails tell what became of the message (`MailOutcome`): the expiry reminder
+ * retries one that failed for now.
  */
 @Injectable()
 export class MailService {
@@ -73,7 +87,7 @@ export class MailService {
   sendPermitPurchased(
     to: MailRecipient,
     permit: MailPermit<PermitPurchasedMail>,
-  ): Promise<boolean> {
+  ): Promise<MailOutcome> {
     return this.send(
       to,
       permitPurchasedTemplate[to.locale]({ ...permit, ...this.greet(to, permit) }),
@@ -81,7 +95,10 @@ export class MailService {
   }
 
   /** From three days before the permit's last day (FR-21, docs/02-business-rules.md). */
-  sendPermitExpiryReminder(to: MailRecipient, permit: MailPermit<PermitMail>): Promise<boolean> {
+  sendPermitExpiryReminder(
+    to: MailRecipient,
+    permit: MailPermit<PermitMail>,
+  ): Promise<MailOutcome> {
     return this.send(
       to,
       permitExpiryReminderTemplate[to.locale]({ ...permit, ...this.greet(to, permit) }),
@@ -89,7 +106,10 @@ export class MailService {
   }
 
   /** The organization revoked the permit (FR-10): its reason and contact address. */
-  sendPermitRevoked(to: MailRecipient, permit: MailPermit<PermitRevokedMail>): Promise<boolean> {
+  sendPermitRevoked(
+    to: MailRecipient,
+    permit: MailPermit<PermitRevokedMail>,
+  ): Promise<MailOutcome> {
     return this.send(
       to,
       permitRevokedTemplate[to.locale]({ ...permit, ...this.greet(to, permit) }),
@@ -108,18 +128,24 @@ export class MailService {
     return url.toString();
   }
 
-  private async send(to: { email: string }, content: MailContent): Promise<boolean> {
+  private async send(to: { email: string }, content: MailContent): Promise<MailOutcome> {
     try {
       await this.transport.sendMail({
         from: this.config.get('MAIL_FROM', { infer: true }),
         to: to.email,
         ...content,
       });
-      return true;
+      return 'sent';
     } catch (err) {
-      // The message body may hold a one-time token, so only the subject is logged.
-      this.logger.error({ err, subject: content.subject }, 'Sending email failed');
-      return false;
+      // Not the error itself: its message and the server's reply may name the recipient, and the
+      // body may hold a one-time token. The subject and the SMTP codes are enough to act on.
+      const { code, responseCode, command } = err as SmtpError;
+      const rejected = command === 'RCPT TO' && responseCode !== undefined && responseCode >= 500;
+      this.logger.error(
+        { code, responseCode, command, subject: content.subject },
+        rejected ? 'Email refused by the recipient’s server' : 'Sending email failed',
+      );
+      return rejected ? 'rejected' : 'failed';
     }
   }
 }
