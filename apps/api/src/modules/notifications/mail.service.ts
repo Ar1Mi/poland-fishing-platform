@@ -5,6 +5,14 @@ import { PinoLogger } from 'nestjs-pino';
 import type { Env } from '../../config/env';
 import { MAIL_TRANSPORT, type MailTransport } from './mail-transport';
 import {
+  permitExpiryReminderTemplate,
+  permitPurchasedTemplate,
+  permitRevokedTemplate,
+  type PermitMail,
+  type PermitPurchasedMail,
+  type PermitRevokedMail,
+} from './permit-templates';
+import {
   emailVerificationTemplate,
   invitationTemplate,
   passwordResetTemplate,
@@ -17,9 +25,14 @@ export interface MailRecipient {
   locale: Locale;
 }
 
+/** The permit an email is about: its page link is built from `id`. */
+export type MailPermit<T extends PermitMail> = Omit<T, 'firstName' | 'link'> & { id: string };
+
 /**
- * Account emails. Sending never throws: a mail server outage must not fail the request
- * (the account already exists), so the failure goes to the log instead.
+ * Account and permit emails. Sending never throws: a mail server outage must not fail the
+ * request (the account already exists, the permit is paid), so the failure goes to the log
+ * instead. Permit emails tell whether the message went out: the expiry reminder retries a
+ * failed one later.
  */
 @Injectable()
 export class MailService {
@@ -56,22 +69,57 @@ export class MailService {
     );
   }
 
+  /** The permit is PAID (FR-21): after a confirmed payment, or at once for a free type. */
+  sendPermitPurchased(
+    to: MailRecipient,
+    permit: MailPermit<PermitPurchasedMail>,
+  ): Promise<boolean> {
+    return this.send(
+      to,
+      permitPurchasedTemplate[to.locale]({ ...permit, ...this.greet(to, permit) }),
+    );
+  }
+
+  /** From three days before the permit's last day (FR-21, docs/02-business-rules.md). */
+  sendPermitExpiryReminder(to: MailRecipient, permit: MailPermit<PermitMail>): Promise<boolean> {
+    return this.send(
+      to,
+      permitExpiryReminderTemplate[to.locale]({ ...permit, ...this.greet(to, permit) }),
+    );
+  }
+
+  /** The organization revoked the permit (FR-10): its reason and contact address. */
+  sendPermitRevoked(to: MailRecipient, permit: MailPermit<PermitRevokedMail>): Promise<boolean> {
+    return this.send(
+      to,
+      permitRevokedTemplate[to.locale]({ ...permit, ...this.greet(to, permit) }),
+    );
+  }
+
+  /** The recipient's name and the link to the permit page, where its QR code and PDF are. */
+  private greet(to: MailRecipient, permit: { id: string }): Pick<PermitMail, 'firstName' | 'link'> {
+    const link = new URL(`/me/permits/${permit.id}`, this.config.get('WEB_URL', { infer: true }));
+    return { firstName: to.firstName, link: link.toString() };
+  }
+
   private webLink(path: string, token: string): string {
     const url = new URL(path, this.config.get('WEB_URL', { infer: true }));
     url.searchParams.set('token', token);
     return url.toString();
   }
 
-  private async send(to: { email: string }, content: MailContent): Promise<void> {
+  private async send(to: { email: string }, content: MailContent): Promise<boolean> {
     try {
       await this.transport.sendMail({
         from: this.config.get('MAIL_FROM', { infer: true }),
         to: to.email,
         ...content,
       });
+      return true;
     } catch (err) {
-      // The message body holds a one-time token, so only the subject is logged.
+      // The message body may hold a one-time token, so only the subject is logged.
       this.logger.error({ err, subject: content.subject }, 'Sending email failed');
+      return false;
     }
   }
 }
