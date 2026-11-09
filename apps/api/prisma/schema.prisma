@@ -247,22 +247,24 @@ enum DiscountKind {
 }
 
 model Permit {
-  id              String        @id @default(uuid()) @db.Uuid
-  number          String        @unique // напр. ZW-2026-000123
-  userId          String        @db.Uuid
-  permitTypeId    String        @db.Uuid
-  validFrom       DateTime      @db.Date
-  validTo         DateTime      @db.Date
-  status          PermitStatus  @default(PENDING_PAYMENT)
-  pricePaidGrosze Int
-  revokedAt       DateTime?     @db.Timestamptz(3)
-  revokeReason    String?
-  createdAt       DateTime      @default(now()) @db.Timestamptz(3)
-  user            User          @relation(fields: [userId], references: [id])
-  permitType      PermitType    @relation(fields: [permitTypeId], references: [id])
-  payments        Payment[]
-  catches         CatchRecord[]
-  inspections     Inspection[]
+  id                   String        @id @default(uuid()) @db.Uuid
+  number               String        @unique // напр. ZW-2026-000123
+  userId               String        @db.Uuid
+  permitTypeId         String        @db.Uuid
+  validFrom            DateTime      @db.Date
+  validTo              DateTime      @db.Date
+  status               PermitStatus  @default(PENDING_PAYMENT)
+  pricePaidGrosze      Int
+  revokedAt            DateTime?     @db.Timestamptz(3)
+  revokeReason         String?
+  // Письмо «разрешение скоро истекает» (T-25) отправлено или взято рассылкой; NULL — ещё нет.
+  expiryReminderSentAt DateTime?     @db.Timestamptz(3)
+  createdAt            DateTime      @default(now()) @db.Timestamptz(3)
+  user                 User          @relation(fields: [userId], references: [id])
+  permitType           PermitType    @relation(fields: [permitTypeId], references: [id])
+  payments             Payment[]
+  catches              CatchRecord[]
+  inspections          Inspection[]
 
   @@index([userId, validTo])
 }
