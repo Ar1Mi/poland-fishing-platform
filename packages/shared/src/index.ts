@@ -12,6 +12,7 @@ export * from './orgs/nip.js';
 export * from './orgs/schemas.js';
 export * from './pagination.js';
 export * from './permits/effective-status.js';
+export * from './permits/expiry-reminder.js';
 export * from './permits/external-permit.js';
 export * from './permits/permit-types.js';
 export * from './permits/purchase.js';
