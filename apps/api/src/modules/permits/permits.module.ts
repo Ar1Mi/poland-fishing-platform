@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { AuditModule } from '../audit/audit.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { OrganizationsModule } from '../organizations/organizations.module';
 import { RulesModule } from '../rules/rules.module';
 import { UsersModule } from '../users/users.module';
@@ -9,6 +10,8 @@ import { CatchPermitsService } from './catch-permits/catch-permits.service';
 import { ExternalPermitsController } from './external-permits/external-permits.controller';
 import { ExternalPermitsService } from './external-permits/external-permits.service';
 import { InspectionPermitsService } from './inspection-permits/inspection-permits.service';
+import { PermitExpiryReminderJob } from './mails/permit-expiry-reminder.job';
+import { PermitMailsService } from './mails/permit-mails.service';
 import { MyPermitsController } from './my-permits/my-permits.controller';
 import { MyPermitsService } from './my-permits/my-permits.service';
 import { OrgPermitsController } from './org-permits/org-permits.controller';
@@ -38,9 +41,18 @@ import { ReportPermitsService } from './report-permits/report-permits.service';
  * with the effective rules of its waters (T-21). External permits typed in by the angler with
  * their photo and offline bundle (T-22, FR-26). The permits an organization sold and their
  * revocation (T-23, FR-10). Sales and the organization's permits for its statistics (T-24).
+ * Emails to the angler about a permit — bought, about to expire, revoked — and the reminder job
+ * (T-25, FR-21).
  */
 @Module({
-  imports: [OrganizationsModule, WatersModule, AuditModule, UsersModule, RulesModule],
+  imports: [
+    OrganizationsModule,
+    WatersModule,
+    AuditModule,
+    UsersModule,
+    RulesModule,
+    NotificationsModule,
+  ],
   controllers: [
     OrgPermitTypesController,
     PermitTypesController,
@@ -64,6 +76,8 @@ import { ReportPermitsService } from './report-permits/report-permits.service';
     ReportPermitsService,
     PaymentsService,
     PaymentExpiryJob,
+    PermitMailsService,
+    PermitExpiryReminderJob,
     {
       provide: PAYMENT_PROVIDER,
       inject: [ConfigService],

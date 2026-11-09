@@ -17,6 +17,7 @@ import type { Permit, PermitType, Prisma } from '../../../generated/prisma/clien
 import { AuditService } from '../../audit/audit.service';
 import { UsersService } from '../../users/users.service';
 import type { ListOrgPermitsQueryDto, OrgPermitDto } from '../dto/org-permit.dto';
+import { PermitMailsService } from '../mails/permit-mails.service';
 import { fromDbDate, toDbDate } from '../permit-dates';
 
 type StoredPermit = Permit & { permitType: Pick<PermitType, 'id' | 'name'> };
@@ -35,6 +36,7 @@ export class OrgPermitsService {
     private readonly prisma: PrismaService,
     private readonly users: UsersService,
     private readonly audit: AuditService,
+    private readonly permitMails: PermitMailsService,
     private readonly clock: ClockService,
   ) {}
 
@@ -65,6 +67,7 @@ export class OrgPermitsService {
    * Only a permit that can still be used (SCHEDULED, ACTIVE) is revoked; the row is locked, so
    * of two revocations one wins and the other sees REVOKED. `FOR NO KEY UPDATE`: the key does not
    * change, so a catch synced meanwhile (its FK check takes `KEY SHARE`) does not wait.
+   * The angler gets an email with the reason after the commit (T-25).
    */
   async revoke(
     organizationId: string,
@@ -112,6 +115,7 @@ export class OrgPermitsService {
       });
       return updated;
     });
+    await this.permitMails.revoked(id);
     const [dto] = await this.toDtos([revoked], now);
     return dto!;
   }

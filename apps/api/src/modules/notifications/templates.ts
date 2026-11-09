@@ -1,7 +1,7 @@
 import type { Locale, OrgRole } from '@lowisko/shared';
 
-// Plain-text account emails in the recipient's language. T-25 extends this to the full set
-// of notifications.
+// Plain-text account emails in the recipient's language; emails about permits (T-25) are in
+// permit-templates.ts.
 
 export interface MailContent {
   subject: string;
