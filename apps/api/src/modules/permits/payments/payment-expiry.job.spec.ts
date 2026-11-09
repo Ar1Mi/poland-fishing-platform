@@ -1,48 +1,51 @@
-import type { ConfigService } from '@nestjs/config';
-import type { PinoLogger } from 'nestjs-pino';
-import type { Env } from '../../../config/env';
+import { Test, type TestingModule } from '@nestjs/testing';
+import { PinoLogger } from 'nestjs-pino';
+import { schedulingImports } from '../../../common/scheduling/scheduling';
 import { PAYMENT_EXPIRY_INTERVAL_MS, PaymentExpiryJob } from './payment-expiry.job';
-import type { PaymentsService } from './payments.service';
+import { PaymentsService } from './payments.service';
 
 describe('PaymentExpiryJob', () => {
-  const setup = (nodeEnv: Env['NODE_ENV'], expireAbandoned: () => Promise<number>) => {
+  const setup = async (nodeEnv: string, expireAbandoned: () => Promise<number>) => {
     const payments = { expireAbandoned: jest.fn(expireAbandoned) };
     const logger = { setContext: jest.fn(), info: jest.fn(), error: jest.fn() };
-    const config = { get: () => nodeEnv };
-    const job = new PaymentExpiryJob(
-      payments as unknown as PaymentsService,
-      config as unknown as ConfigService<Env, true>,
-      logger as unknown as PinoLogger,
-    );
-    return { job, payments, logger };
+    // The scheduler as the application registers it (AppModule), with the job's real decorator.
+    const moduleRef: TestingModule = await Test.createTestingModule({
+      imports: schedulingImports({ NODE_ENV: nodeEnv }),
+      providers: [
+        PaymentExpiryJob,
+        { provide: PaymentsService, useValue: payments },
+        { provide: PinoLogger, useValue: logger },
+      ],
+    }).compile();
+    return { moduleRef, job: moduleRef.get(PaymentExpiryJob), payments, logger };
   };
 
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
 
   it('sweeps every minute once the application has started, until it stops', async () => {
-    const { job, payments } = setup('production', () => Promise.resolve(0));
+    const { moduleRef, payments } = await setup('production', () => Promise.resolve(0));
 
-    job.onApplicationBootstrap();
+    await moduleRef.init();
     await jest.advanceTimersByTimeAsync(PAYMENT_EXPIRY_INTERVAL_MS * 2);
-    job.onModuleDestroy();
+    await moduleRef.close();
     await jest.advanceTimersByTimeAsync(PAYMENT_EXPIRY_INTERVAL_MS * 2);
 
     expect(payments.expireAbandoned).toHaveBeenCalledTimes(2);
   });
 
   it('leaves the sweep to the tests themselves under NODE_ENV=test', async () => {
-    const { job, payments } = setup('test', () => Promise.resolve(0));
+    const { moduleRef, payments } = await setup('test', () => Promise.resolve(0));
 
-    job.onApplicationBootstrap();
+    await moduleRef.init();
     await jest.advanceTimersByTimeAsync(PAYMENT_EXPIRY_INTERVAL_MS * 2);
 
     expect(payments.expireAbandoned).not.toHaveBeenCalled();
-    job.onModuleDestroy();
+    await moduleRef.close();
   });
 
   it('logs how many payments it cancelled', async () => {
-    const { job, logger } = setup('production', () => Promise.resolve(3));
+    const { job, logger } = await setup('production', () => Promise.resolve(3));
 
     await job.run();
 
@@ -51,7 +54,7 @@ describe('PaymentExpiryJob', () => {
 
   it('logs a failed sweep and keeps running', async () => {
     const err = new Error('database unavailable');
-    const { job, logger } = setup('production', () => Promise.reject(err));
+    const { job, logger } = await setup('production', () => Promise.reject(err));
 
     await expect(job.run()).resolves.toBeUndefined();
 
