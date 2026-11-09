@@ -16,6 +16,7 @@ import { GLOBAL_PREFIX } from '../../../common/http/global-prefix';
 import type { Env } from '../../../config/env';
 import { PrismaService } from '../../../database/prisma.service';
 import type { Payment, Prisma } from '../../../generated/prisma/client';
+import { PermitMailsService } from '../mails/permit-mails.service';
 import { fromDbDate } from '../permit-dates';
 import {
   PAYMENT_PROVIDER,
@@ -47,6 +48,7 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(PAYMENT_PROVIDER) private readonly provider: PaymentProvider,
+    private readonly permitMails: PermitMailsService,
     private readonly clock: ClockService,
     private readonly config: ConfigService<Env, true>,
     private readonly logger: PinoLogger,
@@ -111,6 +113,9 @@ export class PaymentsService {
    * inside the transaction: if anything fails, nothing is confirmed and nothing is stored,
    * and P24 notifies again. The payment row stays locked meanwhile, so the timeout cannot
    * cancel a payment whose money is being taken (the sweep skips locked rows).
+   *
+   * The purchase email (T-25) goes after the commit, only from the notification that paid the
+   * permit: a repeated one changes nothing and sends nothing. It never fails the notification.
    */
   async processNotification(body: unknown): Promise<PaymentStatus> {
     let notification: PaymentNotification;
@@ -121,7 +126,8 @@ export class PaymentsService {
       this.logger.warn({ reason: (err as Error).message }, 'Payment notification rejected');
       throw err;
     }
-    return this.prisma.$transaction(
+    let paidPermitId: string | undefined;
+    const result = await this.prisma.$transaction(
       async (tx) => {
         const payment = await this.lock(tx, notification.sessionId);
         if (payment.status !== PaymentStatus.PENDING) {
@@ -167,10 +173,15 @@ export class PaymentsService {
         await this.payPermit(tx, payment.permitId);
         await this.provider.confirm(notification);
         this.logger.info({ paymentId: payment.id }, 'Payment succeeded');
+        paidPermitId = payment.permitId;
         return status;
       },
       { timeout: CONFIRM_TRANSACTION_TIMEOUT_MS },
     );
+    if (paidPermitId) {
+      await this.permitMails.purchased(paidPermitId);
+    }
+    return result;
   }
 
   /**

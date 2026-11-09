@@ -105,6 +105,17 @@ export class OrganizationsService {
     return new Map(organizations.map((organization) => [organization.id, organization]));
   }
 
+  /**
+   * Name and contact address of an organization for emails to anglers (a revoked permit, T-25);
+   * null if unknown.
+   */
+  findContact(id: string): Promise<Pick<Organization, 'name' | 'contactEmail'> | null> {
+    return this.prisma.organization.findUnique({
+      where: { id },
+      select: { name: true, contactEmail: true },
+    });
+  }
+
   /** Activation or blocking; setting the current status again is a no-op. */
   async setStatus(id: string, status: SettableStatus): Promise<OrganizationDto> {
     try {

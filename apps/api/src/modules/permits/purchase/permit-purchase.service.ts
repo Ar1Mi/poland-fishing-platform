@@ -17,6 +17,7 @@ import type { PermitType, Prisma } from '../../../generated/prisma/client';
 import { OrganizationsService } from '../../organizations/organizations.service';
 import { UsersService } from '../../users/users.service';
 import type { PurchasePermitDto, PurchasePermitResultDto } from '../dto/permit.dto';
+import { PermitMailsService } from '../mails/permit-mails.service';
 import { MyPermitsService } from '../my-permits/my-permits.service';
 import { PaymentsService } from '../payments/payments.service';
 import { fromDbDate, toDbDate } from '../permit-dates';
@@ -34,6 +35,7 @@ export class PermitPurchaseService {
     private readonly users: UsersService,
     private readonly numbers: PermitNumberService,
     private readonly myPermits: MyPermitsService,
+    private readonly permitMails: PermitMailsService,
     private readonly clock: ClockService,
     private readonly config: ConfigService<Env, true>,
   ) {}
@@ -41,7 +43,8 @@ export class PermitPurchaseService {
   /**
    * The permit and its payment are written in one short transaction (the permit number may
    * hold a lock of the whole year until it commits, docs/04-data-model.md); the provider is
-   * called after it. A free type has nothing to pay: its permit is PAID at once.
+   * called after it. A free type has nothing to pay: its permit is PAID at once, and its
+   * purchase email (T-25) goes after the commit; a paid one gets it from PaymentsService.
    */
   async purchase(userId: string, dto: PurchasePermitDto): Promise<PurchasePermitResultDto> {
     this.assertStartWindow(dto.validFrom);
@@ -93,6 +96,9 @@ export class PermitPurchaseService {
 
     const returnUrl = new URL('/payment/return', this.config.get('WEB_URL', { infer: true }));
     returnUrl.searchParams.set('permitId', permitId);
+    if (!sessionId) {
+      await this.permitMails.purchased(permitId);
+    }
     const paymentUrl = sessionId
       ? await this.payments.start({
           sessionId,
