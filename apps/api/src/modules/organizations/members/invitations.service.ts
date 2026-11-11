@@ -1,4 +1,4 @@
-import { ErrorCode, INVITATION_TTL_DAYS, Locale } from '@lowisko/shared';
+import { ErrorCode, INVITATION_TTL_DAYS, Locale, type OrgRole } from '@lowisko/shared';
 import { Injectable } from '@nestjs/common';
 import { ClockService } from '../../../common/clock/clock.service';
 import { DomainError } from '../../../common/errors/domain-error';
@@ -11,6 +11,13 @@ import { normalizeEmail, UsersService } from '../../users/users.service';
 import type { AcceptedInvitationDto, CreateInvitationDto, InvitationDto } from '../dto/member.dto';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+export interface ExportedInvitation {
+  organization: { id: string; name: string };
+  role: OrgRole;
+  expiresAt: Date;
+  acceptedAt: Date | null;
+}
 
 /**
  * Invitations to an organization (FR-04). The link carries a random token stored only as its
@@ -28,6 +35,21 @@ export class InvitationsService {
     private readonly audit: AuditService,
     private readonly clock: ClockService,
   ) {}
+
+  /** The RODO export (T-26): invitations sent to the user's address, accepted or not. */
+  async listForEmail(email: string): Promise<ExportedInvitation[]> {
+    const invitations = await this.prisma.invitation.findMany({
+      where: { email: normalizeEmail(email) },
+      include: { organization: { select: { id: true, name: true } } },
+      orderBy: [{ expiresAt: 'asc' }, { id: 'asc' }],
+    });
+    return invitations.map(({ organization, role, expiresAt, acceptedAt }) => ({
+      organization,
+      role,
+      expiresAt,
+      acceptedAt,
+    }));
+  }
 
   /** Not yet accepted, expired ones included (the admin invites again); latest first. */
   async listPending(organizationId: string): Promise<InvitationDto[]> {

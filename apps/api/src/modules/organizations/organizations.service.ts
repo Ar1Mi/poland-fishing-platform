@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { DomainError } from '../../common/errors/domain-error';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma, type Organization } from '../../generated/prisma/client';
+import { AuditService } from '../audit/audit.service';
 import type {
   CreateOrganizationDto,
   MyOrganizationDto,
@@ -13,7 +14,10 @@ import type {
 /** Owner of `Organization` and `Membership` (FR-03). */
 @Injectable()
 export class OrganizationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: AuditService,
+  ) {}
 
   /** An application: the organization starts PENDING and the applicant becomes its ORG_ADMIN. */
   async apply(userId: string, dto: CreateOrganizationDto): Promise<OrganizationDto> {
@@ -117,18 +121,33 @@ export class OrganizationsService {
     return organization?.contactEmail ?? null;
   }
 
-  /** Activation or blocking; setting the current status again is a no-op. */
-  async setStatus(id: string, status: SettableStatus): Promise<OrganizationDto> {
-    try {
-      return toOrganization(
-        await this.prisma.organization.update({ where: { id }, data: { status } }),
-      );
-    } catch (error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+  /**
+   * Activation or blocking by a super admin, recorded in AuditLog in the same transaction
+   * (`ORG_STATUS_CHANGED`); setting the current status again is a no-op and writes nothing.
+   */
+  async setStatus(id: string, actorId: string, status: SettableStatus): Promise<OrganizationDto> {
+    const organization = await this.prisma.$transaction(async (tx) => {
+      // The lock member changes take (FOR NO KEY UPDATE): of two super admins changing the status
+      // at once, the second one logs the first one's status as `from`.
+      const [current] = await tx.$queryRaw<{ status: OrganizationStatus }[]>`
+        SELECT "status" FROM "Organization" WHERE "id" = ${id}::uuid FOR NO KEY UPDATE`;
+      if (!current) {
         throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'Organization not found');
       }
-      throw error;
-    }
+      if (current.status === status) {
+        return tx.organization.findUniqueOrThrow({ where: { id } });
+      }
+      const updated = await tx.organization.update({ where: { id }, data: { status } });
+      await this.audit.record(tx, {
+        actorId,
+        action: 'ORG_STATUS_CHANGED',
+        entity: 'Organization',
+        entityId: id,
+        diff: { from: current.status, to: status },
+      });
+      return updated;
+    });
+    return toOrganization(organization);
   }
 }
 

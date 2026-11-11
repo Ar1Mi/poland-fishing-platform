@@ -12,9 +12,9 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { SkipThrottle, ThrottlerGuard } from '@nestjs/throttler';
-import type { CookieOptions, Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { ErrorResponseDto } from '../../common/errors/error-response.dto';
-import { REFRESH_COOKIE, REFRESH_COOKIE_PATH, REFRESH_TOKEN_TTL_MS } from './auth.constants';
+import { REFRESH_COOKIE, REFRESH_COOKIE_OPTIONS, REFRESH_TOKEN_TTL_MS } from './auth.constants';
 import { AuthService, type Session } from './auth.service';
 import { type AuthUser, CurrentUser, Public } from './decorators/auth.decorators';
 import {
@@ -26,21 +26,13 @@ import {
   TokenDto,
 } from './dto/auth.dto';
 
-/** docs/07-security.md: httpOnly, Secure, SameSite=Strict, sent to the auth routes only. */
-const REFRESH_COOKIE_OPTIONS: CookieOptions = {
-  httpOnly: true,
-  secure: true,
-  sameSite: 'strict',
-  path: REFRESH_COOKIE_PATH,
-};
-
 const error = { type: ErrorResponseDto };
 
 @ApiTags('auth')
 @Controller('auth')
 @UseGuards(ThrottlerGuard)
 // Only the per-IP limit by default; routes below switch on their own (auth-throttlers.ts).
-@SkipThrottle({ login: true, email: true })
+@SkipThrottle({ login: true, email: true, password: true })
 @ApiTooManyRequestsResponse({ ...error, description: 'RATE_LIMITED' })
 export class AuthController {
   constructor(private readonly auth: AuthService) {}

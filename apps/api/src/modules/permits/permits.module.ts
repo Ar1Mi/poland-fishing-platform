@@ -89,6 +89,8 @@ import { ReportPermitsService } from './report-permits/report-permits.service';
     InspectionPermitsService,
     ExternalPermitsService,
     ReportPermitsService,
+    // The permits in the RODO export (ADR-0016).
+    MyPermitsService,
   ],
 })
 export class PermitsModule {}

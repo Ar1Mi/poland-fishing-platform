@@ -276,4 +276,19 @@ describe('session', () => {
 
     expect(fetch).toHaveBeenCalledTimes(1);
   });
+
+  it('does not refresh when a password confirmation is wrong', async () => {
+    startSession('access-1');
+    const fetch = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ code: 'INVALID_CREDENTIALS', message: 'x' }, 401));
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(
+      request(() => api.DELETE('/api/v1/me', { body: { password: 'wrong' } })),
+    ).rejects.toMatchObject({ code: 'INVALID_CREDENTIALS' });
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(getSessionStatus()).toBe('authenticated');
+  });
 });

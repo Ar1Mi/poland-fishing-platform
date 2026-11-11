@@ -10,6 +10,7 @@ import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { OneTimeTokenService } from './one-time-token.service';
 import { PasswordHasher } from './password-hasher';
+import { RefreshTokenCleanupJob } from './refresh-token-cleanup.job';
 import { RefreshTokenService } from './refresh-token.service';
 
 @Module({
@@ -21,7 +22,11 @@ import { RefreshTokenService } from './refresh-token.service';
     RefreshTokenService,
     OneTimeTokenService,
     PasswordHasher,
+    RefreshTokenCleanupJob,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
+  // For AccountModule (ADR-0016): the password check, the export and the deletion of the
+  // account's tokens.
+  exports: [RefreshTokenService, OneTimeTokenService, PasswordHasher],
 })
 export class AuthModule {}

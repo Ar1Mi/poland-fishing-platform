@@ -17,6 +17,7 @@ import { StorageService } from '../../../common/storage/storage.service';
 import { PrismaService } from '../../../database/prisma.service';
 import { type ExternalPermit, Prisma } from '../../../generated/prisma/client';
 import { SpeciesRulesService } from '../../rules/species-rules.service';
+import { UsersService } from '../../users/users.service';
 import { WatersService } from '../../waters/waters.service';
 import type {
   CreateExternalPermitDto,
@@ -52,6 +53,7 @@ export class ExternalPermitsService {
     private readonly waters: WatersService,
     private readonly rules: SpeciesRulesService,
     private readonly storage: StorageService,
+    private readonly users: UsersService,
     private readonly clock: ClockService,
     private readonly logger: PinoLogger,
   ) {
@@ -77,16 +79,20 @@ export class ExternalPermitsService {
   async create(userId: string, dto: CreateExternalPermitDto): Promise<ExternalPermitDto> {
     this.assertDates(dto.validFrom, dto.validTo);
     await this.assertPublished(dto.waterIds);
-    const permit = await this.prisma.externalPermit.create({
-      data: {
-        userId,
-        issuerName: dto.issuerName,
-        number: dto.number || null,
-        validFrom: toDbDate(dto.validFrom),
-        validTo: toDbDate(dto.validTo),
-        waters: { connect: dto.waterIds.map((id) => ({ id })) },
-      },
-      include: WITH_WATERS,
+    const permit = await this.prisma.$transaction(async (tx) => {
+      // A deletion of the account under way wins: no new permit with a number after it.
+      await this.users.assertActiveForWrite(tx, userId);
+      return tx.externalPermit.create({
+        data: {
+          userId,
+          issuerName: dto.issuerName,
+          number: dto.number || null,
+          validFrom: toDbDate(dto.validFrom),
+          validTo: toDbDate(dto.validTo),
+          waters: { connect: dto.waterIds.map((id) => ({ id })) },
+        },
+        include: WITH_WATERS,
+      });
     });
     const [created] = await this.toDtos([permit]);
     return created!;
@@ -103,6 +109,7 @@ export class ExternalPermitsService {
     dto: UpdateExternalPermitDto,
   ): Promise<ExternalPermitDto> {
     const updated = await this.prisma.$transaction(async (tx) => {
+      await this.users.assertActiveForWrite(tx, userId);
       const stored = await this.lock(tx, userId, id);
       const validFrom = dto.validFrom ?? fromDbDate(stored.validFrom);
       const validTo = dto.validTo ?? fromDbDate(stored.validTo);
@@ -159,6 +166,31 @@ export class ExternalPermitsService {
     }
   }
 
+  /**
+   * Account deletion (T-26, ADR-0016), in the caller's transaction: the permits stay with their
+   * catches (decided by the user), without the number and the photo. Returns the keys of the
+   * photos, which the caller removes with `removePhotos` after the commit.
+   */
+  async anonymizeAllOfUser(tx: Prisma.TransactionClient, userId: string): Promise<string[]> {
+    // The caller holds the user row (`lockForDeletion`): a photo replaced right now passed it
+    // first and still holds this row, so its new key is read after it commits.
+    const locked = await tx.$queryRaw<{ photoKey: string | null }[]>`
+      SELECT "photoKey" FROM "ExternalPermit" WHERE "userId" = ${userId}::uuid
+      ORDER BY "id" FOR UPDATE`;
+    await tx.externalPermit.updateMany({
+      where: { userId },
+      data: { number: null, photoKey: null },
+    });
+    return locked.flatMap(({ photoKey }) => (photoKey ? [photoKey] : []));
+  }
+
+  /** After the commit of `anonymizeAllOfUser`; a file that cannot be removed is logged. */
+  async removePhotos(keys: string[]): Promise<void> {
+    for (const key of keys) {
+      await this.removeFile(key);
+    }
+  }
+
   /** Stores the photo or scan of the permit, replacing the previous one. */
   async setPhoto(userId: string, id: string, photo: Buffer): Promise<ExternalPermitDto> {
     // The declared type and the file name are the client's word; the content decides.
@@ -174,6 +206,7 @@ export class ExternalPermitsService {
     let changed: { updated: StoredExternalPermit; replaced: string | null };
     try {
       changed = await this.prisma.$transaction(async (tx) => {
+        await this.users.assertActiveForWrite(tx, userId);
         const stored = await this.lock(tx, userId, id);
         photoKey = await this.storage.save(
           PHOTO_FOLDER,

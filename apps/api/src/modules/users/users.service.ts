@@ -26,6 +26,25 @@ export function normalizeEmail(email: string): string {
 const toDate = (dateOnly: string): Date => new Date(`${dateOnly}T00:00:00.000Z`);
 
 /**
+ * The address an anonymised account keeps (`.invalid` never resolves, RFC 2606): unique like
+ * the column, and never an address someone could register or invite.
+ */
+export function anonymizedEmail(userId: string): string {
+  return `deleted-${userId}@anonymized.invalid`;
+}
+
+/** Placeholders of the NOT NULL personal fields of an anonymised account (T-26). */
+const ANONYMIZED_BIRTH_DATE = toDate('1900-01-01');
+/** Not an argon2 hash: nothing verifies against it (login does not look at such rows anyway). */
+const NO_PASSWORD = '!';
+
+/** The profile in the RODO export: the API profile and when the account began. */
+export interface ExportedProfile extends ProfileDto {
+  emailVerifiedAt: Date | null;
+  createdAt: Date;
+}
+
+/**
  * Owner of the `User` table. Methods that take part in another module's transaction accept
  * its client as `db`.
  */
@@ -39,6 +58,41 @@ export class UsersService {
   /** Active (not anonymised) user by id. */
   findById(id: string, db: Db = this.prisma): Promise<User | null> {
     return db.user.findFirst({ where: { id, deletedAt: null } });
+  }
+
+  /**
+   * A write of the user's personal data (a catch with its position, an external permit and its
+   * photo) checks the account inside its own transaction: `FOR SHARE` of the `User` row waits for
+   * an account deletion under way (`lockForDeletion`) and then sees it anonymised. Without it a
+   * request that passed the guard just before the deletion committed would attach new data to the
+   * anonymised row. Taken first in the transaction, before the module's own locks — the order of
+   * the deletion. Writes of one user do not wait for each other (`FOR SHARE` is shared).
+   */
+  async assertActiveForWrite(db: Db, id: string): Promise<void> {
+    const [row] = await db.$queryRaw<{ deletedAt: Date | null }[]>`
+      SELECT "deletedAt" FROM "User" WHERE "id" = ${id}::uuid FOR SHARE`;
+    if (!row || row.deletedAt) {
+      throw new DomainError(ErrorCode.UNAUTHENTICATED, undefined, 'Account deleted');
+    }
+  }
+
+  /**
+   * The first lock of an account deletion after the email links (docs/04-data-model.md): the
+   * writes of `assertActiveForWrite` wait for it, and it waits for those under way. `FOR NO KEY
+   * UPDATE` does not stop the foreign-key checks of inserts that reference the user.
+   */
+  async lockForDeletion(db: Db, id: string): Promise<void> {
+    const [row] = await db.$queryRaw<{ deletedAt: Date | null }[]>`
+      SELECT "deletedAt" FROM "User" WHERE "id" = ${id}::uuid FOR NO KEY UPDATE`;
+    if (!row || row.deletedAt) {
+      // Deleted by a concurrent request meanwhile.
+      throw new DomainError(ErrorCode.UNAUTHENTICATED, undefined, 'Account deleted');
+    }
+  }
+
+  /** The account exists and is not anonymised: one primary-key lookup per request (guard). */
+  async isActive(id: string): Promise<boolean> {
+    return (await this.prisma.user.count({ where: { id, deletedAt: null } })) > 0;
   }
 
   /** First and last names of active users for lists of other modules (inspections), keyed by id. */
@@ -108,15 +162,51 @@ export class UsersService {
     if (changes.birthDate !== undefined) {
       this.assertBirthDate(changes.birthDate);
     }
-    const user = await this.prisma.user.update({
-      where: { id },
+    // Conditional: a change waiting for an account deletion must not write the real name back
+    // over the placeholders once it commits.
+    const { count } = await this.prisma.user.updateMany({
+      where: { id, deletedAt: null },
       data: {
         ...changes,
         birthDate: changes.birthDate === undefined ? undefined : toDate(changes.birthDate),
         anglerCardNo: changes.anglerCardNo === undefined ? undefined : changes.anglerCardNo || null,
       },
     });
-    return toProfile(user);
+    if (count === 0) {
+      throw new DomainError(ErrorCode.UNAUTHENTICATED, undefined, 'Account deleted');
+    }
+    return this.getProfile(id);
+  }
+
+  /** The RODO export (T-26); null if the account is gone. */
+  async exportProfile(id: string): Promise<ExportedProfile | null> {
+    const user = await this.findById(id);
+    return user
+      ? { ...toProfile(user), emailVerifiedAt: user.emailVerifiedAt, createdAt: user.createdAt }
+      : null;
+  }
+
+  /**
+   * Account deletion (T-26, docs/07-security.md): the personal fields get placeholders and
+   * `deletedAt` is set; the row stays, so permits, catches and protocols keep a (masked) owner.
+   * False if it was anonymised already (a second deletion at once).
+   */
+  async anonymize(id: string, db: Db): Promise<boolean> {
+    const { count } = await db.user.updateMany({
+      where: { id, deletedAt: null },
+      data: {
+        email: anonymizedEmail(id),
+        emailVerifiedAt: null,
+        passwordHash: NO_PASSWORD,
+        firstName: '',
+        lastName: '',
+        birthDate: ANONYMIZED_BIRTH_DATE,
+        anglerCardNo: null,
+        isSuperAdmin: false,
+        deletedAt: this.clock.now(),
+      },
+    });
+    return count > 0;
   }
 
   /** A birth date in the future (Warsaw calendar) would make BR-08 discounts meaningless. */

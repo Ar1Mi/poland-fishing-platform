@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import type { PrismaService } from '../src/database/prisma.service';
@@ -25,13 +26,14 @@ describe('POST /admin/waters/import', () => {
   let app: NestExpressApplication;
   let geocoder: FakeGeocoder;
   let superAdminToken: string;
+  let superAdminId: string;
   let userToken: string;
 
-  const upload = (content: string | Buffer, token = superAdminToken) =>
+  const upload = (content: string | Buffer, token = superAdminToken, filename = 'waters.csv') =>
     request(app.getHttpServer())
       .post('/api/v1/admin/waters/import')
       .set({ Authorization: `Bearer ${token}` })
-      .attach('file', Buffer.from(content), { filename: 'waters.csv', contentType: 'text/csv' });
+      .attach('file', Buffer.from(content), { filename, contentType: 'text/csv' });
 
   beforeEach(async () => {
     db = await createTestDatabase();
@@ -41,6 +43,7 @@ describe('POST /admin/waters/import', () => {
     });
     app = await createTestApp({ prisma, geocoder });
     const superAdmin = await createVerifiedUser(prisma, { isSuperAdmin: true });
+    superAdminId = superAdmin.id;
     ({ accessToken: superAdminToken } = await login(app, superAdmin.email));
     const user = await createVerifiedUser(prisma);
     ({ accessToken: userToken } = await login(app, user.email));
@@ -176,6 +179,56 @@ describe('POST /admin/waters/import', () => {
     expect(await prisma.fishingWater.count()).toBe(1);
   });
 
+  it('records who imported which file and the report in the audit log', async () => {
+    const content = csv(
+      'RZGW,A,Dobry,LAKE,mazowieckie,,,52,21,',
+      'RZGW,B,Zły region,LAKE,Mazowsze,,,52,21,',
+    );
+    await upload(content).expect(200);
+    await upload(content).expect(200);
+
+    const sha256 = createHash('sha256').update(content).digest('hex');
+    const entries = await prisma.auditLog.findMany({ orderBy: { createdAt: 'asc' } });
+    expect(entries).toHaveLength(2);
+    expect(entries[0]).toMatchObject({
+      actorId: superAdminId,
+      action: 'WATERS_IMPORTED',
+      entity: 'WaterImport',
+      entityId: sha256,
+      diff: {
+        fileName: 'waters.csv',
+        sizeBytes: Buffer.byteLength(content),
+        created: 1,
+        updated: 0,
+        failedCount: 1,
+        failed: [{ row: 3, error: expect.stringContaining('region') as unknown }],
+      },
+    });
+    // The second import of the same file is found under the same id.
+    expect(entries[1]).toMatchObject({
+      entityId: sha256,
+      diff: { created: 0, updated: 1, failedCount: 1 },
+    });
+  });
+
+  it('keeps a Polish file name intact in the audit log', async () => {
+    await upload(
+      csv('RZGW,A,Dobry,LAKE,mazowieckie,,,52,21,'),
+      superAdminToken,
+      'wody-łódzkie.csv',
+    ).expect(200);
+
+    expect((await prisma.auditLog.findFirstOrThrow()).diff).toMatchObject({
+      fileName: 'wody-łódzkie.csv',
+    });
+  });
+
+  it('records nothing when the file as a whole is rejected', async () => {
+    await upload('not,a,catalogue\n1,2,3\n').expect(400);
+
+    expect(await prisma.auditLog.count()).toBe(0);
+  });
+
   it('asks the geocoder once per query and caches "not found" too', async () => {
     const rows = csv(
       'RZGW,A,Zalew,RESERVOIR,mazowieckie,,,,,"Zalew Zegrzyński, mazowieckie"',
@@ -300,6 +353,7 @@ describe('POST /admin/waters/import', () => {
 
     expect(response.body).toMatchObject({ code: 'FORBIDDEN' });
     expect(await prisma.fishingWater.count()).toBe(0);
+    expect(await prisma.auditLog.count()).toBe(0);
   });
 
   it('requires authentication', async () => {

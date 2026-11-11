@@ -3,12 +3,22 @@ import { randomUUID } from 'node:crypto';
 import { ClockService } from '../../common/clock/clock.service';
 import { PrismaService } from '../../database/prisma.service';
 import type { Db } from '../users/users.service';
-import { REFRESH_TOKEN_TTL_MS } from './auth.constants';
+import { REFRESH_TOKEN_RETENTION_DAYS, REFRESH_TOKEN_TTL_MS } from './auth.constants';
 import { generateOpaqueToken, hashOpaqueToken } from './opaque-token';
 
 export interface IssuedRefreshToken {
   token: string;
   userId: string;
+}
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** A login session for the RODO export: when it started and ended, without the token. */
+export interface SessionRecord {
+  familyId: string;
+  createdAt: Date;
+  expiresAt: Date;
+  revokedAt: Date | null;
 }
 
 export type RotationResult =
@@ -94,6 +104,35 @@ export class RefreshTokenService {
   /** Password reset: every device has to log in again. */
   revokeAllForUser(userId: string, db?: Db): Promise<void> {
     return this.revoke(userId, {}, db);
+  }
+
+  /**
+   * Nightly cleanup (T-26): deletes the tokens that expired more than
+   * REFRESH_TOKEN_RETENTION_DAYS ago, revoked or not. Presenting one later is `invalid` instead
+   * of `reused`: no browser sends it any more (the cookie expires with the token), and a stolen
+   * copy gets nothing either way. Returns how many were deleted.
+   */
+  async deleteExpired(): Promise<number> {
+    const before = new Date(this.clock.now().getTime() - REFRESH_TOKEN_RETENTION_DAYS * DAY_MS);
+    const { count } = await this.prisma.refreshToken.deleteMany({
+      where: { expiresAt: { lt: before } },
+    });
+    return count;
+  }
+
+  /** Account deletion: every session ends, the rows go (they say when the user was logged in). */
+  async deleteAllForUser(userId: string, db: Db): Promise<void> {
+    await lockUserTokens(db, userId);
+    await db.refreshToken.deleteMany({ where: { userId } });
+  }
+
+  /** The RODO export: every token row of the user, oldest first, without the hash. */
+  listForExport(userId: string): Promise<SessionRecord[]> {
+    return this.prisma.refreshToken.findMany({
+      where: { userId },
+      select: { familyId: true, createdAt: true, expiresAt: true, revokedAt: true },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
   }
 
   /** Runs in `db` (the caller's transaction) or in a transaction of its own. */

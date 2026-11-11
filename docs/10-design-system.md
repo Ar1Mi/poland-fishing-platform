@@ -68,7 +68,7 @@ Onest — заголовки и текст; IBM Plex Mono — номера ра�
 | `RuleAlert` | danger, warning, success | Заголовок и текст — перевод `code`; мелкой строкой `BR-xx · CODE` |
 | `WaterCard` | подключённый / только реестр | Подключённый — метка «Zezwolenia online» и цена «от» |
 | `CatchRow` | — | Вид, «Zabrana / Wypuszczona» и время, справа длина и вес (Plex Mono) |
-| `BottomNav` | 4 раздела рыбака | Активный пункт — заливка Toń 100 и тёмный текст. С T-21 — три: «Łowiska», «Zezwolenia», «Połowy»; «Profil» — вместе с `/me/profile` |
+| `BottomNav` | 4 раздела рыбака | Активный пункт — заливка Toń 100 и тёмный текст. «Łowiska», «Zezwolenia», «Połowy» (T-21) и «Profil» (T-26) |
 | `PermitTicket` | — | Тёмная шапка со статусом, QR, номер текстом, срок действия |
 | `VerdictBanner` | valid, invalid | Вердикт проверки инспектора: заливка на всю ширину, иконка 56 px, H1 |
 

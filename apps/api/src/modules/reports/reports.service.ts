@@ -19,6 +19,10 @@ import type { OrgStatsDto, StatsQueryDto } from './dto/stats.dto';
 export interface CatchesCsv {
   fileName: string;
   content: Buffer;
+  /** The period exported: the one asked for or the current season (for AuditLog). */
+  range: StatsRange;
+  /** Catches in the file. */
+  rows: number;
 }
 
 /**
@@ -51,6 +55,8 @@ export class ReportsService {
     return {
       fileName: `polowy-${range.from}-${range.to}.csv`,
       content: Buffer.from(catchesCsv(catches), 'utf8'),
+      range,
+      rows: catches.length,
     };
   }
 

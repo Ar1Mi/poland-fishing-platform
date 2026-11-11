@@ -41,6 +41,7 @@ import {
 } from '@nestjs/swagger';
 import { DomainError } from '../../common/errors/domain-error';
 import { ErrorResponseDto } from '../../common/errors/error-response.dto';
+import { Audit, AuditedResponse } from '../audit/audit.interceptor';
 import { type AuthUser, CurrentUser, Public } from '../auth/decorators/auth.decorators';
 import { Roles, SuperAdmin } from '../organizations/decorators/org-access.decorators';
 import { WaterImportReportDto } from './dto/water-import.dto';
@@ -51,6 +52,7 @@ import {
   WaterDetailDto,
   WaterListDto,
 } from './dto/water.dto';
+import { type ImportedFile, waterImportAuditEntry } from './import/water-import-audit';
 import { WaterImportService } from './import/water-import.service';
 import { WaterProfileService } from './profile/water-profile.service';
 import { WatersService } from './waters.service';
@@ -232,6 +234,8 @@ export class AdminWatersController {
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: WATER_IMPORT_MAX_BYTES, files: 1, fields: 0, parts: 1 },
+      // The file name goes to AuditLog: a Polish name must not arrive as Latin-1 mojibake.
+      defParamCharset: 'utf8',
     }),
   )
   @ApiOperation({
@@ -254,7 +258,11 @@ export class AdminWatersController {
     description: 'VALIDATION_FAILED (no file, not a CSV, wrong header, too many rows)',
   })
   @ApiPayloadTooLargeResponse({ ...error, description: 'VALIDATION_FAILED (file over 1 MB)' })
-  import(@UploadedFile() file: { buffer: Buffer } | undefined): Promise<WaterImportReportDto> {
+  // Who imported which file and with what result (T-26); a rejected file imports nothing.
+  @Audit()
+  async import(
+    @UploadedFile() file: ImportedFile | undefined,
+  ): Promise<AuditedResponse<WaterImportReportDto>> {
     if (!file) {
       throw new DomainError(
         ErrorCode.VALIDATION_FAILED,
@@ -262,6 +270,7 @@ export class AdminWatersController {
         'CSV file is required',
       );
     }
-    return this.importer.import(file.buffer);
+    const report = await this.importer.import(file.buffer);
+    return new AuditedResponse(report, waterImportAuditEntry(file, report));
   }
 }

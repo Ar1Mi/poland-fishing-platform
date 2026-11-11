@@ -9,6 +9,7 @@ import { schedulingImports } from './common/scheduling/scheduling';
 import { StorageModule } from './common/storage/storage.module';
 import { validateEnv } from './config/env';
 import { DatabaseModule } from './database/database.module';
+import { AccountModule } from './modules/account/account.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CatchesModule } from './modules/catches/catches.module';
 import { HealthModule } from './modules/health/health.module';
@@ -46,6 +47,7 @@ import { WatersModule } from './modules/waters/waters.module';
     CatchesModule,
     InspectionsModule,
     ReportsModule,
+    AccountModule,
   ],
   providers: [
     { provide: APP_FILTER, useClass: HttpExceptionFilter },

@@ -37,6 +37,14 @@ import { OrganizationsService } from './organizations.service';
     RolesGuard,
     OrgScopeGuard,
   ],
-  exports: [OrganizationsService, OrgAccessService, RolesGuard, OrgScopeGuard],
+  // MembersService and InvitationsService: for the account deletion and export (ADR-0016).
+  exports: [
+    OrganizationsService,
+    OrgAccessService,
+    MembersService,
+    InvitationsService,
+    RolesGuard,
+    OrgScopeGuard,
+  ],
 })
 export class OrganizationsModule {}

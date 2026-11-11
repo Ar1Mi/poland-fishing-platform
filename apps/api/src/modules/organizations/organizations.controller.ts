@@ -76,9 +76,10 @@ export class AdminOrganizationsController {
   @ApiBadRequestResponse({ ...error, description: 'VALIDATION_FAILED' })
   @ApiNotFoundResponse({ ...error, description: 'NOT_FOUND' })
   setStatus(
+    @CurrentUser() user: AuthUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body() dto: UpdateOrganizationStatusDto,
   ): Promise<OrganizationDto> {
-    return this.organizations.setStatus(id, dto.status);
+    return this.organizations.setStatus(id, user.id, dto.status);
   }
 }

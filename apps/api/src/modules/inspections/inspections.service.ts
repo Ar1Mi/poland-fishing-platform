@@ -27,6 +27,14 @@ import type {
 } from './dto/inspection.dto';
 import { holderInitials } from './holder-initials';
 
+export type ExportedInspection = Pick<
+  Inspection,
+  'id' | 'permitId' | 'organizationId' | 'performedAt' | 'result' | 'notes' | 'lat' | 'lng'
+>;
+
+/** A protocol the user wrote as an inspector, with the permit's number but not its holder. */
+export type PerformedInspection = ExportedInspection & { permitNumber: string };
+
 /** Roles of the issuing organization that see the full check and write protocols. */
 const INSPECTING_ROLES: readonly OrgRole[] = [OrgRole.INSPECTOR, OrgRole.ORG_ADMIN];
 
@@ -160,6 +168,51 @@ export class InspectionsService {
         }),
       ),
     };
+  }
+
+  /**
+   * The RODO export of the permit holder (T-26): protocols of inspections of these permits,
+   * earliest first. Without the inspector: that is someone else's personal data.
+   */
+  async listOnPermits(permitIds: string[]): Promise<ExportedInspection[]> {
+    return this.prisma.inspection.findMany({
+      where: { permitId: { in: permitIds } },
+      select: {
+        id: true,
+        permitId: true,
+        organizationId: true,
+        performedAt: true,
+        result: true,
+        notes: true,
+        lat: true,
+        lng: true,
+      },
+      orderBy: [{ performedAt: 'asc' }, { id: 'asc' }],
+    });
+  }
+
+  /**
+   * The RODO export of an inspector (T-26): the protocols they wrote — when, where, the result
+   * and their notes — with the permit's number, without the holder (someone else's data).
+   */
+  async listByInspector(inspectorId: string): Promise<PerformedInspection[]> {
+    const rows = await this.prisma.inspection.findMany({
+      where: { inspectorId },
+      select: {
+        id: true,
+        permitId: true,
+        organizationId: true,
+        performedAt: true,
+        result: true,
+        notes: true,
+        lat: true,
+        lng: true,
+      },
+      orderBy: [{ performedAt: 'asc' }, { id: 'asc' }],
+    });
+    const permits = await this.permits.findSummaries([...new Set(rows.map((row) => row.permitId))]);
+    // The protocol's FK keeps the permit.
+    return rows.map((row) => ({ ...row, permitNumber: permits.get(row.permitId)!.number }));
   }
 
   private async toDtos(rows: Inspection[]): Promise<InspectionDto[]> {

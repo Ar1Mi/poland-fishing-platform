@@ -6,6 +6,7 @@ import { createTestApp, FIXED_NOW } from './create-test-app';
 import { prismaServiceFor } from './db/prisma-service';
 import { createTestDatabase, type TestDatabase } from './db/test-database';
 import { createOrganization } from './factories';
+import { untilSomeQueryWaitsForLock } from './lock-helpers';
 
 // `expect.any()` is typed as `any`; narrowing it keeps the assertions type-checked.
 const anyString: unknown = expect.any(String);
@@ -24,6 +25,7 @@ describe('organizations', () => {
   let userId: string;
   let accessToken: string;
   let superAdminToken: string;
+  let superAdminId: string;
 
   const http = () => request(app.getHttpServer());
   const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
@@ -38,6 +40,7 @@ describe('organizations', () => {
     userId = user.id;
     ({ accessToken } = await login(app, user.email));
     const superAdmin = await createVerifiedUser(prisma, { isSuperAdmin: true });
+    superAdminId = superAdmin.id;
     ({ accessToken: superAdminToken } = await login(app, superAdmin.email));
   });
 
@@ -204,6 +207,71 @@ describe('organizations', () => {
       expect(
         await prisma.organization.findUnique({ where: { id: organization.id } }),
       ).toMatchObject({ status: 'BLOCKED' });
+    });
+
+    it('records every status change in the audit log, and nothing for a repeated status', async () => {
+      const organization = await createOrganization(prisma);
+      const setStatus = (status: string) =>
+        http()
+          .patch(`/api/v1/admin/orgs/${organization.id}/status`)
+          .set(auth(superAdminToken))
+          .send({ status })
+          .expect(200);
+
+      await setStatus('ACTIVE');
+      await setStatus('ACTIVE');
+      await setStatus('BLOCKED');
+
+      expect(
+        await prisma.auditLog.findMany({
+          select: { actorId: true, action: true, entity: true, entityId: true, diff: true },
+          orderBy: { createdAt: 'asc' },
+        }),
+      ).toEqual([
+        {
+          actorId: superAdminId,
+          action: 'ORG_STATUS_CHANGED',
+          entity: 'Organization',
+          entityId: organization.id,
+          diff: { from: 'PENDING', to: 'ACTIVE' },
+        },
+        {
+          actorId: superAdminId,
+          action: 'ORG_STATUS_CHANGED',
+          entity: 'Organization',
+          entityId: organization.id,
+          diff: { from: 'ACTIVE', to: 'BLOCKED' },
+        },
+      ]);
+    });
+
+    it('logs the status the change found when two super admins change it at once', async () => {
+      const organization = await createOrganization(prisma, { status: 'ACTIVE' });
+      // Holds the organization row as a member change would: the request has to wait for it.
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => (release = resolve));
+      const holder = prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`
+          SELECT "id" FROM "Organization" WHERE "id" = ${organization.id}::uuid FOR NO KEY UPDATE`;
+        await tx.organization.update({
+          where: { id: organization.id },
+          data: { status: 'BLOCKED' },
+        });
+        await held;
+      });
+      const change = http()
+        .patch(`/api/v1/admin/orgs/${organization.id}/status`)
+        .set(auth(superAdminToken))
+        .send({ status: 'ACTIVE' })
+        .then((response) => response);
+      await untilSomeQueryWaitsForLock(prisma);
+      release();
+      await holder;
+
+      expect((await change).status).toBe(200);
+      expect(await prisma.auditLog.findMany({ select: { diff: true } })).toEqual([
+        { diff: { from: 'BLOCKED', to: 'ACTIVE' } },
+      ]);
     });
 
     it('does not accept PENDING as a new status', async () => {
