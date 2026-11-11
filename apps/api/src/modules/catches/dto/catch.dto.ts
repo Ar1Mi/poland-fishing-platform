@@ -1,4 +1,6 @@
 import {
+  CATCH_PHOTO_MIME_TYPES,
+  type CatchPhotoType,
   CATCH_LENGTH_MAX_CM,
   CATCH_SEASONS,
   CATCH_SYNC_MAX_ITEMS,
@@ -258,6 +260,14 @@ export class CatchDto {
 
   @ApiProperty({ type: [RuleViolationDto], description: 'Empty when ACCEPTED' })
   violations!: RuleViolationDto[];
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    enum: CATCH_PHOTO_MIME_TYPES,
+    description: 'MIME type of the photo (FR-14), `GET /catches/:id/photo`; null without one',
+  })
+  photoType!: CatchPhotoType | null;
 
   @ApiProperty({
     format: 'date-time',

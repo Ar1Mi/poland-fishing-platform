@@ -24,6 +24,7 @@ const fish = (changes: Partial<CatchDto> = {}): CatchDto => ({
   lng: null,
   status: CatchSyncStatus.ACCEPTED,
   violations: [],
+  photoType: null,
   editableUntil: '2026-06-02T22:00:00.000Z',
   createdAt: '2026-06-01T10:00:00.000Z',
   ...changes,

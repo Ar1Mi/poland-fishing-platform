@@ -46,7 +46,7 @@ export class AccountController {
     summary: 'RODO: all data of the user as one JSON file',
     description:
       'Profile, organizations and roles, invitations to the address, permits with payments ' +
-      '(no QR token), external permits (photos separately), catches of every season with ' +
+      '(no QR token), external permits and catches of every season (photos separately) with ' +
       'positions, protocols of inspections of the permits, login sessions, own audit entries.',
   })
   @ApiProduces('application/json')

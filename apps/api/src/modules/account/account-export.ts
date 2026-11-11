@@ -38,7 +38,8 @@ export interface PerformedInspectionView {
 /**
  * `GET /me/export` (RODO access, docs/05-api.md): everything the platform holds about the user,
  * as one JSON file. Dates are ISO 8601 (UTC), money in grosze; photos are not inside —
- * `photoType` says one exists, `GET /me/external-permits/:id/photo` downloads it.
+ * `photoType` says one exists, `GET /me/external-permits/:id/photo` and `GET /catches/:id/photo`
+ * download them.
  */
 export interface AccountExport {
   format: typeof ACCOUNT_EXPORT_FORMAT;
@@ -51,7 +52,7 @@ export interface AccountExport {
   invitations: ExportedInvitation[];
   permits: ExportedPermit[];
   externalPermits: ExternalPermitDto[];
-  /** Every season, with positions. */
+  /** Every season, with positions; `photoType` says a photo exists (T-27). */
   catches: CatchDto[];
   /** Inspections of the user's permits. */
   inspections: ExportedInspectionView[];

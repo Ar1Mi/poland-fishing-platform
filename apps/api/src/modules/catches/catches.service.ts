@@ -7,14 +7,17 @@ import {
   type SameDayCatch,
   addDays,
   catchEditableUntil,
+  catchPhotoTypeOf,
   isCatchEditable,
   validateCatch,
   warsawDate,
   warsawDayEnd,
 } from '@lowisko/shared';
 import { Injectable } from '@nestjs/common';
+import { PinoLogger } from 'nestjs-pino';
 import { ClockService } from '../../common/clock/clock.service';
 import { DomainError } from '../../common/errors/domain-error';
+import { StorageService } from '../../common/storage/storage.service';
 import { PrismaService } from '../../database/prisma.service';
 import { type CatchRecord, Prisma } from '../../generated/prisma/client';
 import { UsersService } from '../users/users.service';
@@ -40,8 +43,12 @@ export class CatchesService {
     private readonly contexts: CatchContextLoader,
     private readonly waters: WatersService,
     private readonly users: UsersService,
+    private readonly storage: StorageService,
     private readonly clock: ClockService,
-  ) {}
+    private readonly logger: PinoLogger,
+  ) {
+    logger.setContext(CatchesService.name);
+  }
 
   /**
    * Records a batch (ADR-0009): every catch is stored, ACCEPTED or REJECTED with its violations.
@@ -158,17 +165,30 @@ export class CatchesService {
 
   /**
    * Account deletion (T-26), in the caller's transaction: the catches stay for the statistics
-   * of the organizations (docs/07-security.md), without the position — where the angler was.
-   * The caller holds the user row (`lockForDeletion`): a sync that passed it first commits first
+   * of the organizations (docs/07-security.md), without the position — where the angler was —
+   * and without the photos (T-27), whose keys the caller removes after the commit. The caller
+   * holds the user row (`lockForDeletion`): a sync or a photo that passed it first commits first
    * and is cleared here too, a later one sees the account deleted.
    */
-  async anonymizeAllOfUser(tx: Prisma.TransactionClient, userId: string): Promise<number> {
+  async anonymizeAllOfUser(
+    tx: Prisma.TransactionClient,
+    userId: string,
+  ): Promise<{ withPosition: number; photoKeys: string[] }> {
     await lockRegister(tx, userId);
     const { count } = await tx.catchRecord.updateMany({
       where: { userId, OR: [{ lat: { not: null } }, { lng: { not: null } }] },
       data: { lat: null, lng: null },
     });
-    return count;
+    // Row locks, as the photo writes take them: a photo stored right now holds its row.
+    const locked = await tx.$queryRaw<{ photoKey: string }[]>`
+      SELECT "photoKey" FROM "CatchRecord"
+      WHERE "userId" = ${userId}::uuid AND "photoKey" IS NOT NULL
+      ORDER BY "id" FOR UPDATE`;
+    await tx.catchRecord.updateMany({
+      where: { userId, photoKey: { not: null } },
+      data: { photoKey: null },
+    });
+    return { withPosition: count, photoKeys: locked.map(({ photoKey }) => photoKey) };
   }
 
   /**
@@ -260,9 +280,9 @@ export class CatchesService {
     });
   }
 
-  /** Deletes a catch within the BR-07 window. */
+  /** Deletes a catch within the BR-07 window, with its photo (removed after the commit). */
   async remove(userId: string, id: string): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
+    const photoKey = await this.prisma.$transaction(async (tx) => {
       // Like every write to the register: a sync running meanwhile sees the catch or its absence.
       await lockRegister(tx, userId);
       const current = await tx.catchRecord.findFirst({ where: { id, userId } });
@@ -271,7 +291,16 @@ export class CatchesService {
       }
       assertEditable(current.caughtAt, this.clock.now());
       await tx.catchRecord.delete({ where: { id } });
+      return current.photoKey;
     });
+    if (photoKey) {
+      try {
+        await this.storage.delete(photoKey);
+      } catch (error) {
+        // Wasted space only: the catch is gone.
+        this.logger.error({ err: error, key: photoKey }, 'Could not remove a catch photo');
+      }
+    }
   }
 
   /** A catch of someone else is as unknown as a missing one. */
@@ -283,7 +312,8 @@ export class CatchesService {
     return row;
   }
 
-  private async toDtos(rows: CatchRecord[]): Promise<CatchDto[]> {
+  /** The catches as the API answers them; the names of their waters are looked up once. */
+  async toDtos(rows: CatchRecord[]): Promise<CatchDto[]> {
     const names = await this.waters.findNames([...new Set(rows.map((row) => row.fishingWaterId))]);
     return rows.map((row) => ({
       id: row.id,
@@ -300,6 +330,7 @@ export class CatchesService {
       lng: row.lng,
       status: row.syncStatus,
       violations: violationsOf(row),
+      photoType: (row.photoKey ? catchPhotoTypeOf(row.photoKey) : null) ?? null,
       editableUntil: catchEditableUntil(row.caughtAt).toISOString(),
       createdAt: row.createdAt.toISOString(),
     }));
@@ -429,7 +460,7 @@ function assertKnown(
   }
 }
 
-function assertEditable(caughtAt: Date, now: Date): void {
+export function assertEditable(caughtAt: Date, now: Date): void {
   if (!isCatchEditable(caughtAt, now)) {
     throw new DomainError(
       ErrorCode.EDIT_WINDOW_CLOSED,

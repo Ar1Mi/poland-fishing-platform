@@ -4,6 +4,7 @@ export * from './catalog/catalog.js';
 export * from './catalog/water-profile.js';
 export * from './catalog/water-suggestion.js';
 export * from './catches/catch-input.js';
+export * from './catches/catch-photo.js';
 export * from './claims/claims.js';
 export * from './enums.js';
 export * from './errors.js';

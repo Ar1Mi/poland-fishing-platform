@@ -9,6 +9,7 @@ import { OneTimeTokenService } from '../auth/one-time-token.service';
 import { PasswordHasher } from '../auth/password-hasher';
 import { RefreshTokenService } from '../auth/refresh-token.service';
 import { CatchesService } from '../catches/catches.service';
+import { CatchPhotoService } from '../catches/photo/catch-photo.service';
 import { InspectionsService } from '../inspections/inspections.service';
 import { InvitationsService } from '../organizations/members/invitations.service';
 import { MembersService } from '../organizations/members/members.service';
@@ -51,6 +52,7 @@ export class AccountService {
     private readonly permits: MyPermitsService,
     private readonly externalPermits: ExternalPermitsService,
     private readonly catches: CatchesService,
+    private readonly catchPhotos: CatchPhotoService,
     private readonly inspections: InspectionsService,
     private readonly audit: AuditService,
     private readonly clock: ClockService,
@@ -137,8 +139,8 @@ export class AccountService {
    * the other transactions of these rows take them (docs/04-data-model.md): email links (a
    * password reset: link, user row, refresh tokens), the user row (writes of personal data wait
    * for it — `assertActiveForWrite`), organizations, then their invitations (member changes),
-   * audit entries, refresh tokens, the register, external permits. The photos of the external
-   * permits are removed after the commit.
+   * audit entries, refresh tokens, the register, external permits. The photos of the catches and
+   * of the external permits are removed after the commit.
    */
   async delete(userId: string, password: string): Promise<void> {
     const user = await this.users.findById(userId);
@@ -148,7 +150,7 @@ export class AccountService {
     if (!(await this.passwords.verify(user.passwordHash, password))) {
       throw new DomainError(ErrorCode.INVALID_CREDENTIALS);
     }
-    const photoKeys = await this.prisma.$transaction(
+    const removed = await this.prisma.$transaction(
       async (tx) => {
         await this.oneTimeTokens.deleteAllForUser(userId, tx);
         await this.users.lockForDeletion(tx, userId);
@@ -159,7 +161,7 @@ export class AccountService {
         );
         await this.audit.forgetInvitedEmail(tx, user.email);
         await this.refreshTokens.deleteAllForUser(userId, tx);
-        const catchesWithPosition = await this.catches.anonymizeAllOfUser(tx, userId);
+        const { withPosition, photoKeys } = await this.catches.anonymizeAllOfUser(tx, userId);
         const keys = await this.externalPermits.anonymizeAllOfUser(tx, userId);
         // Under the row lock taken above: a concurrent deletion has already failed on it.
         if (!(await this.users.anonymize(userId, tx))) {
@@ -173,15 +175,17 @@ export class AccountService {
           diff: {
             organizations: left.map(({ organizationId, roles }) => ({ organizationId, roles })),
             cancelledInvitations,
-            catchesWithPosition,
+            catchesWithPosition: withPosition,
+            catchPhotos: photoKeys.length,
             externalPermitPhotos: keys.length,
           },
         });
-        return keys;
+        return { catchPhotos: photoKeys, externalPermitPhotos: keys };
       },
       { timeout: DELETION_TIMEOUT_MS },
     );
-    await this.externalPermits.removePhotos(photoKeys);
+    await this.catchPhotos.removePhotos(removed.catchPhotos);
+    await this.externalPermits.removePhotos(removed.externalPermitPhotos);
     this.logger.info({ userId }, 'Account deleted (anonymised)');
   }
 }
