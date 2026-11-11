@@ -103,5 +103,51 @@
     "savePhoto": "Zapisz zdjęcie",
     "deletePhoto": "Usuń zdjęcie",
     "toCard": "Zobacz kartę łowiska"
+  },
+  "suggest": {
+    "link": "Nie ma Twojego łowiska na mapie? Zaproponuj je",
+    "title": "Zaproponuj łowisko",
+    "lead": "Podaj nazwę, rodzaj i województwo oraz zaznacz miejsce na mapie. Po sprawdzeniu przez administratora serwisu łowisko pojawi się na mapie. Nie zapisujemy, kto je zgłosił.",
+    "back": "Wróć do mapy",
+    "name": "Nazwa łowiska",
+    "namePlaceholder": "np. Staw Dolny",
+    "type": "Rodzaj",
+    "typePlaceholder": "Wybierz rodzaj",
+    "region": "Województwo",
+    "regionPlaceholder": "Wybierz województwo",
+    "position": "Położenie",
+    "positionHint": "Dotknij mapy w miejscu łowiska albo wpisz współrzędne. Znacznik można przeciągnąć.",
+    "map": "Mapa: wybierz położenie łowiska",
+    "lat": "Szerokość (lat)",
+    "lng": "Długość (lng)",
+    "issue": {
+      "REQUIRED": "To pole jest wymagane.",
+      "TOO_SHORT": "Nazwa musi mieć co najmniej {{min}} znaki.",
+      "TOO_LONG": "Nazwa może mieć najwyżej {{max}} znaków.",
+      "OUT_OF_POLAND": "Położenie musi leżeć w Polsce."
+    },
+    "submit": "Wyślij propozycję",
+    "sentTitle": "Propozycja wysłana",
+    "sentText": "Dziękujemy! Łowisko „{{name}}” pojawi się na mapie po sprawdzeniu przez administratora serwisu.",
+    "toMap": "Zobacz mapę łowisk",
+    "another": "Zaproponuj kolejne łowisko"
+  },
+  "adminWaters": {
+    "title": "Propozycje łowisk",
+    "lead": "Zgłoszenia wędkarzy czekające na publikację, najstarsze pierwsze. Popraw dane, jeśli trzeba, i opublikuj albo odrzuć zgłoszenie.",
+    "loading": "Ładowanie propozycji…",
+    "empty": "Nie ma propozycji do sprawdzenia.",
+    "position": "Położenie",
+    "openMap": "Zobacz na OpenStreetMap",
+    "submittedAt": "Zgłoszono",
+    "formLabel": "Decyzja: {{name}}",
+    "publish": "Opublikuj",
+    "reject": "Odrzuć",
+    "rejectConfirm": "Odrzucić i usunąć tę propozycję?",
+    "rejectConfirmYes": "Tak, odrzuć",
+    "rejectConfirmNo": "Anuluj",
+    "published": "Opublikowano łowisko „{{name}}”.",
+    "toCard": "Zobacz kartę łowiska",
+    "rejected": "Odrzucono propozycję „{{name}}”."
   }
 }

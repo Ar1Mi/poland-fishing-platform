@@ -53,7 +53,8 @@
   "adminNav": {
     "label": "Administracja serwisu",
     "orgs": "Organizacje",
-    "claims": "Wnioski o łowiska"
+    "claims": "Wnioski o łowiska",
+    "waters": "Propozycje łowisk"
   },
   "admin": {
     "title": "Organizacje",

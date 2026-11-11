@@ -1,8 +1,8 @@
 import { isRegion, WaterStatus, WaterType } from '@lowisko/shared';
-import { LoaderCircle, ZoomIn } from 'lucide-react';
+import { LoaderCircle, MapPinPlus, ZoomIn } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useSearchParams } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 import { Alert, AlertDescription } from '../../../shared/ui/alert';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Badge } from '../../../shared/ui/badge';
@@ -110,6 +110,14 @@ export function CatalogPage() {
           </p>
         )}
       </section>
+      {/* A water the catalogue lacks (FR-25); a guest is asked to log in first. */}
+      <Link
+        to="/waters/suggest"
+        className="flex min-h-11 w-fit items-center gap-2 font-semibold text-primary underline"
+      >
+        <MapPinPlus aria-hidden className="size-5" />
+        {t('catalog.suggest.link')}
+      </Link>
     </>
   );
 }

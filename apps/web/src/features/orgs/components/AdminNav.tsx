@@ -2,7 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router';
 import { cn } from '../../../shared/lib/cn';
 
-/** Sections of the super admin: organizations to activate and water claims to decide. */
+/** Sections of the super admin: organizations to activate, water claims and suggestions to decide. */
 export function AdminNav() {
   const { t } = useTranslation();
   const link = ({ isActive }: { isActive: boolean }) =>
@@ -17,6 +17,9 @@ export function AdminNav() {
       </NavLink>
       <NavLink to="/admin/claims" className={link}>
         {t('orgs.adminNav.claims')}
+      </NavLink>
+      <NavLink to="/admin/waters" className={link}>
+        {t('orgs.adminNav.waters')}
       </NavLink>
     </nav>
   );
