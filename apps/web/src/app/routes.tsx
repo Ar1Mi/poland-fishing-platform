@@ -34,6 +34,7 @@ import { OrgPermitsPage } from '../features/permits/pages/OrgPermitsPage';
 import { OrgPermitTypesPage } from '../features/permits/pages/OrgPermitTypesPage';
 import { OrgRulesPage } from '../features/rules/pages/OrgRulesPage';
 import { PaymentReturnPage } from '../features/permits/pages/PaymentReturnPage';
+import { MyStatsPage } from '../features/reports/pages/MyStatsPage';
 import { OrgStatsPage } from '../features/reports/pages/OrgStatsPage';
 import { NotFoundPage } from '../shared/pages/NotFoundPage';
 import { RouteErrorPage } from '../shared/pages/RouteErrorPage';
@@ -117,6 +118,15 @@ export const routes: RouteObject[] = [
         element: (
           <RequireAuth offline>
             <MyCatchesPage />
+          </RequireAuth>
+        ),
+      },
+      // Figures come from the server: online only.
+      {
+        path: 'me/stats',
+        element: (
+          <RequireAuth>
+            <MyStatsPage />
           </RequireAuth>
         ),
       },

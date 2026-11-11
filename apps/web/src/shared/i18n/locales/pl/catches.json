@@ -1,7 +1,8 @@
 {
   "links": {
     "add": "Dodaj połów",
-    "register": "Rejestr połowów"
+    "register": "Rejestr połowów",
+    "stats": "Moje statystyki"
   },
   "form": {
     "title": "Dodaj połów",

@@ -126,6 +126,24 @@ export class CatchStatsDto {
   byWater!: WaterCatchesDto[];
 }
 
+/** `GET /me/stats` (FR-20): the angler's own accepted catches of a season. */
+export class MyStatsDto {
+  @ApiProperty({ example: 2026, description: 'Warsaw calendar year of the catches' })
+  season!: number;
+
+  @ApiProperty({ format: 'date', example: '2026-01-01' })
+  from!: string;
+
+  @ApiProperty({ format: 'date', example: '2026-12-31' })
+  to!: string;
+
+  @ApiProperty({
+    type: CatchStatsDto,
+    description: 'Accepted catches on permits of both kinds, by the Warsaw day of the catch',
+  })
+  catches!: CatchStatsDto;
+}
+
 export class OrgStatsDto {
   @ApiProperty({ format: 'date', example: '2026-01-01' })
   from!: string;
