@@ -170,6 +170,7 @@ describe('sameDayKeptOf', () => {
     lng: null,
     status: 'ACCEPTED',
     violations: [],
+    photoType: null,
     editableUntil: '2026-10-07T22:00:00.000Z',
     createdAt: '2026-10-06T08:01:00.000Z',
     ...changes,

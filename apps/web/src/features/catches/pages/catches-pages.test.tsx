@@ -627,6 +627,7 @@ const caught = (changes: Partial<Catch>): Catch => ({
   status: 'REJECTED',
   violations: [{ code: 'WEIGHT_REQUIRED', ruleId: 'BR-11' }],
   // 6 October ends at 22:00 UTC; the window a day later.
+  photoType: null,
   editableUntil: '2026-10-07T22:00:00.000Z',
   createdAt: '2026-10-06T08:01:00.000Z',
   ...changes,
@@ -642,6 +643,7 @@ const older = caught({
   weightG: 2350,
   status: 'ACCEPTED',
   violations: [],
+  photoType: null,
   editableUntil: '2026-10-05T22:00:00.000Z',
 });
 
