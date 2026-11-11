@@ -29,6 +29,7 @@ T-26 реализует права субъекта данных: `GET /me/expor
 ## Последствия
 
 - Зависимости в одну сторону: `AccountModule` → Users, Auth, Organizations, Permits, Catches, Inspections, Audit; его никто не импортирует.
+- Модули-владельцы проверяют аккаунт в транзакциях записи персональных данных (`UsersService.assertActiveForWrite` — `FOR SHARE` строки `User`), а удаление берёт эту строку первой: запрос, прошедший guard до коммита удаления, не допишет данные к обезличенной строке (ревью T-26).
 - `AuthModule` впервые экспортирует сервисы (`RefreshTokenService`, `OneTimeTokenService`, `PasswordHasher`) — только для `AccountModule`.
 - Новые персональные данные (фото улова и предложения водоёмов — T-27) должны добавить свой вклад в экспорт и удаление: записано в `03-architecture.md` и ROADMAP T-27.
 - Документы: `03-architecture.md` (таблица модулей), `05-api.md` (детали маршрутов), `07-security.md` (что анонимизируется), `04-data-model.md` (заглушки в полях `User`).
