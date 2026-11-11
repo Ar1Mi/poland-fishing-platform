@@ -14,5 +14,7 @@ import { InspectionsService } from './inspections.service';
   imports: [PermitsModule, CatchesModule, UsersModule, OrganizationsModule],
   controllers: [VerifyController, OrgInspectionsController],
   providers: [InspectionsService],
+  // The protocols in the RODO export (ADR-0016).
+  exports: [InspectionsService],
 })
 export class InspectionsModule {}

@@ -2,7 +2,7 @@ import type { ThrottlerOptions } from '@nestjs/throttler';
 import { normalizeEmail } from '../users/users.service';
 
 /** What the throttler passes to a tracker: the Express request, typed loosely by the library. */
-type TrackedRequest = { ip?: string; body?: unknown };
+type TrackedRequest = { ip?: string; body?: unknown; user?: { id: string } };
 
 /** Email from the body; guards run before validation, so the body may be anything. */
 function bodyEmail(req: TrackedRequest): string {
@@ -16,8 +16,9 @@ function bodyEmail(req: TrackedRequest): string {
 }
 
 /**
- * Limits of the public auth routes (docs/07-security.md). Every route starts with all of them
- * skipped except `ip`; AuthController switches on the others where they apply.
+ * Limits of the public auth routes and of the password confirmation (docs/07-security.md).
+ * Every AuthController route starts with all of them skipped except `ip` and switches on the
+ * others where they apply; `DELETE /me` uses only `password`.
  * In-memory counters: enough for the single API instance on the VPS.
  */
 export const AUTH_THROTTLERS = [
@@ -42,5 +43,15 @@ export const AUTH_THROTTLERS = [
     limit: 3,
     ttl: 60 * 60_000,
     getTracker: (req: TrackedRequest) => bodyEmail(req),
+  },
+  /**
+   * Password confirmations of a logged-in user (`DELETE /me`, T-26): a stolen access token must
+   * not guess the password at the speed of the server. After the global JwtAuthGuard: per account.
+   */
+  {
+    name: 'password',
+    limit: 5,
+    ttl: 60_000,
+    getTracker: (req: TrackedRequest) => req.user?.id ?? req.ip ?? '',
   },
 ] as const satisfies ThrottlerOptions[];

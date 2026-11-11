@@ -159,6 +159,30 @@ export class ExternalPermitsService {
     }
   }
 
+  /**
+   * Account deletion (T-26, ADR-0016), in the caller's transaction: the permits stay with their
+   * catches (decided by the user), without the number and the photo. Returns the keys of the
+   * photos, which the caller removes with `removePhotos` after the commit.
+   */
+  async anonymizeAllOfUser(tx: Prisma.TransactionClient, userId: string): Promise<string[]> {
+    // A photo being replaced right now holds the row: its new key is read after it commits.
+    const locked = await tx.$queryRaw<{ photoKey: string | null }[]>`
+      SELECT "photoKey" FROM "ExternalPermit" WHERE "userId" = ${userId}::uuid
+      ORDER BY "id" FOR UPDATE`;
+    await tx.externalPermit.updateMany({
+      where: { userId },
+      data: { number: null, photoKey: null },
+    });
+    return locked.flatMap(({ photoKey }) => (photoKey ? [photoKey] : []));
+  }
+
+  /** After the commit of `anonymizeAllOfUser`; a file that cannot be removed is logged. */
+  async removePhotos(keys: string[]): Promise<void> {
+    for (const key of keys) {
+      await this.removeFile(key);
+    }
+  }
+
   /** Stores the photo or scan of the permit, replacing the previous one. */
   async setPhoto(userId: string, id: string, photo: Buffer): Promise<ExternalPermitDto> {
     // The declared type and the file name are the client's word; the content decides.

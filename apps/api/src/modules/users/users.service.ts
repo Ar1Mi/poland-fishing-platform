@@ -26,6 +26,25 @@ export function normalizeEmail(email: string): string {
 const toDate = (dateOnly: string): Date => new Date(`${dateOnly}T00:00:00.000Z`);
 
 /**
+ * The address an anonymised account keeps (`.invalid` never resolves, RFC 2606): unique like
+ * the column, and never an address someone could register or invite.
+ */
+export function anonymizedEmail(userId: string): string {
+  return `deleted-${userId}@anonymized.invalid`;
+}
+
+/** Placeholders of the NOT NULL personal fields of an anonymised account (T-26). */
+const ANONYMIZED_BIRTH_DATE = toDate('1900-01-01');
+/** Not an argon2 hash: nothing verifies against it (login does not look at such rows anyway). */
+const NO_PASSWORD = '!';
+
+/** The profile in the RODO export: the API profile and when the account began. */
+export interface ExportedProfile extends ProfileDto {
+  emailVerifiedAt: Date | null;
+  createdAt: Date;
+}
+
+/**
  * Owner of the `User` table. Methods that take part in another module's transaction accept
  * its client as `db`.
  */
@@ -39,6 +58,11 @@ export class UsersService {
   /** Active (not anonymised) user by id. */
   findById(id: string, db: Db = this.prisma): Promise<User | null> {
     return db.user.findFirst({ where: { id, deletedAt: null } });
+  }
+
+  /** The account exists and is not anonymised: one primary-key lookup per request (guard). */
+  async isActive(id: string): Promise<boolean> {
+    return (await this.prisma.user.count({ where: { id, deletedAt: null } })) > 0;
   }
 
   /** First and last names of active users for lists of other modules (inspections), keyed by id. */
@@ -117,6 +141,37 @@ export class UsersService {
       },
     });
     return toProfile(user);
+  }
+
+  /** The RODO export (T-26); null if the account is gone. */
+  async exportProfile(id: string): Promise<ExportedProfile | null> {
+    const user = await this.findById(id);
+    return user
+      ? { ...toProfile(user), emailVerifiedAt: user.emailVerifiedAt, createdAt: user.createdAt }
+      : null;
+  }
+
+  /**
+   * Account deletion (T-26, docs/07-security.md): the personal fields get placeholders and
+   * `deletedAt` is set; the row stays, so permits, catches and protocols keep a (masked) owner.
+   * False if it was anonymised already (a second deletion at once).
+   */
+  async anonymize(id: string, db: Db): Promise<boolean> {
+    const { count } = await db.user.updateMany({
+      where: { id, deletedAt: null },
+      data: {
+        email: anonymizedEmail(id),
+        emailVerifiedAt: null,
+        passwordHash: NO_PASSWORD,
+        firstName: '',
+        lastName: '',
+        birthDate: ANONYMIZED_BIRTH_DATE,
+        anglerCardNo: null,
+        isSuperAdmin: false,
+        deletedAt: this.clock.now(),
+      },
+    });
+    return count > 0;
   }
 
   /** A birth date in the future (Warsaw calendar) would make BR-08 discounts meaningless. */

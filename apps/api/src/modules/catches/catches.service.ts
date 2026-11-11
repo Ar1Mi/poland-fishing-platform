@@ -143,6 +143,29 @@ export class CatchesService {
     return this.toDtos(rows);
   }
 
+  /** The RODO export (T-26): every catch of the user, all seasons, earliest first. */
+  async listForExport(userId: string): Promise<CatchDto[]> {
+    const rows = await this.prisma.catchRecord.findMany({
+      where: { userId },
+      orderBy: [{ caughtAt: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return this.toDtos(rows);
+  }
+
+  /**
+   * Account deletion (T-26), in the caller's transaction: the catches stay for the statistics
+   * of the organizations (docs/07-security.md), without the position — where the angler was.
+   * Under the register lock: a sync already under way commits first and is cleared too.
+   */
+  async anonymizeAllOfUser(tx: Prisma.TransactionClient, userId: string): Promise<number> {
+    await lockRegister(tx, userId);
+    const { count } = await tx.catchRecord.updateMany({
+      where: { userId, OR: [{ lat: { not: null } }, { lng: { not: null } }] },
+      data: { lat: null, lng: null },
+    });
+    return count;
+  }
+
   /**
    * Kept fish recorded on the user's external permit in a season (Warsaw calendar year), accepted
    * and rejected, earliest first: the rows of the register for the owner of the water (FR-27).

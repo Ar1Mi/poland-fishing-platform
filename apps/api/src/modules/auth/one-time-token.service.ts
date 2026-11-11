@@ -21,6 +21,11 @@ export class OneTimeTokenService {
     private readonly clock: ClockService,
   ) {}
 
+  /** Account deletion: no link of the account works any more. */
+  async deleteAllForUser(userId: string, db: Db): Promise<void> {
+    await db.oneTimeToken.deleteMany({ where: { userId } });
+  }
+
   /** A new link invalidates the unused ones of the same purpose: only the latest email works. */
   async issue(userId: string, purpose: OneTimeTokenPurpose, db: Db = this.prisma): Promise<string> {
     const token = generateOpaqueToken();

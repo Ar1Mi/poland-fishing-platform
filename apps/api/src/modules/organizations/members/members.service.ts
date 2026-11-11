@@ -1,15 +1,21 @@
-import { ErrorCode, OrgRole } from '@lowisko/shared';
+import { ErrorCode, OrganizationStatus, OrgRole } from '@lowisko/shared';
 import { Injectable } from '@nestjs/common';
 import { DomainError } from '../../../common/errors/domain-error';
 import { PrismaService } from '../../../database/prisma.service';
 import type { Membership, Prisma } from '../../../generated/prisma/client';
 import { AuditService } from '../../audit/audit.service';
-import { normalizeEmail, UsersService } from '../../users/users.service';
+import { anonymizedEmail, normalizeEmail, UsersService } from '../../users/users.service';
 import type { MemberDto } from '../dto/member.dto';
 
 /** Role order of the lists: the admin role first. */
 const ROLE_ORDER: readonly OrgRole[] = [OrgRole.ORG_ADMIN, OrgRole.INSPECTOR];
 const byRoleOrder = (a: OrgRole, b: OrgRole) => ROLE_ORDER.indexOf(a) - ROLE_ORDER.indexOf(b);
+
+/** What the deletion of an account took in one organization (its AuditLog entry). */
+export interface LeftOrganization {
+  organizationId: string;
+  roles: OrgRole[];
+}
 
 /**
  * Members of an organization (FR-04): who holds which role. New members come through
@@ -114,6 +120,89 @@ export class MembersService {
         diff: { userId, roles, cancelledInvitations: cancelled.count },
       });
     });
+  }
+
+  /**
+   * Account deletion (T-26, ADR-0016), in the caller's transaction: every role of the user in
+   * every organization goes, the invitations waiting for the address go, and accepted ones keep
+   * the anonymised address instead of the real one. The last ORG_ADMIN of an ACTIVE organization
+   * cannot leave (LAST_ORG_ADMIN, `details.organizationIds`) — they hand the role over first; a
+   * PENDING or BLOCKED organization cannot invite anyone, so it is left without an admin
+   * (decided by the user). Each organization gets a MEMBER_REMOVED entry.
+   */
+  async removeDeletedAccount(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    email: string,
+  ): Promise<{ left: LeftOrganization[]; cancelledInvitations: number }> {
+    const address = normalizeEmail(email);
+    // First: an acceptance under way holds its invitation row, so this waits until its
+    // membership is committed — and the delete of the memberships below sees it.
+    const cancelled = await tx.invitation.deleteMany({
+      where: { email: address, acceptedAt: null },
+    });
+    const organizationIds = [
+      ...new Set(
+        (await tx.membership.findMany({ where: { userId }, select: { organizationId: true } })).map(
+          (membership) => membership.organizationId,
+        ),
+      ),
+    ];
+    // In a fixed order, the lock member changes take: two admins of one organization deleting
+    // their accounts at once cannot both leave it without an admin.
+    const organizations = await tx.$queryRaw<{ id: string; status: OrganizationStatus }[]>`
+      SELECT "id", "status" FROM "Organization" WHERE "id" = ANY(${organizationIds}::uuid[])
+      ORDER BY "id" FOR NO KEY UPDATE`;
+    const memberships = await tx.membership.findMany({
+      where: { userId },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    const left = organizations
+      .map(({ id }) => ({
+        organizationId: id,
+        roles: memberships
+          .filter((membership) => membership.organizationId === id)
+          .map((membership) => membership.role)
+          .sort(byRoleOrder),
+      }))
+      .filter(({ roles }) => roles.length > 0);
+    const lastAdminOf: string[] = [];
+    for (const { id, status } of organizations) {
+      const isAdmin = left.some(
+        ({ organizationId, roles }) => organizationId === id && roles.includes(OrgRole.ORG_ADMIN),
+      );
+      if (
+        isAdmin &&
+        status === OrganizationStatus.ACTIVE &&
+        (await tx.membership.count({
+          where: { organizationId: id, role: OrgRole.ORG_ADMIN, userId: { not: userId } },
+        })) === 0
+      ) {
+        lastAdminOf.push(id);
+      }
+    }
+    if (lastAdminOf.length > 0) {
+      throw new DomainError(
+        ErrorCode.LAST_ORG_ADMIN,
+        { organizationIds: lastAdminOf },
+        'Hand the admin role over before deleting the account',
+      );
+    }
+    await tx.membership.deleteMany({ where: { userId } });
+    await tx.invitation.updateMany({
+      where: { email: address, acceptedAt: { not: null } },
+      data: { email: anonymizedEmail(userId) },
+    });
+    for (const { organizationId, roles } of left) {
+      await this.audit.record(tx, {
+        actorId: userId,
+        action: 'MEMBER_REMOVED',
+        entity: 'Organization',
+        entityId: organizationId,
+        diff: { userId, roles, accountDeleted: true },
+      });
+    }
+    return { left, cancelledInvitations: cancelled.count };
   }
 
   /**

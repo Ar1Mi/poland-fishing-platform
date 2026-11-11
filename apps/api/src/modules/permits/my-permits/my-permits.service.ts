@@ -26,6 +26,11 @@ const WITH_TYPE = { permitType: { include: { waters: { select: { id: true } } } 
 
 type PermitWithType = Permit & { permitType: PermitType & { waters: { id: string }[] } };
 
+/** A permit in the RODO export: as in `/me/permits`, without the QR token, with its payments. */
+export type ExportedPermit = Omit<MyPermitDto, 'qrToken'> & {
+  payments: { provider: string; amountGrosze: number; status: string; createdAt: Date }[];
+};
+
 export interface PermitPdf {
   fileName: string;
   content: Buffer;
@@ -54,7 +59,7 @@ export class MyPermitsService {
   }
 
   /** All permits of the user, latest start first; there are a few a season, so no paging. */
-  async list(userId: string): Promise<MyPermitDto[]> {
+  async list(userId: string, { signQr = true } = {}): Promise<MyPermitDto[]> {
     const permits = await this.prisma.permit.findMany({
       where: { userId },
       include: WITH_TYPE,
@@ -72,9 +77,39 @@ export class MyPermitsService {
           permit,
           organizations.get(permit.permitType.organizationId)?.name ?? '',
           waterNames,
+          signQr,
         ),
       ),
     );
+  }
+
+  /**
+   * The RODO export (T-26): every permit with its payments (provider, amount, status, time —
+   * not the provider's raw notification). No QR token: a file kept for years must not carry a
+   * working signature.
+   */
+  async listForExport(userId: string): Promise<ExportedPermit[]> {
+    const permits = await this.list(userId, { signQr: false });
+    const payments = await this.prisma.payment.findMany({
+      where: { permitId: { in: permits.map((permit) => permit.id) } },
+      select: { permitId: true, provider: true, amountGrosze: true, status: true, createdAt: true },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    });
+    return permits.map((permit) => {
+      const exported: Partial<MyPermitDto> & Omit<MyPermitDto, 'qrToken'> = { ...permit };
+      delete exported.qrToken;
+      return {
+        ...exported,
+        payments: payments
+          .filter((payment) => payment.permitId === permit.id)
+          .map(({ provider, amountGrosze, status, createdAt }) => ({
+            provider,
+            amountGrosze,
+            status,
+            createdAt,
+          })),
+      };
+    });
   }
 
   /**

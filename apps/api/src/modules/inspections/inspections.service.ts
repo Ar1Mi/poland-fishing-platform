@@ -27,6 +27,11 @@ import type {
 } from './dto/inspection.dto';
 import { holderInitials } from './holder-initials';
 
+export type ExportedInspection = Pick<
+  Inspection,
+  'id' | 'permitId' | 'organizationId' | 'performedAt' | 'result' | 'notes' | 'lat' | 'lng'
+>;
+
 /** Roles of the issuing organization that see the full check and write protocols. */
 const INSPECTING_ROLES: readonly OrgRole[] = [OrgRole.INSPECTOR, OrgRole.ORG_ADMIN];
 
@@ -160,6 +165,27 @@ export class InspectionsService {
         }),
       ),
     };
+  }
+
+  /**
+   * The RODO export of the permit holder (T-26): protocols of inspections of these permits,
+   * earliest first. Without the inspector: that is someone else's personal data.
+   */
+  async listOnPermits(permitIds: string[]): Promise<ExportedInspection[]> {
+    return this.prisma.inspection.findMany({
+      where: { permitId: { in: permitIds } },
+      select: {
+        id: true,
+        permitId: true,
+        organizationId: true,
+        performedAt: true,
+        result: true,
+        notes: true,
+        lat: true,
+        lng: true,
+      },
+      orderBy: [{ performedAt: 'asc' }, { id: 'asc' }],
+    });
   }
 
   private async toDtos(rows: Inspection[]): Promise<InspectionDto[]> {
