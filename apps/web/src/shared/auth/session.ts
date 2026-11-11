@@ -167,17 +167,33 @@ export async function restoreSession(): Promise<void> {
 
 /**
  * `fetch` of the API client: sends the access token and, when the API answers 401 to it
- * (expired), refreshes once and repeats the request.
+ * (expired), refreshes once and repeats the request. A wrong password (`INVALID_CREDENTIALS`,
+ * e.g. confirming `DELETE /me`) is not about the token: repeating would only check it again.
  */
 export async function authorizedFetch(input: Request): Promise<Response> {
   const sentToken = accessToken;
   const retry = sentToken ? input.clone() : undefined;
   const response = await globalThis.fetch(withToken(input, sentToken));
-  if (response.status !== 401 || !retry || NO_RETRY_PATHS.has(new URL(input.url).pathname)) {
+  if (
+    response.status !== 401 ||
+    !retry ||
+    NO_RETRY_PATHS.has(new URL(input.url).pathname) ||
+    (await errorCodeOf(response)) === 'INVALID_CREDENTIALS'
+  ) {
     return response;
   }
   const token = await refreshSession();
   return token ? globalThis.fetch(withToken(retry, token)) : response;
+}
+
+/** The `code` of an API error body, read from a copy: the caller still reads the response. */
+async function errorCodeOf(response: Response): Promise<unknown> {
+  try {
+    const body: unknown = await response.clone().json();
+    return typeof body === 'object' && body !== null && 'code' in body ? body.code : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function withToken(request: Request, token: string | null): Request {

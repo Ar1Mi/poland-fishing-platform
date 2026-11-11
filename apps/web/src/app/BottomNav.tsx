@@ -1,4 +1,4 @@
-import { Fish, Map as MapIcon, Ticket } from 'lucide-react';
+import { Fish, Map as MapIcon, Ticket, UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from 'react-router';
@@ -6,8 +6,8 @@ import { cn } from '../shared/lib/cn';
 
 /**
  * `BottomNav` of the angler on a phone (docs/10-design-system.md): the active section has the
- * Toń 100 fill and dark text, not only a coloured icon. A fourth section, «Profil», comes with
- * `/me/profile`.
+ * Toń 100 fill and dark text, not only a coloured icon. Four sections; «Profil» (T-26) leads to
+ * the profile and the RODO rights.
  */
 export function BottomNav() {
   const { t } = useTranslation();
@@ -17,7 +17,7 @@ export function BottomNav() {
       aria-label={t('common.nav.label')}
       className="fixed inset-x-0 bottom-0 z-[1100] border-t border-border bg-card px-2 pt-1.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] md:hidden"
     >
-      <ul className="mx-auto grid max-w-md grid-cols-3 gap-1">
+      <ul className="mx-auto grid max-w-md grid-cols-4 gap-1">
         <Item to="/" end icon={<MapIcon aria-hidden />}>
           {t('common.nav.waters')}
         </Item>
@@ -27,6 +27,9 @@ export function BottomNav() {
         {/* Recording a catch belongs to the register: both keep «Połowy» active. */}
         <Item to="/me/catches" active={pathname === '/catch/new'} icon={<Fish aria-hidden />}>
           {t('common.nav.catches')}
+        </Item>
+        <Item to="/me/profile" icon={<UserRound aria-hidden />}>
+          {t('common.nav.profile')}
         </Item>
       </ul>
     </nav>

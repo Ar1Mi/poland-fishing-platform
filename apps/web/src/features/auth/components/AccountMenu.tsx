@@ -1,4 +1,4 @@
-import { Building2, LogOut, ShieldCheck, Ticket, WifiOff } from 'lucide-react';
+import { Building2, LogOut, ShieldCheck, Ticket, UserRound, WifiOff } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { i18n } from '../../../shared/i18n/i18n';
 import { Link } from 'react-router';
@@ -63,6 +63,15 @@ export function AccountMenu() {
         title={t('auth.account.permits')}
       >
         <Ticket aria-hidden />
+      </Link>
+      {/* On a phone «Profil» is in the bottom navigation. */}
+      <Link
+        to="/me/profile"
+        className={cn(iconLink, 'hidden md:flex')}
+        aria-label={t('auth.account.profile')}
+        title={t('auth.account.profile')}
+      >
+        <UserRound aria-hidden />
       </Link>
       <Link
         to="/org"

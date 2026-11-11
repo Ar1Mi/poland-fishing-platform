@@ -1,7 +1,9 @@
 import type { RouteObject } from 'react-router';
 import { GuestOnly } from '../features/auth/components/GuestOnly';
 import { RequireAuth } from '../features/auth/components/RequireAuth';
+import { AccountDeletedPage } from '../features/auth/pages/AccountDeletedPage';
 import { LoginPage } from '../features/auth/pages/LoginPage';
+import { ProfilePage } from '../features/auth/pages/ProfilePage';
 import { RegisterPage } from '../features/auth/pages/RegisterPage';
 import { ResetPasswordPage } from '../features/auth/pages/ResetPasswordPage';
 import { VerifyEmailPage } from '../features/auth/pages/VerifyEmailPage';
@@ -65,6 +67,7 @@ export const routes: RouteObject[] = [
       { path: 'verify-email', element: <VerifyEmailPage /> },
       { path: 'reset-password', element: <ResetPasswordPage /> },
       { path: 'privacy', element: <PrivacyPolicyPage /> },
+      { path: 'account-deleted', element: <AccountDeletedPage /> },
       // The phone camera opens it from the QR code: public, an inspector's session shows more.
       { path: 'verify/:token', element: <VerifyPage /> },
       // Access is decided by the API; the client only sends guests to the login page.
@@ -114,6 +117,15 @@ export const routes: RouteObject[] = [
         element: (
           <RequireAuth offline>
             <MyCatchesPage />
+          </RequireAuth>
+        ),
+      },
+      // RODO export and deletion need the server: online only.
+      {
+        path: 'me/profile',
+        element: (
+          <RequireAuth>
+            <ProfilePage />
           </RequireAuth>
         ),
       },
