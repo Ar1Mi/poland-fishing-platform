@@ -84,6 +84,8 @@ model RefreshToken {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([familyId]) // reuse revokes the whole family (T-26)
+  @@index([expiresAt]) // the nightly cleanup deletes long-expired tokens (T-26)
 }
 
 model OneTimeToken {
