@@ -29,8 +29,11 @@ import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
+  ApiConflictResponse,
   ApiConsumes,
+  ApiCreatedResponse,
   ApiForbiddenResponse,
+  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
@@ -44,10 +47,15 @@ import { ErrorResponseDto } from '../../common/errors/error-response.dto';
 import { Audit, AuditedResponse } from '../audit/audit.interceptor';
 import { type AuthUser, CurrentUser, Public } from '../auth/decorators/auth.decorators';
 import { Roles, SuperAdmin } from '../organizations/decorators/org-access.decorators';
+import { WaterAdminService } from './admin/water-admin.service';
 import { WaterImportReportDto } from './dto/water-import.dto';
 import {
+  AdminWaterDto,
+  AdminWatersQueryDto,
   ListWatersQueryDto,
   OrgWaterDto,
+  SuggestWaterDto,
+  UpdateWaterDto,
   UpdateWaterProfileDto,
   WaterDetailDto,
   WaterListDto,
@@ -119,6 +127,29 @@ export class WatersController {
       length: size,
       disposition: `attachment; filename="${fileName}"`,
     });
+  }
+}
+
+@ApiTags('waters')
+@ApiBearerAuth()
+@ApiUnauthorizedResponse({ ...error, description: 'UNAUTHENTICATED, TOKEN_EXPIRED' })
+@Controller('waters/suggestions')
+export class WaterSuggestionsController {
+  constructor(private readonly admin: WaterAdminService) {}
+
+  @Post()
+  @ApiOperation({
+    summary:
+      'Suggest a water missing from the catalogue (FR-25): unpublished until a super admin ' +
+      'publishes it; the author is not recorded',
+  })
+  @ApiCreatedResponse({ type: WaterDetailDto, description: 'The suggestion, not yet public' })
+  @ApiBadRequestResponse({
+    ...error,
+    description: 'VALIDATION_FAILED (name, type, region, a position outside Poland)',
+  })
+  suggest(@Body() dto: SuggestWaterDto): Promise<WaterDetailDto> {
+    return this.admin.suggest(dto);
   }
 }
 
@@ -227,7 +258,51 @@ export const WATER_IMPORT_MAX_BYTES = 1024 * 1024;
 @SuperAdmin()
 @Controller('admin/waters')
 export class AdminWatersController {
-  constructor(private readonly importer: WaterImportService) {}
+  constructor(
+    private readonly importer: WaterImportService,
+    private readonly admin: WaterAdminService,
+  ) {}
+
+  @Get()
+  @ApiOperation({
+    summary: 'The catalogue with the unpublished rows; `published=false` — the suggestion queue',
+  })
+  @ApiOkResponse({ type: AdminWaterDto, isArray: true, description: 'Oldest first' })
+  @ApiBadRequestResponse({ ...error, description: 'VALIDATION_FAILED (published)' })
+  list(@Query() query: AdminWatersQueryDto): Promise<AdminWaterDto[]> {
+    return this.admin.list(query);
+  }
+
+  @Patch(':id')
+  @ApiOperation({
+    summary:
+      'Catalogue fields of a row; `isPublished: true` publishes a suggestion. The next import ' +
+      'of an imported row overwrites them again',
+  })
+  @ApiOkResponse({ type: AdminWaterDto })
+  @ApiBadRequestResponse({ ...error, description: 'VALIDATION_FAILED (id, fields, position)' })
+  @ApiNotFoundResponse({ ...error, description: 'NOT_FOUND' })
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthUser,
+    @Body() dto: UpdateWaterDto,
+  ): Promise<AdminWaterDto> {
+    return this.admin.update(user.id, id, dto);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Remove an unpublished row (a rejected suggestion)' })
+  @ApiNoContentResponse()
+  @ApiBadRequestResponse(badId)
+  @ApiNotFoundResponse({ ...error, description: 'NOT_FOUND' })
+  @ApiConflictResponse({
+    ...error,
+    description: 'WATER_IN_USE (published, or referenced by a claim, permit type or catch)',
+  })
+  remove(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser): Promise<void> {
+    return this.admin.delete(user.id, id);
+  }
 
   @Post('import')
   @HttpCode(200)

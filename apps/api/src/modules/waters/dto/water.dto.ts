@@ -2,9 +2,12 @@ import {
   type Bbox,
   isRegion,
   parseBbox,
+  POLAND_BOUNDS,
   REGIONS,
   type Region,
   WATER_DESCRIPTION_MAX_LENGTH,
+  WATER_NAME_MAX_LENGTH,
+  WATER_NAME_MIN_LENGTH,
   WATER_QUERY_MAX_LENGTH,
   WATER_SEASON_INFO_MAX_LENGTH,
   WATERS_LIST_LIMIT,
@@ -14,7 +17,19 @@ import {
 } from '@lowisko/shared';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
-import { IsEnum, IsNotEmpty, IsOptional, IsString, MaxLength, ValidateBy } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Length,
+  Max,
+  MaxLength,
+  Min,
+  ValidateBy,
+} from 'class-validator';
 import { trim } from '../../users/dto/profile.dto';
 
 const type = { enum: Object.values(WaterType), enumName: 'WaterType' };
@@ -216,4 +231,149 @@ export class OrgWaterDto {
 
   @ApiProperty({ example: 'mazowieckie' })
   region!: string;
+}
+
+const isVoivodeship = ValidateBy({
+  name: 'isRegion',
+  validator: {
+    validate: isRegion,
+    defaultMessage: () => 'region must be a voivodeship in lower case, e.g. mazowieckie',
+  },
+});
+
+/** `POST /waters/suggestions` (FR-25): the catalogue fields of a water the angler misses. */
+export class SuggestWaterDto {
+  @ApiProperty({
+    minLength: WATER_NAME_MIN_LENGTH,
+    maxLength: WATER_NAME_MAX_LENGTH,
+    example: 'Staw Dolny',
+  })
+  @Transform(trim)
+  @IsString()
+  @Length(WATER_NAME_MIN_LENGTH, WATER_NAME_MAX_LENGTH)
+  name!: string;
+
+  @ApiProperty(type)
+  @IsEnum(WaterType)
+  type!: WaterType;
+
+  @ApiProperty({ enum: REGIONS, enumName: 'Region', description: 'Voivodeship' })
+  @isVoivodeship
+  region!: Region;
+
+  @ApiProperty({ example: 52.46, description: 'In Poland, with lng' })
+  @IsNumber()
+  @Min(POLAND_BOUNDS.minLat)
+  @Max(POLAND_BOUNDS.maxLat)
+  lat!: number;
+
+  @ApiProperty({ example: 21.04, description: 'In Poland, with lat' })
+  @IsNumber()
+  @Min(POLAND_BOUNDS.minLng)
+  @Max(POLAND_BOUNDS.maxLng)
+  lng!: number;
+}
+
+/** `GET /admin/waters?published=` (T-27): without `published`, every row. */
+export class AdminWatersQueryDto {
+  @ApiPropertyOptional({
+    type: Boolean,
+    description: 'false — the suggestions of anglers waiting for moderation',
+  })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) =>
+    value === 'true' ? true : value === 'false' ? false : value,
+  )
+  @IsBoolean()
+  published?: boolean;
+}
+
+/** A catalogue row as the super admin sees it (T-27): also the unpublished and the source. */
+export class AdminWaterDto extends WaterSummaryDto {
+  @ApiProperty({ enum: Object.values(WaterSource), enumName: 'WaterSource' })
+  source!: WaterSource;
+
+  @ApiProperty({ description: 'Identifier in the source; a UUID for a suggestion' })
+  sourceRef!: string;
+
+  @ApiProperty({ description: 'false — a suggestion of an angler on moderation' })
+  isPublished!: boolean;
+
+  @ApiProperty({ type: String, nullable: true })
+  externalOwnerName!: string | null;
+
+  @ApiProperty({ type: String, nullable: true, format: 'uri' })
+  externalInfoUrl!: string | null;
+
+  @ApiProperty({ type: String, nullable: true, format: 'date-time' })
+  importedAt!: string | null;
+
+  @ApiProperty({ format: 'date-time', description: 'When the row (or the suggestion) was made' })
+  createdAt!: string;
+}
+
+const isHttpUrl = (value: unknown) =>
+  typeof value === 'string' && URL.canParse(value) && /^https?:$/.test(new URL(value).protocol);
+
+/**
+ * `PATCH /admin/waters/:id`: a missing field stays. `lat` and `lng` go together (both numbers in
+ * Poland, or both null); `isPublished: true` publishes a suggestion. The next CSV import of an
+ * imported row overwrites its catalogue fields again (the file stays the source of truth).
+ */
+export class UpdateWaterDto {
+  @ApiPropertyOptional({ minLength: WATER_NAME_MIN_LENGTH, maxLength: WATER_NAME_MAX_LENGTH })
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @Length(WATER_NAME_MIN_LENGTH, WATER_NAME_MAX_LENGTH)
+  name?: string;
+
+  @ApiPropertyOptional(type)
+  @IsOptional()
+  @IsEnum(WaterType)
+  type?: WaterType;
+
+  @ApiPropertyOptional({ enum: REGIONS, enumName: 'Region' })
+  @IsOptional()
+  @isVoivodeship
+  region?: Region;
+
+  @ApiPropertyOptional({ type: Number, nullable: true })
+  @IsOptional()
+  @IsNumber()
+  @Min(POLAND_BOUNDS.minLat)
+  @Max(POLAND_BOUNDS.maxLat)
+  lat?: number | null;
+
+  @ApiPropertyOptional({ type: Number, nullable: true })
+  @IsOptional()
+  @IsNumber()
+  @Min(POLAND_BOUNDS.minLng)
+  @Max(POLAND_BOUNDS.maxLng)
+  lng?: number | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 200 })
+  @IsOptional()
+  @Transform(blankToNull)
+  @IsString()
+  @MaxLength(200)
+  externalOwnerName?: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true, format: 'uri', maxLength: 500 })
+  @IsOptional()
+  @Transform(blankToNull)
+  @ValidateBy({
+    name: 'isHttpUrl',
+    validator: {
+      validate: isHttpUrl,
+      defaultMessage: () => 'externalInfoUrl must be an http(s) URL',
+    },
+  })
+  @MaxLength(500)
+  externalInfoUrl?: string | null;
+
+  @ApiPropertyOptional({ description: 'true publishes a suggestion; false hides a row again' })
+  @IsOptional()
+  @IsBoolean()
+  isPublished?: boolean;
 }
