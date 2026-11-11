@@ -17,6 +17,7 @@ import { ClockService } from '../../common/clock/clock.service';
 import { DomainError } from '../../common/errors/domain-error';
 import { PrismaService } from '../../database/prisma.service';
 import { type CatchRecord, Prisma } from '../../generated/prisma/client';
+import { UsersService } from '../users/users.service';
 import { WatersService } from '../waters/waters.service';
 import { type CatchData, CatchContextLoader, type LoadedContexts } from './catch-context.loader';
 import type {
@@ -38,6 +39,7 @@ export class CatchesService {
     private readonly prisma: PrismaService,
     private readonly contexts: CatchContextLoader,
     private readonly waters: WatersService,
+    private readonly users: UsersService,
     private readonly clock: ClockService,
   ) {}
 
@@ -57,6 +59,8 @@ export class CatchesService {
 
     try {
       return await this.prisma.$transaction(async (tx) => {
+        // A deletion of the account under way wins: no catch (with its position) after it.
+        await this.users.assertActiveForWrite(tx, userId);
         await lockRegister(tx, userId);
         const stored = await tx.catchRecord.findMany({
           where: { clientId: { in: items.map((item) => item.clientId) } },
@@ -155,7 +159,8 @@ export class CatchesService {
   /**
    * Account deletion (T-26), in the caller's transaction: the catches stay for the statistics
    * of the organizations (docs/07-security.md), without the position — where the angler was.
-   * Under the register lock: a sync already under way commits first and is cleared too.
+   * The caller holds the user row (`lockForDeletion`): a sync that passed it first commits first
+   * and is cleared here too, a later one sees the account deleted.
    */
   async anonymizeAllOfUser(tx: Prisma.TransactionClient, userId: string): Promise<number> {
     await lockRegister(tx, userId);
@@ -241,6 +246,7 @@ export class CatchesService {
     assertKnown(loaded, (_, field) => field);
 
     return this.prisma.$transaction(async (tx) => {
+      await this.users.assertActiveForWrite(tx, userId);
       await lockRegister(tx, userId);
       const kept = await keptOnDays(tx, userId, [next.caughtAt], id);
       const violations = validateCatch({ ...loaded.contextOf(0), sameDayKept: kept, now });

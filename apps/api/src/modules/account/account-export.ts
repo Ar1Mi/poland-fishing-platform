@@ -23,6 +23,18 @@ export interface ExportedInspectionView {
   lng: number | null;
 }
 
+/** A protocol the user wrote as an inspector; the holder of the permit is not named. */
+export interface PerformedInspectionView {
+  id: string;
+  permit: { id: string; number: string };
+  organization: { id: string; name: string };
+  performedAt: Date;
+  result: string;
+  notes: string | null;
+  lat: number | null;
+  lng: number | null;
+}
+
 /**
  * `GET /me/export` (RODO access, docs/05-api.md): everything the platform holds about the user,
  * as one JSON file. Dates are ISO 8601 (UTC), money in grosze; photos are not inside —
@@ -41,7 +53,10 @@ export interface AccountExport {
   externalPermits: ExternalPermitDto[];
   /** Every season, with positions. */
   catches: CatchDto[];
+  /** Inspections of the user's permits. */
   inspections: ExportedInspectionView[];
+  /** Protocols the user wrote as an inspector of an organization. */
+  inspectionsPerformed: PerformedInspectionView[];
   /** Login sessions (refresh tokens): when issued, until when, when ended. */
   sessions: SessionRecord[];
   /** Actions of the user recorded in the audit log, without their details. */

@@ -234,6 +234,8 @@ export class AdminWatersController {
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: WATER_IMPORT_MAX_BYTES, files: 1, fields: 0, parts: 1 },
+      // The file name goes to AuditLog: a Polish name must not arrive as Latin-1 mojibake.
+      defParamCharset: 'utf8',
     }),
   )
   @ApiOperation({

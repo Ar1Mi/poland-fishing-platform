@@ -26,8 +26,6 @@ import {
   TokenDto,
 } from './dto/auth.dto';
 
-/** docs/07-security.md: httpOnly, Secure, SameSite=Strict, sent to the auth routes only. */
-
 const error = { type: ErrorResponseDto };
 
 @ApiTags('auth')

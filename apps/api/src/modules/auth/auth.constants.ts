@@ -18,6 +18,7 @@ export const REFRESH_COOKIE = 'rt';
 /** The browser sends the refresh cookie to the auth routes only. */
 export const REFRESH_COOKIE_PATH = '/api/v1/auth';
 
+/** docs/07-security.md: httpOnly, Secure, SameSite=Strict, sent to the auth routes only. */
 export const REFRESH_COOKIE_OPTIONS: CookieOptions = {
   httpOnly: true,
   secure: true,

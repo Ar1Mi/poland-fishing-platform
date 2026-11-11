@@ -136,23 +136,27 @@ export class MembersService {
     email: string,
   ): Promise<{ left: LeftOrganization[]; cancelledInvitations: number }> {
     const address = normalizeEmail(email);
-    // First: an acceptance under way holds its invitation row, so this waits until its
-    // membership is committed — and the delete of the memberships below sees it.
-    const cancelled = await tx.invitation.deleteMany({
-      where: { email: address, acceptedAt: null },
-    });
-    const organizationIds = [
-      ...new Set(
-        (await tx.membership.findMany({ where: { userId }, select: { organizationId: true } })).map(
-          (membership) => membership.organizationId,
-        ),
-      ),
-    ];
-    // In a fixed order, the lock member changes take: two admins of one organization deleting
-    // their accounts at once cannot both leave it without an admin.
+    // The organizations of the memberships and of the invitations an acceptance could still
+    // turn into one. Locked first, in a fixed order, as member changes do (the organization, then
+    // its invitations — `remove`): two admins of one organization deleting their accounts at
+    // once cannot both leave it without an admin, and an admin removing this member meanwhile
+    // does not deadlock with the deletion.
+    const [members, invited] = await Promise.all([
+      tx.membership.findMany({ where: { userId }, select: { organizationId: true } }),
+      tx.invitation.findMany({
+        where: { email: address, acceptedAt: null },
+        select: { organizationId: true },
+      }),
+    ]);
+    const organizationIds = [...new Set([...members, ...invited].map((row) => row.organizationId))];
     const organizations = await tx.$queryRaw<{ id: string; status: OrganizationStatus }[]>`
       SELECT "id", "status" FROM "Organization" WHERE "id" = ANY(${organizationIds}::uuid[])
       ORDER BY "id" FOR NO KEY UPDATE`;
+    // An acceptance under way holds its invitation row: this waits until its membership is
+    // committed, and the memberships read below include it.
+    const cancelled = await tx.invitation.deleteMany({
+      where: { email: address, acceptedAt: null },
+    });
     const memberships = await tx.membership.findMany({
       where: { userId },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],

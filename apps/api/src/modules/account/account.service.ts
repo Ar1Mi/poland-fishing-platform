@@ -21,6 +21,7 @@ import {
   ACCOUNT_EXPORT_VERSION,
   type AccountExport,
   type ExportedInspectionView,
+  type PerformedInspectionView,
 } from './account-export';
 
 export interface AccountExportFile {
@@ -64,16 +65,25 @@ export class AccountService {
       // The access token outlived the account.
       throw new DomainError(ErrorCode.UNAUTHENTICATED);
     }
-    const [organizations, invitations, permits, externalPermits, catches, sessions, auditLog] =
-      await Promise.all([
-        this.organizations.listForUser(userId),
-        this.invitations.listForEmail(profile.email),
-        this.permits.listForExport(userId),
-        this.externalPermits.list(userId),
-        this.catches.listForExport(userId),
-        this.refreshTokens.listForExport(userId),
-        this.audit.listByActor(userId),
-      ]);
+    const [
+      organizations,
+      invitations,
+      permits,
+      externalPermits,
+      catches,
+      performed,
+      sessions,
+      auditLog,
+    ] = await Promise.all([
+      this.organizations.listForUser(userId),
+      this.invitations.listForEmail(profile.email),
+      this.permits.listForExport(userId),
+      this.externalPermits.list(userId),
+      this.catches.listForExport(userId),
+      this.inspections.listByInspector(userId),
+      this.refreshTokens.listForExport(userId),
+      this.audit.listByActor(userId),
+    ]);
     const permitById = new Map(permits.map((permit) => [permit.id, permit]));
     const inspections = (
       await this.inspections.listOnPermits(permits.map((permit) => permit.id))
@@ -86,6 +96,19 @@ export class AccountService {
         organization: { id: organizationId, name: permit.organization.name },
       };
     });
+    const inspectingOrganizations = await this.organizations.findSummaries([
+      ...new Set(performed.map((inspection) => inspection.organizationId)),
+    ]);
+    const inspectionsPerformed = performed.map(
+      ({ permitId, permitNumber, organizationId, ...inspection }): PerformedInspectionView => ({
+        ...inspection,
+        permit: { id: permitId, number: permitNumber },
+        organization: {
+          id: organizationId,
+          name: inspectingOrganizations.get(organizationId)?.name ?? '',
+        },
+      }),
+    );
     const now = this.clock.now();
     const data: AccountExport = {
       format: ACCOUNT_EXPORT_FORMAT,
@@ -98,6 +121,7 @@ export class AccountService {
       externalPermits,
       catches,
       inspections,
+      inspectionsPerformed,
       sessions,
       auditLog,
     };
@@ -109,9 +133,12 @@ export class AccountService {
 
   /**
    * `DELETE /me`: anonymises the account after the password confirms it is the user (decided by
-   * the user: a stolen access token alone cannot delete). One transaction, in this order of
-   * locks: organizations, tokens, register, external permits, the user row. The photos of the
-   * external permits are removed after the commit.
+   * the user: a stolen access token alone cannot delete). One transaction, its locks in the order
+   * the other transactions of these rows take them (docs/04-data-model.md): email links (a
+   * password reset: link, user row, refresh tokens), the user row (writes of personal data wait
+   * for it — `assertActiveForWrite`), organizations, then their invitations (member changes),
+   * audit entries, refresh tokens, the register, external permits. The photos of the external
+   * permits are removed after the commit.
    */
   async delete(userId: string, password: string): Promise<void> {
     const user = await this.users.findById(userId);
@@ -123,6 +150,8 @@ export class AccountService {
     }
     const photoKeys = await this.prisma.$transaction(
       async (tx) => {
+        await this.oneTimeTokens.deleteAllForUser(userId, tx);
+        await this.users.lockForDeletion(tx, userId);
         const { left, cancelledInvitations } = await this.members.removeDeletedAccount(
           tx,
           userId,
@@ -130,11 +159,10 @@ export class AccountService {
         );
         await this.audit.forgetInvitedEmail(tx, user.email);
         await this.refreshTokens.deleteAllForUser(userId, tx);
-        await this.oneTimeTokens.deleteAllForUser(userId, tx);
         const catchesWithPosition = await this.catches.anonymizeAllOfUser(tx, userId);
         const keys = await this.externalPermits.anonymizeAllOfUser(tx, userId);
+        // Under the row lock taken above: a concurrent deletion has already failed on it.
         if (!(await this.users.anonymize(userId, tx))) {
-          // Deleted by a concurrent request meanwhile.
           throw new DomainError(ErrorCode.UNAUTHENTICATED);
         }
         await this.audit.record(tx, {

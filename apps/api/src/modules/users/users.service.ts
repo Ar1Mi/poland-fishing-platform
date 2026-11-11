@@ -60,6 +60,36 @@ export class UsersService {
     return db.user.findFirst({ where: { id, deletedAt: null } });
   }
 
+  /**
+   * A write of the user's personal data (a catch with its position, an external permit and its
+   * photo) checks the account inside its own transaction: `FOR SHARE` of the `User` row waits for
+   * an account deletion under way (`lockForDeletion`) and then sees it anonymised. Without it a
+   * request that passed the guard just before the deletion committed would attach new data to the
+   * anonymised row. Taken first in the transaction, before the module's own locks — the order of
+   * the deletion. Writes of one user do not wait for each other (`FOR SHARE` is shared).
+   */
+  async assertActiveForWrite(db: Db, id: string): Promise<void> {
+    const [row] = await db.$queryRaw<{ deletedAt: Date | null }[]>`
+      SELECT "deletedAt" FROM "User" WHERE "id" = ${id}::uuid FOR SHARE`;
+    if (!row || row.deletedAt) {
+      throw new DomainError(ErrorCode.UNAUTHENTICATED, undefined, 'Account deleted');
+    }
+  }
+
+  /**
+   * The first lock of an account deletion after the email links (docs/04-data-model.md): the
+   * writes of `assertActiveForWrite` wait for it, and it waits for those under way. `FOR NO KEY
+   * UPDATE` does not stop the foreign-key checks of inserts that reference the user.
+   */
+  async lockForDeletion(db: Db, id: string): Promise<void> {
+    const [row] = await db.$queryRaw<{ deletedAt: Date | null }[]>`
+      SELECT "deletedAt" FROM "User" WHERE "id" = ${id}::uuid FOR NO KEY UPDATE`;
+    if (!row || row.deletedAt) {
+      // Deleted by a concurrent request meanwhile.
+      throw new DomainError(ErrorCode.UNAUTHENTICATED, undefined, 'Account deleted');
+    }
+  }
+
   /** The account exists and is not anonymised: one primary-key lookup per request (guard). */
   async isActive(id: string): Promise<boolean> {
     return (await this.prisma.user.count({ where: { id, deletedAt: null } })) > 0;
@@ -132,15 +162,20 @@ export class UsersService {
     if (changes.birthDate !== undefined) {
       this.assertBirthDate(changes.birthDate);
     }
-    const user = await this.prisma.user.update({
-      where: { id },
+    // Conditional: a change waiting for an account deletion must not write the real name back
+    // over the placeholders once it commits.
+    const { count } = await this.prisma.user.updateMany({
+      where: { id, deletedAt: null },
       data: {
         ...changes,
         birthDate: changes.birthDate === undefined ? undefined : toDate(changes.birthDate),
         anglerCardNo: changes.anglerCardNo === undefined ? undefined : changes.anglerCardNo || null,
       },
     });
-    return toProfile(user);
+    if (count === 0) {
+      throw new DomainError(ErrorCode.UNAUTHENTICATED, undefined, 'Account deleted');
+    }
+    return this.getProfile(id);
   }
 
   /** The RODO export (T-26); null if the account is gone. */

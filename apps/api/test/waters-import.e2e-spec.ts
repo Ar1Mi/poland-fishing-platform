@@ -29,11 +29,11 @@ describe('POST /admin/waters/import', () => {
   let superAdminId: string;
   let userToken: string;
 
-  const upload = (content: string | Buffer, token = superAdminToken) =>
+  const upload = (content: string | Buffer, token = superAdminToken, filename = 'waters.csv') =>
     request(app.getHttpServer())
       .post('/api/v1/admin/waters/import')
       .set({ Authorization: `Bearer ${token}` })
-      .attach('file', Buffer.from(content), { filename: 'waters.csv', contentType: 'text/csv' });
+      .attach('file', Buffer.from(content), { filename, contentType: 'text/csv' });
 
   beforeEach(async () => {
     db = await createTestDatabase();
@@ -208,6 +208,18 @@ describe('POST /admin/waters/import', () => {
     expect(entries[1]).toMatchObject({
       entityId: sha256,
       diff: { created: 0, updated: 1, failedCount: 1 },
+    });
+  });
+
+  it('keeps a Polish file name intact in the audit log', async () => {
+    await upload(
+      csv('RZGW,A,Dobry,LAKE,mazowieckie,,,52,21,'),
+      superAdminToken,
+      'wody-łódzkie.csv',
+    ).expect(200);
+
+    expect((await prisma.auditLog.findFirstOrThrow()).diff).toMatchObject({
+      fileName: 'wody-łódzkie.csv',
     });
   });
 

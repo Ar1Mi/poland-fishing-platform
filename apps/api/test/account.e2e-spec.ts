@@ -18,6 +18,7 @@ import {
   createUser,
   createWater,
 } from './factories';
+import { lockUserTokens } from '../src/modules/auth/refresh-token.service';
 import { untilSomeQueryWaitsForLock } from './lock-helpers';
 
 const PNG = Buffer.from(
@@ -44,6 +45,7 @@ interface ExportFile {
   externalPermits: Record<string, unknown>[];
   catches: Record<string, unknown>[];
   inspections: Record<string, unknown>[];
+  inspectionsPerformed: Record<string, unknown>[];
   sessions: Record<string, unknown>[];
   auditLog: Record<string, unknown>[];
 }
@@ -177,6 +179,24 @@ describe('account: RODO export and deletion (T-26)', () => {
   describe('GET /me/export', () => {
     it('is a JSON attachment of everything about the user that no cache keeps', async () => {
       const { organization, permit, external, onPermit, onExternal } = await seedData();
+      // The user is also an inspector of the organization: their protocols are their data too.
+      const holder = await createUser(prisma, { firstName: 'Ewa', lastName: 'Zielińska' });
+      const inspected = await createPermit(prisma, {
+        userId: holder.id,
+        permitTypeId: permit.permitTypeId,
+        number: 'ZW-2026-000002',
+      });
+      await prisma.inspection.create({
+        data: {
+          inspectorId: userId,
+          permitId: inspected.id,
+          organizationId: organization.id,
+          result: 'VIOLATION',
+          notes: 'Brak karty wędkarskiej',
+          lat: 52.5,
+          lng: 21.2,
+        },
+      });
       const inviting = await createOrganization(prisma, { status: 'ACTIVE' });
       await prisma.invitation.create({
         data: {
@@ -238,6 +258,16 @@ describe('account: RODO export and deletion (T-26)', () => {
             notes: 'Bez uwag',
           },
         ],
+        inspectionsPerformed: [
+          {
+            permit: { id: inspected.id, number: 'ZW-2026-000002' },
+            organization: { id: organization.id, name: organization.name },
+            result: 'VIOLATION',
+            notes: 'Brak karty wędkarskiej',
+            lat: 52.5,
+            lng: 21.2,
+          },
+        ],
         sessions: [{ revokedAt: null }],
         auditLog: [{ action: 'INVITATION_ACCEPTED', entity: 'Invitation' }],
       });
@@ -256,6 +286,8 @@ describe('account: RODO export and deletion (T-26)', () => {
         'invitation-hash',
         'Anna',
         'Nowak',
+        'Ewa',
+        'Zielińska',
         '"diff"',
       ]) {
         expect(text).not.toContain(absent);
@@ -279,6 +311,7 @@ describe('account: RODO export and deletion (T-26)', () => {
         externalPermits: [],
         catches: [],
         inspections: [],
+        inspectionsPerformed: [],
       });
     });
 
@@ -560,7 +593,7 @@ describe('account: RODO export and deletion (T-26)', () => {
       ).toBe(1);
     });
 
-    it('limits password attempts per account', async () => {
+    it('limits password attempts per account, not per address, and not the login', async () => {
       for (let attempt = 0; attempt < 5; attempt += 1) {
         await deleteAccount('wrong password').expect(401);
       }
@@ -569,12 +602,224 @@ describe('account: RODO export and deletion (T-26)', () => {
 
       expect((response.body as ErrorBody).code).toBe('RATE_LIMITED');
       expect((await prisma.user.findUniqueOrThrow({ where: { id: userId } })).deletedAt).toBeNull();
+      // From the same address: another account may still confirm, and logging in still works.
+      const other = await createVerifiedUser(prisma);
+      const { accessToken: otherToken } = await login(app, other.email);
+      await deleteAccount('wrong password', otherToken).expect(401);
+      await login(app, EMAIL);
+    });
+
+    it('does not deadlock with an admin removing the member at the same time', async () => {
+      const organization = await joinOrganization(['INSPECTOR']);
+      await prisma.invitation.create({
+        data: {
+          organizationId: organization.id,
+          email: EMAIL,
+          role: 'ORG_ADMIN',
+          tokenHash: randomUUID(),
+          expiresAt: new Date('2026-10-10T00:00:00.000Z'),
+        },
+      });
+      // As MembersService.remove: the organization first, then the member's invitations.
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => (release = resolve));
+      const removal = prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`
+          SELECT "id" FROM "Organization" WHERE "id" = ${organization.id}::uuid FOR NO KEY UPDATE`;
+        await held;
+        await tx.membership.deleteMany({ where: { organizationId: organization.id, userId } });
+        await tx.invitation.deleteMany({
+          where: { organizationId: organization.id, email: EMAIL, acceptedAt: null },
+        });
+      });
+      const deletion = deleteAccount().then((response) => response);
+      await untilSomeQueryWaitsForLock(prisma);
+      release();
+
+      await removal;
+      expect((await deletion).status).toBe(204);
+      expect(await prisma.invitation.count()).toBe(0);
+    });
+
+    it('does not deadlock with a password reset at the same time', async () => {
+      const link = await prisma.oneTimeToken.create({
+        data: {
+          userId,
+          purpose: 'PASSWORD_RESET',
+          tokenHash: 'reset-hash',
+          expiresAt: new Date('2026-10-07T00:00:00.000Z'),
+        },
+      });
+      // As AuthService.resetPassword: the link, the user row, then the refresh tokens.
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => (release = resolve));
+      const reset = prisma.$transaction(async (tx) => {
+        await tx.oneTimeToken.update({ where: { id: link.id }, data: { usedAt: FIXED_NOW } });
+        await held;
+        await tx.user.update({ where: { id: userId }, data: { passwordHash: 'changed' } });
+        await lockUserTokens(tx, userId);
+        await tx.refreshToken.updateMany({
+          where: { userId, revokedAt: null },
+          data: { revokedAt: FIXED_NOW },
+        });
+      });
+      const deletion = deleteAccount().then((response) => response);
+      await untilSomeQueryWaitsForLock(prisma);
+      release();
+
+      await reset;
+      expect((await deletion).status).toBe(204);
+      expect(await prisma.oneTimeToken.count()).toBe(0);
+    });
+
+    it('removes the membership of an invitation accepted while the account is deleted', async () => {
+      const organization = await createOrganization(prisma, { status: 'ACTIVE' });
+      const invitation = await prisma.invitation.create({
+        data: {
+          organizationId: organization.id,
+          email: EMAIL,
+          role: 'INSPECTOR',
+          tokenHash: randomUUID(),
+          expiresAt: new Date('2026-10-10T00:00:00.000Z'),
+        },
+      });
+      // As InvitationsService.accept: the invitation row, then the membership.
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => (release = resolve));
+      const acceptance = prisma.$transaction(async (tx) => {
+        await tx.invitation.update({
+          where: { id: invitation.id },
+          data: { acceptedAt: FIXED_NOW },
+        });
+        await tx.membership.create({
+          data: { organizationId: organization.id, userId, role: 'INSPECTOR' },
+        });
+        await held;
+      });
+      const deletion = deleteAccount().then((response) => response);
+      await untilSomeQueryWaitsForLock(prisma);
+      release();
+
+      await acceptance;
+      expect((await deletion).status).toBe(204);
+      expect(await prisma.membership.count({ where: { userId } })).toBe(0);
+      expect(
+        (await prisma.invitation.findUniqueOrThrow({ where: { id: invitation.id } })).email,
+      ).toBe(`deleted-${userId}@anonymized.invalid`);
     });
 
     it('answers 401 to a second deletion with the same token', async () => {
       await deleteAccount().expect(204);
 
       await deleteAccount().expect(401);
+    });
+  });
+
+  describe('a write that passed the guard while the account is being deleted', () => {
+    /**
+     * A deletion in progress holds the user row (`lockForDeletion`) and anonymises it: the
+     * request, authenticated just before, waits for it and must then find the account gone.
+     */
+    const duringDeletion = async (send: () => request.Test) => {
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => (release = resolve));
+      const deletion = prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${userId}::uuid FOR NO KEY UPDATE`;
+        await tx.user.update({ where: { id: userId }, data: { deletedAt: FIXED_NOW } });
+        await held;
+      });
+      const response = send().then((sent) => sent);
+      await untilSomeQueryWaitsForLock(prisma);
+      release();
+      await deletion;
+      return response;
+    };
+    const expectDeleted = (response: request.Response) => {
+      expect(response.status).toBe(401);
+      expect((response.body as ErrorBody).code).toBe('UNAUTHENTICATED');
+    };
+
+    it('records no catch with its position', async () => {
+      const water = await createWater(prisma);
+      const { id: speciesId } = await createSpecies(prisma);
+      const external = await createExternalPermit(prisma, {
+        userId,
+        waters: { connect: [{ id: water.id }] },
+      });
+
+      const response = await duringDeletion(() =>
+        request(server())
+          .post('/api/v1/catches/sync')
+          .set(bearer(accessToken))
+          .send({
+            items: [
+              {
+                clientId: randomUUID(),
+                permitId: null,
+                externalPermitId: external.id,
+                fishingWaterId: water.id,
+                speciesId,
+                caughtAt: '2026-10-06T08:00:00.000Z',
+                lengthCm: 30,
+                weightG: null,
+                kept: false,
+                lat: 52.43,
+                lng: 21.03,
+              },
+            ],
+          }),
+      );
+
+      expectDeleted(response);
+      expect(await prisma.catchRecord.count()).toBe(0);
+    });
+
+    it('creates no external permit', async () => {
+      const water = await createWater(prisma);
+
+      const response = await duringDeletion(() =>
+        request(server())
+          .post('/api/v1/me/external-permits')
+          .set(bearer(accessToken))
+          .send({
+            issuerName: 'Okręg PZW Warszawa',
+            number: 'PZW/1/2026',
+            validFrom: '2026-01-01',
+            validTo: '2026-12-31',
+            waterIds: [water.id],
+          }),
+      );
+
+      expectDeleted(response);
+      expect(await prisma.externalPermit.count()).toBe(0);
+    });
+
+    it('stores no photo of an external permit', async () => {
+      const external = await createExternalPermit(prisma, { userId });
+
+      const response = await duringDeletion(() =>
+        request(server())
+          .put(`/api/v1/me/external-permits/${external.id}/photo`)
+          .set(bearer(accessToken))
+          .attach('file', PNG, { filename: 'zezwolenie.png', contentType: 'image/png' }),
+      );
+
+      expectDeleted(response);
+      expect(
+        (await prisma.externalPermit.findUniqueOrThrow({ where: { id: external.id } })).photoKey,
+      ).toBeNull();
+      expect(await photoFiles()).toEqual([]);
+    });
+
+    it('writes no name over the placeholders', async () => {
+      const response = await duringDeletion(() =>
+        request(server()).patch('/api/v1/me').set(bearer(accessToken)).send({ firstName: 'Janek' }),
+      );
+
+      expectDeleted(response);
+      expect((await prisma.user.findUniqueOrThrow({ where: { id: userId } })).firstName).toBe(
+        'Jan',
+      );
     });
   });
 });
