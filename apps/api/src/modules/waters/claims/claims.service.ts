@@ -147,7 +147,7 @@ export class ClaimsService {
     const status = approve ? ClaimStatus.APPROVED : ClaimStatus.REJECTED;
 
     await this.prisma.$transaction(async (tx) => {
-      let rejectedClaimIds: string[] = [];
+      let rivals: { id: string; organizationId: string }[] = [];
       if (approve) {
         // The water row is locked first: a concurrent approval of another claim of this water
         // waits here and then sees CONNECTED, instead of deadlocking on the claim rows.
@@ -168,12 +168,11 @@ export class ClaimsService {
       await this.closePending(tx, id, { status, comment, ...reviewed });
       if (approve) {
         // This claim is no longer PENDING, so only the rivals of other organizations match.
-        const rejected = await tx.waterClaim.updateManyAndReturn({
+        rivals = await tx.waterClaim.updateManyAndReturn({
           where: { fishingWaterId: claim.fishingWaterId, status: ClaimStatus.PENDING },
           data: { status: ClaimStatus.REJECTED, ...reviewed },
-          select: { id: true },
+          select: { id: true, organizationId: true },
         });
-        rejectedClaimIds = rejected.map((other) => other.id);
       }
       await this.audit.record(tx, {
         actorId,
@@ -185,9 +184,25 @@ export class ClaimsService {
           fishingWaterId: claim.fishingWaterId,
           organizationId: claim.organizationId,
           comment,
-          ...(approve ? { rejectedClaimIds } : {}),
+          ...(approve ? { rejectedClaimIds: rivals.map((rival) => rival.id) } : {}),
         },
       });
+      // Each rival gets an entry of its own (T-26): the history of a claim is found by its id.
+      for (const rival of rivals) {
+        await this.audit.record(tx, {
+          actorId,
+          action: 'CLAIM_REJECTED',
+          entity: 'WaterClaim',
+          entityId: rival.id,
+          diff: {
+            status: { from: ClaimStatus.PENDING, to: ClaimStatus.REJECTED },
+            fishingWaterId: claim.fishingWaterId,
+            organizationId: rival.organizationId,
+            comment: null,
+            approvedClaimId: id,
+          },
+        });
+      }
     });
     this.logger.info(
       { claimId: id, decision: dto.decision, fishingWaterId: claim.fishingWaterId },

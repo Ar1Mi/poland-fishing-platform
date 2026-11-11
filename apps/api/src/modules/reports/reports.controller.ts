@@ -11,6 +11,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { ErrorResponseDto } from '../../common/errors/error-response.dto';
+import { Audit, AuditedResponse } from '../audit/audit.interceptor';
 import { Roles } from '../organizations/decorators/org-access.decorators';
 import { OrgStatsDto, StatsQueryDto } from './dto/stats.dto';
 import { ReportsService } from './reports.service';
@@ -48,14 +49,22 @@ export class ReportsController {
   })
   @ApiProduces('text/csv')
   @ApiOkResponse({ schema: { type: 'string', format: 'binary' } })
+  // The file names permits of the organization's anglers: who exported which period (T-26).
+  @Audit()
   async catchesCsv(
     @Param('orgId') orgId: string,
     @Query() query: StatsQueryDto,
-  ): Promise<StreamableFile> {
-    const { fileName, content } = await this.reports.catchesCsv(orgId, query);
-    return new StreamableFile(content, {
+  ): Promise<AuditedResponse<StreamableFile>> {
+    const { fileName, content, range, rows } = await this.reports.catchesCsv(orgId, query);
+    const file = new StreamableFile(content, {
       type: 'text/csv; charset=utf-8',
       disposition: `attachment; filename="${fileName}"`,
+    });
+    return new AuditedResponse(file, {
+      action: 'CATCHES_EXPORTED',
+      entity: 'Organization',
+      entityId: orgId,
+      diff: { from: range.from, to: range.to, rows },
     });
   }
 }

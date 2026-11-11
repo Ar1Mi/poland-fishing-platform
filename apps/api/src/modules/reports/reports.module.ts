@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuditModule } from '../audit/audit.module';
 import { CatchesModule } from '../catches/catches.module';
 import { OrganizationsModule } from '../organizations/organizations.module';
 import { PermitsModule } from '../permits/permits.module';
@@ -11,7 +12,7 @@ import { ReportsService } from './reports.service';
  * found by joining the relation of its permits that PermitsModule hands over.
  */
 @Module({
-  imports: [PermitsModule, CatchesModule, OrganizationsModule],
+  imports: [PermitsModule, CatchesModule, OrganizationsModule, AuditModule],
   controllers: [ReportsController],
   providers: [ReportsService],
 })

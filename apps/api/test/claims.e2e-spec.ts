@@ -372,7 +372,7 @@ describe('water claims', () => {
       expect(
         (await prisma.waterClaim.findUniqueOrThrow({ where: { id: unrelated.id } })).status,
       ).toBe('PENDING');
-      expect(await prisma.auditLog.findMany()).toEqual([
+      expect(await prisma.auditLog.findMany({ orderBy: { action: 'asc' } })).toEqual([
         expect.objectContaining({
           actorId: superAdminId,
           action: 'CLAIM_APPROVED',
@@ -384,6 +384,20 @@ describe('water claims', () => {
             organizationId: admin.organizationId,
             comment: null,
             rejectedClaimIds: [rival.id],
+          },
+        }),
+        // The rival's history is found by its own id (T-26).
+        expect.objectContaining({
+          actorId: superAdminId,
+          action: 'CLAIM_REJECTED',
+          entity: 'WaterClaim',
+          entityId: rival.id,
+          diff: {
+            status: { from: 'PENDING', to: 'REJECTED' },
+            fishingWaterId: water.id,
+            organizationId: rival.organizationId,
+            comment: null,
+            approvedClaimId: claim.id,
           },
         }),
       ]);
@@ -455,7 +469,12 @@ describe('water claims', () => {
       ]).toContainEqual(loserOutcome(responses));
       const statuses = await prisma.waterClaim.findMany({ select: { status: true } });
       expect(statuses.map((claim) => claim.status).sort()).toEqual(['APPROVED', 'REJECTED']);
-      expect(await prisma.auditLog.count()).toBe(1);
+      // The winner's approval, and the loser rejected as its rival.
+      const entries = await prisma.auditLog.findMany({ select: { action: true } });
+      expect(entries.map((entry) => entry.action).sort()).toEqual([
+        'CLAIM_APPROVED',
+        'CLAIM_REJECTED',
+      ]);
     });
 
     it('answers CLAIM_NOT_PENDING to the second of two approvals of the same claim', async () => {

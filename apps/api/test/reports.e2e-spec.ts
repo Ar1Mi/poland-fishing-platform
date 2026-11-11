@@ -363,12 +363,58 @@ describe('statistics and catch export of an organization (FR-19)', () => {
         .body as ErrorBody;
 
       expect(body.details.fields).toEqual({ to: ['to must not be before from'] });
+      expect(await prisma.auditLog.count()).toBe(0);
+    });
+
+    it('records who exported which period of the organization and how many catches', async () => {
+      const { id: permitId } = await permit();
+      await fish(permitId);
+      await fish(permitId, { caughtAt: new Date('2026-03-01T08:00:00.000Z') });
+
+      await csv({ from: '2026-10-01', to: '2026-10-31' });
+      // Without a period: the current season is what the file holds.
+      await csv();
+
+      expect(
+        await prisma.auditLog.findMany({
+          select: { actorId: true, action: true, entity: true, entityId: true, diff: true },
+          orderBy: { createdAt: 'asc' },
+        }),
+      ).toEqual([
+        {
+          actorId: admin.userId,
+          action: 'CATCHES_EXPORTED',
+          entity: 'Organization',
+          entityId: admin.organizationId,
+          diff: { from: '2026-10-01', to: '2026-10-31', rows: 1 },
+        },
+        {
+          actorId: admin.userId,
+          action: 'CATCHES_EXPORTED',
+          entity: 'Organization',
+          entityId: admin.organizationId,
+          diff: { from: '2026-01-01', to: '2026-12-31', rows: 2 },
+        },
+      ]);
+    });
+
+    it('does not hand out the file when its audit entry cannot be written', async () => {
+      // The entry fails to insert: the export must fail with it, not leave unrecorded.
+      await prisma.$executeRawUnsafe(
+        'ALTER TABLE "AuditLog" ADD CONSTRAINT no_exports CHECK ("action" <> \'CATCHES_EXPORTED\')',
+      );
+
+      const response = await get('catches.csv').expect(500);
+
+      expect(response.headers['content-type']).toMatch(/^application\/json/);
+      expect(response.body).toMatchObject({ code: 'INTERNAL_ERROR' });
     });
 
     it('is closed to an inspector of the organization', async () => {
       const inspector = await loginOrgMember(app, prisma, 'INSPECTOR');
 
       await get('catches.csv', {}, inspector).expect(403);
+      expect(await prisma.auditLog.count()).toBe(0);
     });
 
     it('is closed to the admin of another organization', async () => {
