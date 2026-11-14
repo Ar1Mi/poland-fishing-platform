@@ -288,12 +288,15 @@ describe('water suggestions and the catalogue of the super admin (FR-25)', () =>
       const water = await createWater(prisma, { name: 'Nysa', lat: 50.9, lng: 14.0 });
 
       await patch(water.id, { name: 'Nysa Łużycka' }).expect(200);
+      // A new latitude, in range on its own, with the stored longitude lies outside Poland:
+      // the changed position is checked as a whole (each coordinate's range is the DTO's).
+      const moved = await patch(water.id, { lat: 51.0 }).expect(400);
+      expect((moved.body as ErrorBody).details?.fields).toEqual({
+        lat: ['lat/lng must lie in Poland (are they swapped?)'],
+      });
       expect(
-        Object.keys(
-          ((await patch(water.id, { lng: 13.9 }).expect(400)).body as ErrorBody).details?.fields ??
-            {},
-        ),
-      ).toEqual(['lat']);
+        await prisma.fishingWater.findUniqueOrThrow({ where: { id: water.id } }),
+      ).toMatchObject({ name: 'Nysa Łużycka', lat: 50.9, lng: 14.0 });
     });
   });
 
