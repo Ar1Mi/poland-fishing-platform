@@ -170,6 +170,9 @@
     "type": "Wybierz zdjęcie JPEG, PNG lub WebP.",
     "tooBig": "Zdjęcie jest większe niż {{mb}} MB.",
     "submit": "Zapisz zdjęcie",
-    "remove": "Usuń zdjęcie"
+    "remove": "Usuń zdjęcie",
+    "show": "Pokaż zdjęcie",
+    "showLabel": "Pokaż zdjęcie połowu: {{name}}",
+    "saved": "Zdjęcie zapisane."
   }
 }

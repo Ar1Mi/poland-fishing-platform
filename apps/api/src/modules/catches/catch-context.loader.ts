@@ -56,13 +56,14 @@ export class CatchContextLoader {
       ...new Set(catches.flatMap((fish) => pick(fish) ?? [])),
     ];
     const waterIds = ids((fish) => fish.fishingWaterId);
-    const [permits, protection, waterNames, onWaters, general] = await Promise.all([
+    const [permits, protection, waterNames, published, onWaters, general] = await Promise.all([
       this.permits.find(userId, {
         permitIds: ids((fish) => fish.permitId),
         externalPermitIds: ids((fish) => fish.externalPermitId),
       }),
       this.species.findProtection(ids((fish) => fish.speciesId)),
       this.waters.findNames(waterIds),
+      this.waters.findPublishedIds(waterIds),
       this.rules.effectiveOnWaters(waterIds),
       // An external permit is checked against the general rules only (02-business-rules.md).
       catches.some((fish) => fish.externalPermitId !== null)
@@ -79,7 +80,14 @@ export class CatchContextLoader {
       if (!permitOf(fish)) {
         missing.push(fish.permitId !== null ? 'permitId' : 'externalPermitId');
       }
-      if (!waterNames.has(fish.fishingWaterId)) {
+      // A water out of the catalogue (an angler's suggestion on moderation, T-27) is unknown,
+      // unless the catch's own permit covers it: an external permit keeps a water that left the
+      // catalogue (T-22). Otherwise a catch could tie a suggestion to the register for good.
+      const permit = permitOf(fish);
+      if (
+        !waterNames.has(fish.fishingWaterId) ||
+        (!published.has(fish.fishingWaterId) && !permit?.waterIds.includes(fish.fishingWaterId))
+      ) {
         missing.push('fishingWaterId');
       }
       if (!protection.has(fish.speciesId)) {

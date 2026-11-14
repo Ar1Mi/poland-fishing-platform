@@ -28,6 +28,7 @@ export function DeviceSync() {
     () =>
       subscribeSynced(() => {
         void queryClient.invalidateQueries({ queryKey: ['me', 'catches'] });
+        void queryClient.invalidateQueries({ queryKey: ['me', 'stats'] });
       }),
     [queryClient],
   );

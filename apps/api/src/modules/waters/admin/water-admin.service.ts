@@ -85,10 +85,14 @@ export class WaterAdminService {
           diff[field] = { from: stored[field], to: value };
         }
       }
-      assertPosition(
-        diff.lat ? (diff.lat.to as number | null) : stored.lat,
-        diff.lng ? (diff.lng.to as number | null) : stored.lng,
-      );
+      // Only a new position is checked: a row imported with a position just outside the box
+      // (the geocoder is limited by country, not by it) can still be renamed or published.
+      if (diff.lat || diff.lng) {
+        assertPosition(
+          diff.lat ? (diff.lat.to as number | null) : stored.lat,
+          diff.lng ? (diff.lng.to as number | null) : stored.lng,
+        );
+      }
       if (Object.keys(diff).length === 0) {
         return stored;
       }
@@ -110,7 +114,13 @@ export class WaterAdminService {
 
   /**
    * Removes an unpublished row (a rejected suggestion). A published water stays: catches,
-   * permits and claims may point at it, and anglers know its address.
+   * permits and claims may point at it, and anglers know its address. An unpublished row has
+   * never been published (`PATCH` cannot hide a water again), so nothing of the other modules
+   * refers to it: permit types and rules need a connected water, external permits and claims a
+   * published one, and a catch a water of the catalogue or of its own permit. Some of those
+   * links cascade (`_FishingWaterToPermitType`, `_ExternalPermitToFishingWater`,
+   * `SpeciesRule`), so this invariant, not the foreign keys, is what keeps them; the keys that
+   * restrict (claims, catches) still answer a race with `WATER_IN_USE`.
    */
   async delete(actorId: string, id: string): Promise<void> {
     let photoKey: string | null;

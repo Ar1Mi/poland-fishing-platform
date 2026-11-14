@@ -1,5 +1,5 @@
 import { CATCH_PHOTO_MAX_BYTES, CATCH_PHOTO_MIME_TYPES, isCatchPhotoType } from '@lowisko/shared';
-import { ImageUp, LoaderCircle, Trash2 } from 'lucide-react';
+import { Image, ImageUp, LoaderCircle, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
@@ -14,9 +14,10 @@ import {
 } from '../api/useCatches';
 
 /**
- * The photo of a catch in its register row (FR-14): shown when there is one, fetched with the
- * token; within the BR-07 window it is added, replaced or removed here. Nothing is rendered for
- * a closed catch without a photo.
+ * The photo of a catch in its register row (FR-14). A photo is fetched with the token only when
+ * asked for («Pokaż zdjęcie»): a season is one page, and each original may be 5 MB of mobile data
+ * (review T-27). Within the BR-07 window it is added, replaced or removed here. Nothing is
+ * rendered for a closed catch without a photo.
  */
 export function CatchPhoto({
   fish,
@@ -29,13 +30,22 @@ export function CatchPhoto({
   alt: string;
 }) {
   const { t } = useTranslation();
+  const [shown, setShown] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [inputKey, setInputKey] = useState(0);
+  const [saved, setSaved] = useState(false);
   const upload = useSetCatchPhoto(fish.id);
   const remove = useDeleteCatchPhoto(fish.id);
-  // The removed photo takes its button with it: the file field gets the focus.
+  // The button of a removed photo, or the input of a saved one, is gone: the file field — a new
+  // element after a save — gets the focus.
   const fileInput = useRef<HTMLInputElement>(null);
+  const [focusInput, setFocusInput] = useState(0);
+  useEffect(() => {
+    if (focusInput > 0) {
+      fileInput.current?.focus();
+    }
+  }, [focusInput]);
   const hasPhoto = fish.photoType !== null;
 
   if (!hasPhoto && !editable) {
@@ -44,6 +54,7 @@ export function CatchPhoto({
 
   const choose = (chosen: File | undefined) => {
     setFile(chosen ?? null);
+    setSaved(false);
     upload.reset();
     // An empty type (unknown to the browser) is left to the API, which reads the content.
     setFileError(
@@ -57,13 +68,32 @@ export function CatchPhoto({
 
   return (
     <div className="flex flex-col gap-3">
-      {hasPhoto && <PhotoImage id={fish.id} alt={alt} />}
+      {hasPhoto && shown && <PhotoImage id={fish.id} alt={alt} />}
+      {hasPhoto && !shown && (
+        <Button
+          variant="secondary"
+          className="w-fit"
+          aria-label={t('catches.photo.showLabel', { name: alt })}
+          onClick={() => setShown(true)}
+        >
+          <Image aria-hidden />
+          {t('catches.photo.show')}
+        </Button>
+      )}
       {hasPhoto && editable && (
         <Button
           variant="ghost"
           className="w-fit"
           disabled={remove.isPending}
-          onClick={() => remove.mutate(undefined, { onSuccess: () => fileInput.current?.focus() })}
+          onClick={() =>
+            remove.mutate(undefined, {
+              onSuccess: () => {
+                setShown(false);
+                setSaved(false);
+                setFocusInput((count) => count + 1);
+              },
+            })
+          }
         >
           <Trash2 aria-hidden />
           {t('catches.photo.remove')}
@@ -82,6 +112,9 @@ export function CatchPhoto({
                   setFile(null);
                   // A new input: the chosen file is not offered again.
                   setInputKey((key) => key + 1);
+                  setShown(true);
+                  setSaved(true);
+                  setFocusInput((count) => count + 1);
                 },
               });
             }
@@ -101,6 +134,11 @@ export function CatchPhoto({
             onChange={(event) => choose(event.target.files?.[0])}
           />
           {upload.isError && <ApiErrorAlert error={upload.error} />}
+          {saved && (
+            <p role="status" className="text-small text-muted-foreground">
+              {t('catches.photo.saved')}
+            </p>
+          )}
           {file && !fileError && (
             <Button type="submit" variant="secondary" className="w-fit" disabled={upload.isPending}>
               <ImageUp aria-hidden />

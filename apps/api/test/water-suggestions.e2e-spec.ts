@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import type { PrismaService } from '../src/database/prisma.service';
@@ -5,7 +6,15 @@ import { createVerifiedUser, login } from './auth-helpers';
 import { createTestApp } from './create-test-app';
 import { prismaServiceFor } from './db/prisma-service';
 import { createTestDatabase, type TestDatabase } from './db/test-database';
-import { createClaim, createOrganization, createWater } from './factories';
+import {
+  createCatch,
+  createClaim,
+  createExternalPermit,
+  createOrganization,
+  createPermit,
+  createSpecies,
+  createWater,
+} from './factories';
 
 const UNKNOWN_ID = '00000000-0000-4000-8000-000000000000';
 
@@ -251,6 +260,107 @@ describe('water suggestions and the catalogue of the super admin (FR-25)', () =>
     });
   });
 
+  describe('PATCH /admin/waters/:id — what it refuses', () => {
+    it('refuses null in a required field instead of failing', async () => {
+      const { id } = await suggested();
+
+      for (const field of ['name', 'type', 'region', 'isPublished']) {
+        const response = await patch(id, { [field]: null }).expect(400);
+        expect((response.body as ErrorBody).details?.fields).toHaveProperty(field);
+      }
+      expect(await prisma.auditLog.count()).toBe(0);
+    });
+
+    it('never hides a published water again: permits, rules and catches may refer to it', async () => {
+      const published = await createWater(prisma, { name: 'Narew' });
+      const { id } = await suggested();
+
+      const response = await patch(published.id, { isPublished: false }).expect(400);
+      expect((response.body as ErrorBody).details?.fields).toHaveProperty('isPublished');
+      await patch(id, { isPublished: false }).expect(400);
+      expect(
+        (await prisma.fishingWater.findUniqueOrThrow({ where: { id: published.id } })).isPublished,
+      ).toBe(true);
+    });
+
+    it('checks the position only when it changes', async () => {
+      // Imported with a position just outside the box: the geocoder is limited by country.
+      const water = await createWater(prisma, { name: 'Nysa', lat: 50.9, lng: 14.0 });
+
+      await patch(water.id, { name: 'Nysa Łużycka' }).expect(200);
+      expect(
+        Object.keys(
+          ((await patch(water.id, { lng: 13.9 }).expect(400)).body as ErrorBody).details?.fields ??
+            {},
+        ),
+      ).toEqual(['lat']);
+    });
+  });
+
+  describe('a suggestion and the register of catches', () => {
+    it('refuses a catch on a suggestion, so it stays possible to reject it', async () => {
+      const { id } = await suggested();
+      const { id: speciesId } = await createSpecies(prisma);
+      const permit = await createPermit(prisma, { userId: angler.id, status: 'PAID' });
+
+      const response = await request(server())
+        .post('/api/v1/catches/sync')
+        .set(bearer(angler.accessToken))
+        .send({
+          items: [
+            {
+              clientId: randomUUID(),
+              permitId: permit.id,
+              externalPermitId: null,
+              fishingWaterId: id,
+              speciesId,
+              caughtAt: '2026-10-06T08:00:00.000Z',
+              lengthCm: 30,
+              kept: false,
+            },
+          ],
+        })
+        .expect(400);
+
+      expect((response.body as ErrorBody).details?.fields).toEqual({
+        'items.0.fishingWaterId': ['Unknown fishingWaterId'],
+      });
+      await remove(id).expect(204);
+    });
+
+    it('still records a catch on a water that left the catalogue but is on the permit (T-22)', async () => {
+      const left = await createWater(prisma, { name: 'Stary staw', isPublished: false });
+      const { id: speciesId } = await createSpecies(prisma);
+      const external = await createExternalPermit(prisma, {
+        userId: angler.id,
+        waters: { connect: [{ id: left.id }] },
+      });
+
+      const response = await request(server())
+        .post('/api/v1/catches/sync')
+        .set(bearer(angler.accessToken))
+        .send({
+          items: [
+            {
+              clientId: randomUUID(),
+              permitId: null,
+              externalPermitId: external.id,
+              fishingWaterId: left.id,
+              speciesId,
+              caughtAt: '2026-10-06T08:00:00.000Z',
+              lengthCm: 30,
+              kept: false,
+            },
+          ],
+        })
+        .expect(200);
+
+      expect((response.body as { results: { status: string }[] }).results).toEqual([
+        expect.objectContaining({ status: 'ACCEPTED' }),
+      ]);
+    });
+  });
+
   describe('DELETE /admin/waters/:id', () => {
     it('removes a suggestion with an audit entry', async () => {
       const { id } = await suggested();
@@ -281,8 +391,20 @@ describe('water suggestions and the catalogue of the super admin (FR-25)', () =>
       const organizationId = (await createOrganization(prisma, { status: 'ACTIVE' })).id;
       await createClaim(prisma, { fishingWaterId: hidden.id, organizationId });
       expect(((await remove(hidden.id).expect(409)).body as ErrorBody).code).toBe('WATER_IN_USE');
+      // A catch written past the API (data from before T-27): the database refuses too.
+      const withCatch = await createWater(prisma, { isPublished: false });
+      const { id: speciesId } = await createSpecies(prisma);
+      await createCatch(prisma, {
+        userId: angler.id,
+        fishingWaterId: withCatch.id,
+        speciesId,
+        permitId: (await createPermit(prisma, { userId: angler.id })).id,
+      });
+      expect(((await remove(withCatch.id).expect(409)).body as ErrorBody).code).toBe(
+        'WATER_IN_USE',
+      );
 
-      expect(await prisma.fishingWater.count()).toBe(2);
+      expect(await prisma.fishingWater.count()).toBe(3);
       expect(await prisma.auditLog.count()).toBe(0);
     });
 

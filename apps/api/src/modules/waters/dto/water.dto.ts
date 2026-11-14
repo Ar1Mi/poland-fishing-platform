@@ -20,6 +20,7 @@ import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsEnum,
+  IsIn,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -30,7 +31,7 @@ import {
   Min,
   ValidateBy,
 } from 'class-validator';
-import { trim } from '../../users/dto/profile.dto';
+import { IfPresent, trim } from '../../users/dto/profile.dto';
 
 const type = { enum: Object.values(WaterType), enumName: 'WaterType' };
 const status = { enum: Object.values(WaterStatus), enumName: 'WaterStatus' };
@@ -316,25 +317,25 @@ const isHttpUrl = (value: unknown) =>
   typeof value === 'string' && URL.canParse(value) && /^https?:$/.test(new URL(value).protocol);
 
 /**
- * `PATCH /admin/waters/:id`: a missing field stays. `lat` and `lng` go together (both numbers in
- * Poland, or both null); `isPublished: true` publishes a suggestion. The next CSV import of an
+ * `PATCH /admin/waters/:id`: a missing field stays, `null` clears only the nullable ones. `lat` and
+ * `lng` go together (both numbers in Poland, or both null); `isPublished: true` publishes a suggestion. The next CSV import of an
  * imported row overwrites its catalogue fields again (the file stays the source of truth).
  */
 export class UpdateWaterDto {
   @ApiPropertyOptional({ minLength: WATER_NAME_MIN_LENGTH, maxLength: WATER_NAME_MAX_LENGTH })
-  @IsOptional()
+  @IfPresent()
   @Transform(trim)
   @IsString()
   @Length(WATER_NAME_MIN_LENGTH, WATER_NAME_MAX_LENGTH)
   name?: string;
 
   @ApiPropertyOptional(type)
-  @IsOptional()
+  @IfPresent()
   @IsEnum(WaterType)
   type?: WaterType;
 
   @ApiPropertyOptional({ enum: REGIONS, enumName: 'Region' })
-  @IsOptional()
+  @IfPresent()
   @isVoivodeship
   region?: Region;
 
@@ -372,8 +373,13 @@ export class UpdateWaterDto {
   @MaxLength(500)
   externalInfoUrl?: string | null;
 
-  @ApiPropertyOptional({ description: 'true publishes a suggestion; false hides a row again' })
-  @IsOptional()
-  @IsBoolean()
-  isPublished?: boolean;
+  @ApiPropertyOptional({
+    enum: [true],
+    description:
+      'true publishes a suggestion. A published water is not hidden again: permit types, ' +
+      'external permits, rules and catches may refer to it',
+  })
+  @IfPresent()
+  @IsIn([true], { message: 'isPublished can only be true: a published water stays published' })
+  isPublished?: true;
 }

@@ -107,6 +107,18 @@ function SuggestionCard({
   const titleId = useId();
   const confirmId = useId();
   const [confirming, setConfirming] = useState(false);
+  // The confirmation replaces the buttons: the focus goes to «Anuluj» and back to «Odrzuć».
+  const cancelButton = useRef<HTMLButtonElement>(null);
+  const rejectButton = useRef<HTMLButtonElement>(null);
+  const opened = useRef(false);
+  useEffect(() => {
+    if (confirming) {
+      cancelButton.current?.focus();
+    } else if (opened.current) {
+      rejectButton.current?.focus();
+    }
+    opened.current = confirming;
+  }, [confirming]);
   const publish = useUpdateAdminWater();
   const reject = useDeleteAdminWater();
   const {
@@ -134,7 +146,9 @@ function SuggestionCard({
         region: fields.region === water.region ? undefined : fields.region,
         isPublished: true,
       },
-      { onSuccess: (published) => onDecided({ kind: 'published', ...published }) },
+      {
+        onSuccess: ({ id, name }) => onDecided({ kind: 'published', id, name }),
+      },
     );
   const osmUrl =
     water.lat !== null && water.lng !== null
@@ -230,6 +244,7 @@ function SuggestionCard({
                   {t('catalog.adminWaters.rejectConfirmYes')}
                 </Button>
                 <Button
+                  ref={cancelButton}
                   type="button"
                   variant="secondary"
                   disabled={pending}
@@ -246,6 +261,7 @@ function SuggestionCard({
                 {t('catalog.adminWaters.publish')}
               </Button>
               <Button
+                ref={rejectButton}
                 type="button"
                 variant="destructive"
                 disabled={pending}

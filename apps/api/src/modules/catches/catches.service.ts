@@ -285,7 +285,11 @@ export class CatchesService {
     const photoKey = await this.prisma.$transaction(async (tx) => {
       // Like every write to the register: a sync running meanwhile sees the catch or its absence.
       await lockRegister(tx, userId);
-      const current = await tx.catchRecord.findFirst({ where: { id, userId } });
+      // The row too, as a photo write takes it: a photo stored meanwhile is read here, after it
+      // commits, so its file goes with the catch instead of staying behind (review T-27).
+      const [current] = await tx.$queryRaw<{ caughtAt: Date; photoKey: string | null }[]>`
+        SELECT "caughtAt", "photoKey" FROM "CatchRecord"
+        WHERE "id" = ${id}::uuid AND "userId" = ${userId}::uuid FOR UPDATE`;
       if (!current) {
         throw notFound();
       }

@@ -5,13 +5,19 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import request from 'supertest';
 import type { PrismaService } from '../src/database/prisma.service';
 import { createVerifiedUser, login, PASSWORD } from './auth-helpers';
-import { createTestApp } from './create-test-app';
+import { FIXED_NOW, createTestApp } from './create-test-app';
 import { prismaServiceFor } from './db/prisma-service';
 import { createTestDatabase, type TestDatabase } from './db/test-database';
 import { createCatch, createPermit, createSpecies, createWater } from './factories';
+import { untilSomeQueryWaitsForLock } from './lock-helpers';
 
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAwS2OUAAAAABJRU5ErkJggg==',
+  'base64',
+);
+/** The smallest JPEG `file-type` recognises: the content decides, not the name. */
+const JPEG = Buffer.from(
+  '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=',
   'base64',
 );
 const PDF = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n');
@@ -211,5 +217,95 @@ describe('photo of a catch (FR-14)', () => {
     expect(
       (await prisma.auditLog.findFirstOrThrow({ where: { action: 'ACCOUNT_DELETED' } })).diff,
     ).toMatchObject({ catchPhotos: 2, externalPermitPhotos: 0 });
+  });
+  it('stores a JPEG under its own extension, whatever the file is called', async () => {
+    const { id } = await fish();
+
+    const stored = await request(server())
+      .put(`/api/v1/catches/${id}/photo`)
+      .set(bearer(angler.accessToken))
+      .attach('file', JPEG, { filename: 'ryba.png', contentType: 'image/png' })
+      .expect(200);
+
+    expect(stored.body).toMatchObject({ photoType: 'image/jpeg' });
+    expect(await storedPhotos()).toEqual([expect.stringMatching(/\.jpg$/) as string]);
+    const served = await getPhoto(id).expect(200);
+    expect(served.headers['content-type']).toBe('image/jpeg');
+    expect(served.headers['content-disposition']).toBe(`attachment; filename="polow-${id}.jpg"`);
+  });
+
+  it('is named in the RODO export, the file itself is not inside', async () => {
+    const { id } = await fish();
+    await putPhoto(id, PNG).expect(200);
+
+    const exported = await request(server())
+      .get('/api/v1/me/export')
+      .set(bearer(angler.accessToken))
+      .buffer(true)
+      .parse(binary)
+      .expect(200);
+
+    const data = JSON.parse((exported.body as Buffer).toString('utf8')) as {
+      catches: { id: string; photoType: string | null }[];
+    };
+    expect(data.catches).toEqual([expect.objectContaining({ id, photoType: 'image/png' })]);
+    expect((exported.body as Buffer).includes(PNG)).toBe(false);
+  });
+
+  /**
+   * A deletion of the account holds the user row and anonymises it: a photo upload that passed
+   * the guard just before waits for it and must then find the account gone, storing no file.
+   */
+  it('stores no photo while the account is being deleted', async () => {
+    const { id } = await fish();
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const deletion = prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "User" WHERE "id" = ${angler.id}::uuid FOR NO KEY UPDATE`;
+      await tx.user.update({ where: { id: angler.id }, data: { deletedAt: FIXED_NOW } });
+      await held;
+    });
+
+    const upload = putPhoto(id, PNG).then((response) => response);
+    await untilSomeQueryWaitsForLock(prisma);
+    release();
+    await deletion;
+    const response = await upload;
+
+    expect(response.status).toBe(401);
+    expect((response.body as ErrorBody).code).toBe('UNAUTHENTICATED');
+    expect(await storedPhotos()).toEqual([]);
+    expect((await prisma.catchRecord.findUniqueOrThrow({ where: { id } })).photoKey).toBeNull();
+  });
+
+  /**
+   * A photo replaced while the catch is being deleted: the deletion reads the key under the row
+   * lock, after the new photo commits, and removes that file — none is left behind (review T-27).
+   */
+  it('leaves no file when the catch is deleted while its photo is replaced', async () => {
+    const { id } = await fish();
+    await putPhoto(id, PNG).expect(200);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const holder = prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT "id" FROM "CatchRecord" WHERE "id" = ${id}::uuid FOR UPDATE`;
+      await held;
+    });
+
+    // The new photo queues for the row first, the deletion second.
+    const replace = putPhoto(id, PNG).then((response) => response);
+    await untilSomeQueryWaitsForLock(prisma, 1);
+    const removal = request(server())
+      .delete(`/api/v1/catches/${id}`)
+      .set(bearer(angler.accessToken))
+      .then((response) => response);
+    await untilSomeQueryWaitsForLock(prisma, 2);
+    release();
+    await holder;
+
+    expect((await replace).status).toBe(200);
+    expect((await removal).status).toBe(204);
+    expect(await prisma.catchRecord.count({ where: { id } })).toBe(0);
+    expect(await storedPhotos()).toEqual([]);
   });
 });

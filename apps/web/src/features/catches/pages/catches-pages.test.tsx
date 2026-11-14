@@ -1067,6 +1067,8 @@ describe('photo of a catch (FR-14)', () => {
     expect(
       await screen.findByRole('img', { name: 'Zdjęcie połowu: Leszcz, 10:00' }),
     ).toHaveAttribute('src', 'blob:photo');
+    expect(screen.getByRole('status')).toHaveTextContent('Zdjęcie zapisane.');
+    expect(screen.getByLabelText('Zamień zdjęcie połowu: Leszcz, 10:00')).toHaveFocus();
     const sent = fetch.mock.calls
       .map(([request]) => request)
       .filter((request) => request.method === 'PUT');
@@ -1074,6 +1076,25 @@ describe('photo of a catch (FR-14)', () => {
     expect(sent[0]!.headers.get('content-type')).toMatch(/^multipart\/form-data/);
     expect(screen.getByLabelText('Zamień zdjęcie połowu: Leszcz, 10:00')).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Zapisz zdjęcie' })).not.toBeInTheDocument();
+  });
+
+  it('fetches a photo only when asked to show it', async () => {
+    const fetch = mockApi({
+      ...forRegister(() => [{ ...rejected, photoType: 'image/png' }]),
+      [`GET ${photoPath}`]: image,
+    });
+    renderRoute('/me/catches', { accessToken: 'access-1' });
+
+    const show = await screen.findByRole('button', {
+      name: 'Pokaż zdjęcie połowu: Leszcz, 10:00',
+    });
+    const photoRequests = () =>
+      fetch.mock.calls.filter(([request]) => new URL(request.url).pathname === photoPath);
+    expect(photoRequests()).toHaveLength(0);
+    await userEvent.click(show);
+
+    expect(await screen.findByRole('img', { name: 'Zdjęcie połowu: Leszcz, 10:00' })).toBeVisible();
+    expect(photoRequests()).toHaveLength(1);
   });
 
   it('removes the photo and moves the focus to the file field', async () => {
@@ -1088,6 +1109,9 @@ describe('photo of a catch (FR-14)', () => {
     });
     renderRoute('/me/catches', { accessToken: 'access-1' });
 
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Pokaż zdjęcie połowu: Leszcz, 10:00' }),
+    );
     expect(await screen.findByRole('img', { name: 'Zdjęcie połowu: Leszcz, 10:00' })).toBeVisible();
     await userEvent.click(screen.getByRole('button', { name: 'Usuń zdjęcie' }));
 
@@ -1119,6 +1143,9 @@ describe('photo of a catch (FR-14)', () => {
     renderRoute('/me/catches', { accessToken: 'access-1' });
 
     const row = await screen.findByRole('region', { name: 'niedziela, 4 października' });
+    await userEvent.click(
+      within(row).getByRole('button', { name: 'Pokaż zdjęcie połowu: Szczupak, 18:30' }),
+    );
     expect(
       await within(row).findByRole('img', { name: 'Zdjęcie połowu: Szczupak, 18:30' }),
     ).toBeVisible();

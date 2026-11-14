@@ -258,7 +258,9 @@ describe('admin waters page', () => {
 
     const card = await screen.findByRole('region', { name: 'staw dolny' });
     await userEvent.click(within(card).getByRole('button', { name: 'Odrzuć' }));
+    expect(within(card).getByRole('button', { name: 'Anuluj' })).toHaveFocus();
     await userEvent.click(within(card).getByRole('button', { name: 'Anuluj' }));
+    expect(within(card).getByRole('button', { name: 'Odrzuć' })).toHaveFocus();
     expect(fetch.mock.calls.some(([request]) => request.method === 'DELETE')).toBe(false);
 
     await userEvent.click(within(card).getByRole('button', { name: 'Odrzuć' }));

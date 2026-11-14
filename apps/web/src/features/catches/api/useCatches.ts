@@ -9,6 +9,8 @@ export type CatchChange = components['schemas']['UpdateCatchDto'];
 export type RuleViolation = components['schemas']['RuleViolationDto'];
 
 const myCatchesKey = ['me', 'catches'] as const;
+/** The personal statistics count the register: a change of a catch changes them (FR-20). */
+const myStatsKey = ['me', 'stats'] as const;
 
 /**
  * My register of a season (Warsaw year); the current one when `season` is not given.
@@ -35,7 +37,11 @@ export function useUpdateCatch() {
     mutationFn: ({ id, ...body }: CatchChange & { id: string }) =>
       request(() => api.PATCH('/api/v1/catches/{id}', { params: { path: { id } }, body })),
     onSuccess: (stored) => reflectStored(stored).catch(() => undefined),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: myCatchesKey }),
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: myCatchesKey }),
+        queryClient.invalidateQueries({ queryKey: myStatsKey }),
+      ]),
   });
 }
 
@@ -47,7 +53,11 @@ export function useDeleteCatch() {
       request(() => api.DELETE('/api/v1/catches/{id}', { params: { path: { id: fish.id } } })),
     onSuccess: (_, fish) => forgetQueued(fish.clientId).catch(() => undefined),
     // Also after a failure: NOT_FOUND or a closed window means the list is out of date.
-    onSettled: () => queryClient.invalidateQueries({ queryKey: myCatchesKey }),
+    onSettled: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: myCatchesKey }),
+        queryClient.invalidateQueries({ queryKey: myStatsKey }),
+      ]),
   });
 }
 
@@ -102,9 +112,11 @@ export function useDeleteCatchPhoto(id: string) {
   return useMutation({
     mutationFn: () =>
       request(() => api.DELETE('/api/v1/catches/{id}/photo', { params: { path: { id } } })),
-    onSuccess: () => {
+    // The list first: until it says there is no photo, the image keeps its cached blob instead
+    // of asking for a file that is gone (404).
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: myCatchesKey });
       queryClient.removeQueries({ queryKey: photoKey(id) });
-      return queryClient.invalidateQueries({ queryKey: myCatchesKey });
     },
   });
 }
