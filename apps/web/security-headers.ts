@@ -37,4 +37,6 @@ export const SECURITY_HEADERS: Readonly<Record<string, string>> = {
   // The catch and inspection forms ask for the position; nothing else is used.
   'Permissions-Policy': 'geolocation=(self), camera=(), microphone=(), payment=()',
   'Cross-Origin-Opener-Policy': 'same-origin',
+  // Our files are for our pages only (Spectre isolation; COEP would block the OSM tiles).
+  'Cross-Origin-Resource-Policy': 'same-origin',
 };

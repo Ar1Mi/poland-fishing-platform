@@ -105,8 +105,12 @@ export default defineConfig({
     // `vite preview` uses it too; the Playwright run points it at its own API.
     proxy: { '/api': process.env.API_PROXY_TARGET ?? 'http://localhost:3000' },
   },
-  // The production build as it will be served (security-headers.ts).
-  preview: { headers: { ...SECURITY_HEADERS } },
+  preview: {
+    // The production build as it will be served (security-headers.ts).
+    headers: { ...SECURITY_HEADERS },
+    // The OWASP ZAP container reaches the preview of the host by this name (`pnpm security:zap`).
+    allowedHosts: ['host.docker.internal'],
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],

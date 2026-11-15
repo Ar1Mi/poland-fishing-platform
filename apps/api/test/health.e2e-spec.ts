@@ -34,8 +34,15 @@ describe('GET /api/v1/health', () => {
     const response = await request(app.getHttpServer()).get('/api/v1/health');
 
     expect(response.headers['x-content-type-options']).toBe('nosniff');
-    expect(response.headers['content-security-policy']).toBeDefined();
+    const csp = response.headers['content-security-policy'];
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).toContain("style-src 'self' 'unsafe-inline'");
+    // No styles or fonts from any https: origin (helmet's default, ZAP baseline T-28).
+    expect(csp).not.toContain('https:');
     expect(response.headers['x-powered-by']).toBeUndefined();
+    expect(response.headers['permissions-policy']).toBe(
+      'camera=(), microphone=(), geolocation=(), payment=()',
+    );
   });
 
   it('allows CORS with credentials for WEB_URL only', async () => {
