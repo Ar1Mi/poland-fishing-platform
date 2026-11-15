@@ -12,13 +12,9 @@ import { createTestApp } from './create-test-app';
 import { prismaServiceFor } from './db/prisma-service';
 import { createTestDatabase, type TestDatabase } from './db/test-database';
 import { createWater } from './factories';
+import { BROKEN_JPEG, JPEG_WITH_GPS, PNG, decodedImage } from './images';
 import { expectForeignOrgAdminForbidden, loginOrgMember, type OrgMember } from './org-helpers';
 
-const PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAwS2OUAAAAABJRU5ErkJggg==',
-  'base64',
-);
-const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00]);
 const PDF = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n');
 const UPLOADS_DIR = process.env.UPLOADS_DIR!;
 
@@ -226,7 +222,13 @@ describe('water profile of an organization (FR-05)', () => {
       );
       expect(served.headers['x-content-type-options']).toBe('nosniff');
       expect(served.headers['cache-control']).toBe('public, max-age=86400');
-      expect(served.body).toEqual(PNG);
+      // Re-encoded on upload (T-29): the same picture, not the same bytes.
+      expect(await decodedImage(served.body as Buffer)).toEqual({
+        format: 'png',
+        width: 4,
+        height: 3,
+        hasExif: false,
+      });
       expect(await prisma.auditLog.findMany()).toEqual([
         expect.objectContaining({
           action: 'WATER_PHOTO_SET',
@@ -238,12 +240,21 @@ describe('water profile of an organization (FR-05)', () => {
 
     it('replaces the photo with a new version and removes the old file', async () => {
       const first = (await putPhoto(PNG).expect(200)).body as WaterCard;
-      const second = (await putPhoto(JPEG).expect(200)).body as WaterCard;
+      const second = (await putPhoto(JPEG_WITH_GPS).expect(200)).body as WaterCard;
 
       expect(second.photoVersion).not.toBe(first.photoVersion);
       expect(await storedPhotos()).toEqual([`${second.photoVersion}.jpg`]);
-      const served = await request(server()).get(`/api/v1/waters/${waterId}/photo`).expect(200);
+      const served = await request(server())
+        .get(`/api/v1/waters/${waterId}/photo`)
+        .buffer(true)
+        .parse(binary)
+        .expect(200);
       expect(served.headers['content-type']).toBe('image/jpeg');
+      // The public photo keeps no EXIF, the GPS position of the camera included (T-29).
+      expect(await decodedImage(served.body as Buffer)).toMatchObject({
+        format: 'jpeg',
+        hasExif: false,
+      });
     });
 
     it('removes the photo and its file', async () => {
@@ -266,8 +277,8 @@ describe('water profile of an organization (FR-05)', () => {
       ]);
     });
 
-    it('refuses a PDF or an unknown file by its content, a missing file and a big one', async () => {
-      for (const file of [PDF, Buffer.from('not an image')]) {
+    it('refuses a PDF, an unknown or undecodable file, a missing file and a big one', async () => {
+      for (const file of [PDF, Buffer.from('not an image'), BROKEN_JPEG]) {
         const response = await putPhoto(file).expect(400);
         expect(response.body).toMatchObject({
           code: 'VALIDATION_FAILED',

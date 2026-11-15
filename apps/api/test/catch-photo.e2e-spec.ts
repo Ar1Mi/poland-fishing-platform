@@ -9,17 +9,9 @@ import { FIXED_NOW, createTestApp } from './create-test-app';
 import { prismaServiceFor } from './db/prisma-service';
 import { createTestDatabase, type TestDatabase } from './db/test-database';
 import { createCatch, createPermit, createSpecies, createWater } from './factories';
+import { BROKEN_JPEG, JPEG_WITH_GPS, PNG, decodedImage } from './images';
 import { untilSomeQueryWaitsForLock } from './lock-helpers';
 
-const PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAwS2OUAAAAABJRU5ErkJggg==',
-  'base64',
-);
-/** The smallest JPEG `file-type` recognises: the content decides, not the name. */
-const JPEG = Buffer.from(
-  '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=',
-  'base64',
-);
 const PDF = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n');
 const UPLOADS_DIR = process.env.UPLOADS_DIR!;
 
@@ -117,7 +109,13 @@ describe('photo of a catch (FR-14)', () => {
     expect(served.headers['content-disposition']).toBe(`attachment; filename="polow-${id}.png"`);
     expect(served.headers['x-content-type-options']).toBe('nosniff');
     expect(served.headers['cache-control']).toBe('no-store');
-    expect(served.body).toEqual(PNG);
+    // Re-encoded on upload (T-29): the same picture, not the same bytes.
+    expect(await decodedImage(served.body as Buffer)).toEqual({
+      format: 'png',
+      width: 4,
+      height: 3,
+      hasExif: false,
+    });
 
     // A new photo replaces the file; the old one goes.
     const [first] = await storedPhotos();
@@ -224,7 +222,7 @@ describe('photo of a catch (FR-14)', () => {
     const stored = await request(server())
       .put(`/api/v1/catches/${id}/photo`)
       .set(bearer(angler.accessToken))
-      .attach('file', JPEG, { filename: 'ryba.png', contentType: 'image/png' })
+      .attach('file', JPEG_WITH_GPS, { filename: 'ryba.png', contentType: 'image/png' })
       .expect(200);
 
     expect(stored.body).toMatchObject({ photoType: 'image/jpeg' });
@@ -232,6 +230,24 @@ describe('photo of a catch (FR-14)', () => {
     const served = await getPhoto(id).expect(200);
     expect(served.headers['content-type']).toBe('image/jpeg');
     expect(served.headers['content-disposition']).toBe(`attachment; filename="polow-${id}.jpg"`);
+    // The GPS position of the phone does not reach the file (T-29).
+    expect(await decodedImage(served.body as Buffer)).toMatchObject({
+      format: 'jpeg',
+      hasExif: false,
+    });
+  });
+
+  it('refuses a photo that cannot be decoded and stores nothing', async () => {
+    const { id } = await fish();
+
+    const response = await putPhoto(id, BROKEN_JPEG).expect(400);
+
+    expect(response.body).toMatchObject({
+      code: 'VALIDATION_FAILED',
+      details: { fields: { file: expect.any(Array) as unknown } },
+    });
+    expect(await storedPhotos()).toEqual([]);
+    expect((await register()).map((row) => row.photoType)).toEqual([null]);
   });
 
   it('is named in the RODO export, the file itself is not inside', async () => {

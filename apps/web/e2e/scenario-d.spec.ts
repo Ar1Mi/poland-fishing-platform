@@ -21,9 +21,10 @@ const ORGANIZATION = 'Koło PZW „Ukleja” (e2e)';
 const NIP = '7010001453';
 // Unconnected in the seed, and not the water of scenario Г.
 const WATER = 'Staw Głęboczek';
-// A 1×1 PNG and a minimal PDF: the API checks the type by the content.
+// A 4×3 PNG (decodable: the API re-encodes photos, T-29) and a minimal PDF: the API checks
+// the type by the content.
 const PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAwS2OUAAAAABJRU5ErkJggg==',
+  'iVBORw0KGgoAAAANSUhEUgAAAAQAAAADCAIAAAA7ljmRAAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAEElEQVQImWPQyi+HIwacHAD1KwzBE963zQAAAABJRU5ErkJggg==',
   'base64',
 );
 const PDF = Buffer.from('%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n');
