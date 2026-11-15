@@ -14,6 +14,12 @@ export const PERMIT_START_MAX_DAYS_AHEAD = 365;
 /** Abandoned payments are cancelled after this many minutes (docs/03-architecture.md). */
 export const PAYMENT_TIMEOUT_MINUTES = 30;
 
+/**
+ * Unpaid purchases one account may have at once (T-28, docs/07-security.md): an abandoned one
+ * pins the terms of its type, so a script must not pin them all. Freed by the payment timeout.
+ */
+export const MAX_PENDING_PURCHASES = 3;
+
 /** A `YYYY-MM-DD` that exists: Date arithmetic would silently roll `02-30` over into March. */
 function assertCalendarDate(date: string): asserts date is DateOnly {
   assertDateOnly(date);
