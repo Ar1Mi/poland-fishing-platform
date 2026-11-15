@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { CATCH_SEASONS } from '../catches/catch-input.js';
-import { addDays } from '../permits/purchase.js';
+import { addDays } from '../time/calendar.js';
 import { assertDateOnly, type DateOnly, warsawDayEnd } from '../time/warsaw.js';
 
 // The period of the organization's statistics and catch export (FR-19): Warsaw calendar days,

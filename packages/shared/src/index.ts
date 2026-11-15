@@ -16,6 +16,7 @@ export * from './pagination.js';
 export * from './permits/effective-status.js';
 export * from './permits/expiry-reminder.js';
 export * from './permits/external-permit.js';
+export * from './permits/permit-type-limits.js';
 export * from './permits/permit-types.js';
 export * from './permits/purchase.js';
 export * from './permits/revocation.js';
@@ -26,4 +27,5 @@ export { CATCH_FUTURE_TOLERANCE_MINUTES } from './rules/catch/br-10-catch-in-fut
 export * from './rules/catch/types.js';
 export * from './rules/catch/validate-catch.js';
 export * from './rules/species-rules.js';
+export { addDays } from './time/calendar.js';
 export * from './time/warsaw.js';

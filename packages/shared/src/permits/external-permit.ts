@@ -10,7 +10,8 @@ import {
 import { PermitStatus } from '../enums.js';
 import type { DateOnly } from '../time/warsaw.js';
 import { EffectivePermitStatus, effectivePermitStatus } from './effective-status.js';
-import { PERMIT_START_MAX_DAYS_AHEAD, addDays } from './purchase.js';
+import { addDays } from '../time/calendar.js';
+import { PERMIT_START_MAX_DAYS_AHEAD } from './purchase.js';
 
 // External permits (FR-26): bought outside the platform and typed in by the angler, so that
 // catches on unconnected waters go to the register too. The API validates the same limits
