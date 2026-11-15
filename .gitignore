@@ -26,6 +26,9 @@ uploads/
 # tests
 playwright-report/
 test-results/
+# OWASP ZAP baseline reports (pnpm --filter web security:zap)
+apps/web/zap/report/
+apps/web/zap/zap.yaml
 
 # Claude Code (personal)
 CLAUDE.local.md

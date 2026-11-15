@@ -1,0 +1,39 @@
+# OWASP ZAP baseline (NFR-04, T-28; docs/08-testing-and-infra.md): started by hand from the
+# Actions tab. Passive scan of the E2E stack — the production build of web and the API behind
+# the same origin; every rule fails the run unless apps/web/zap/rules.tsv accepts it with a reason.
+name: ZAP baseline
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  zap:
+    name: OWASP ZAP baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Starts the stack like `pnpm e2e` (no browser needed) and runs ZAP in Docker against it.
+      - run: pnpm --filter web security:zap
+
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: zap-baseline-report
+          path: apps/web/zap/report/
+          retention-days: 30

@@ -32,5 +32,6 @@
   "INVITATION_EXPIRED": "Zaproszenie wygasło. Poproś organizację o nowe.",
   "ALREADY_MEMBER": "Ta osoba ma już tę rolę w organizacji.",
   "LAST_ORG_ADMIN": "Organizacja musi mieć co najmniej jednego administratora. Najpierw nadaj tę rolę komuś innemu.",
+  "TOO_MANY_PENDING_PAYMENTS": "Masz za dużo nieopłaconych zakupów. Dokończ otwartą płatność albo poczekaj, aż nieukończona płatność wygaśnie (około pół godziny), i spróbuj ponownie.",
   "WATER_IN_USE": "Tego łowiska nie można usunąć: jest opublikowane albo są z nim powiązane wnioski, zezwolenia lub połowy."
 }

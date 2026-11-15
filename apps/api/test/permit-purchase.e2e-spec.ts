@@ -378,6 +378,73 @@ describe('permit purchase', () => {
       expect(await prisma.payment.count()).toBe(0);
     });
 
+    describe('unpaid purchases of one account (T-28)', () => {
+      it('refuses a fourth unpaid purchase with TOO_MANY_PENDING_PAYMENTS', async () => {
+        const type = await typeOnSale();
+        for (let i = 0; i < 3; i += 1) {
+          await buy(type.id);
+        }
+
+        const response = await purchase({ permitTypeId: type.id, validFrom: '2026-10-10' }).expect(
+          409,
+        );
+
+        expect(response.body).toMatchObject({
+          code: 'TOO_MANY_PENDING_PAYMENTS',
+          details: { limit: 3 },
+        });
+        expect(await prisma.permit.count()).toBe(3);
+        expect(await prisma.payment.count()).toBe(3);
+      });
+
+      it('counts only PENDING_PAYMENT: a paid or refused purchase frees a place', async () => {
+        const type = await typeOnSale();
+        const bought = [await buy(type.id), await buy(type.id), await buy(type.id)];
+
+        await complete(sessionIdOf(bought[0]!.paymentUrl), 'PAID').expect(200);
+        await buy(type.id);
+        await purchase({ permitTypeId: type.id, validFrom: '2026-10-10' }).expect(409);
+        await complete(sessionIdOf(bought[1]!.paymentUrl), 'REJECTED').expect(200);
+        await buy(type.id);
+      });
+
+      it('still gives a free permit and lets other accounts buy', async () => {
+        const type = await typeOnSale();
+        for (let i = 0; i < 3; i += 1) {
+          await buy(type.id);
+        }
+        const free = await typeOnSale({ priceGrosze: 0, durationDays: 1 });
+
+        expect((await buy(free.id, '2026-10-06')).permit.status).toBe('ACTIVE');
+        const other = await loginAngler();
+        await purchase(
+          { permitTypeId: type.id, validFrom: '2026-10-10' },
+          other.accessToken,
+        ).expect(201);
+      });
+
+      it('lets only one of two simultaneous purchases take the last place', async () => {
+        const type = await typeOnSale();
+        await buy(type.id);
+        await buy(type.id);
+
+        // Another purchase of the same account is under way: both new ones wait for it.
+        const other = await holdLock(
+          (tx) =>
+            tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`purchases:${angler.id}`}, 0))`,
+        );
+        const sales = [1, 2].map(() =>
+          purchase({ permitTypeId: type.id, validFrom: '2026-10-10' }).then((result) => result),
+        );
+        await untilSomeQueryWaitsForLock();
+        await other.release();
+        const statuses = (await Promise.all(sales)).map(({ status }) => status).sort();
+
+        expect(statuses).toEqual([201, 409]);
+        expect(await prisma.permit.count({ where: { status: 'PENDING_PAYMENT' } })).toBe(3);
+      });
+    });
+
     it('keeps the price paid when the type gets more expensive later', async () => {
       const type = await typeOnSale();
       const { permit } = await buy(type.id);

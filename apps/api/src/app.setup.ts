@@ -24,7 +24,24 @@ export function setupApp(app: NestExpressApplication): void {
   // Mounted before the body parser and the router: every response is logged, carries a
   // request id and security headers, even when the request never reaches a controller.
   app.use(app.get<HttpLogger>(HTTP_LOGGER));
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        // Narrower than helmet's defaults (ZAP baseline, T-28): the Swagger UI is self-hosted and
+        // needs no `https:` styles or fonts; no page of the API is ever framed.
+        directives: {
+          'style-src': ["'self'", "'unsafe-inline'"],
+          'font-src': ["'self'", 'data:'],
+          'frame-ancestors': ["'none'"],
+        },
+      },
+    }),
+  );
+  // helmet has no Permissions-Policy: the API and its Swagger UI use no browser feature.
+  app.use((_req: Request, res: Response, next: NextFunction) => {
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=()');
+    next();
+  });
   app.use(rejectUnknownPath);
   // The refresh token arrives as the `rt` cookie (POST /auth/refresh, /auth/logout).
   app.use(cookieParser());

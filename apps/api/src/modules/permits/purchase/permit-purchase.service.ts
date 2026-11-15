@@ -2,6 +2,7 @@ import {
   ErrorCode,
   isDiscountEligible,
   latestPermitStart,
+  MAX_PENDING_PURCHASES,
   PermitStatus,
   permitValidTo,
   warsawDate,
@@ -55,6 +56,8 @@ export class PermitPurchaseService {
     }
 
     const { permitId, number, type, sessionId } = await this.prisma.$transaction(async (tx) => {
+      // First: purchases of one account go one by one, so two at once cannot both pass the cap.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`purchases:${userId}`}, 0))`;
       const type = await this.lockTypeForSale(tx, dto.permitTypeId);
       const organization = await this.organizations.findPublicProfile(type.organizationId, tx);
       if (!type.isActive || !organization?.isActive) {
@@ -72,6 +75,9 @@ export class PermitPurchaseService {
         );
       }
       const free = type.priceGrosze === 0;
+      if (!free) {
+        await this.assertPendingPurchaseCap(tx, userId);
+      }
       const permit = await tx.permit.create({
         data: {
           number: await this.numbers.next(tx),
@@ -109,6 +115,26 @@ export class PermitPurchaseService {
         })
       : returnUrl.toString();
     return { permit: await this.myPermits.get(userId, permitId), paymentUrl };
+  }
+
+  /**
+   * T-28 (docs/07-security.md): an unpaid purchase pins the terms of its type until the payment
+   * timeout, so one account may hold only a few at once. A free permit is PAID at once.
+   */
+  private async assertPendingPurchaseCap(
+    tx: Prisma.TransactionClient,
+    userId: string,
+  ): Promise<void> {
+    const pending = await tx.permit.count({
+      where: { userId, status: PermitStatus.PENDING_PAYMENT },
+    });
+    if (pending >= MAX_PENDING_PURCHASES) {
+      throw new DomainError(
+        ErrorCode.TOO_MANY_PENDING_PAYMENTS,
+        { limit: MAX_PENDING_PURCHASES },
+        'Too many unpaid purchases; pay, cancel or wait for the payment timeout',
+      );
+    }
   }
 
   /** BR-09 and the upper bound (docs/02-business-rules.md), by the Warsaw calendar day. */

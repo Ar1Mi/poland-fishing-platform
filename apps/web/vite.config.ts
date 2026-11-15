@@ -2,6 +2,7 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { configDefaults, defineConfig } from 'vitest/config';
+import { SECURITY_HEADERS } from './security-headers';
 
 /** Public API answers the catalogue shows; the rest of the API is personal and never cached. */
 const WATERS_API = /^\/api\/v1\/waters(\/|$)/;
@@ -104,11 +105,17 @@ export default defineConfig({
     // `vite preview` uses it too; the Playwright run points it at its own API.
     proxy: { '/api': process.env.API_PROXY_TARGET ?? 'http://localhost:3000' },
   },
+  preview: {
+    // The production build as it will be served (security-headers.ts).
+    headers: { ...SECURITY_HEADERS },
+    // The OWASP ZAP container reaches the preview of the host by this name (`pnpm security:zap`).
+    allowedHosts: ['host.docker.internal'],
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: false,
-    // Playwright scenarios (pnpm e2e).
-    exclude: [...configDefaults.exclude, 'e2e/**'],
+    // Playwright: the scenarios (pnpm e2e) and the ZAP baseline (pnpm security:zap).
+    exclude: [...configDefaults.exclude, 'e2e/**', 'zap/**'],
   },
 });

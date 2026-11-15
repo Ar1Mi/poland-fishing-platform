@@ -25,6 +25,7 @@ import {
   ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { ErrorResponseDto } from '../../../common/errors/error-response.dto';
+import { RateLimit } from '../../../common/throttling/rate-limit.decorator';
 import { type AuthUser, CurrentUser } from '../../auth/decorators/auth.decorators';
 import { Roles } from '../decorators/org-access.decorators';
 import {
@@ -109,6 +110,7 @@ export class OrgInvitationsController {
   }
 
   @Post()
+  @RateLimit('invitationAdmin', 'invitationOrg')
   @ApiOperation({
     summary: 'Invite by email; replaces a pending invitation of the same address and role',
   })

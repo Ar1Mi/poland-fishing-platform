@@ -1,4 +1,5 @@
-import { expect, type Page, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { emailLink, logIn, notAcrossMidnight, withPage } from './helpers';
 
 // Scenario Д of docs/09-scenarios.md (T-23): a new organization joins the platform, takes over

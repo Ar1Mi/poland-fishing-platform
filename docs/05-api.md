@@ -69,7 +69,7 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 - Возвращаются только опубликованные записи (`isPublished`); предложение рыбака на модерации и в `/waters/:id` даёт 404 `NOT_FOUND`.
 - **`GET /waters/:id`** — сводка + `description`, `seasonInfo`, `photoVersion` (T-23: что пишет организация; `photoVersion` меняется с каждым новым фото, `null` — фото нет), `organization: { id, name, isActive } | null` (только публичные поля организации; `isActive: false`, пока организация не `ACTIVE` — водоём остаётся `CONNECTED`, но продажа онлайн приостановлена, карточка пишет «Sprzedaż online wstrzymana»; карта и фильтр `status` показывают его как подключённый), `externalOwnerName`, `externalInfoUrl`, `source`, `importedAt` (источник и дата последнего импорта полей каталога — ADR-0007; `null` у предложения рыбака `USER`; до T-23 здесь был `updatedAt`, но его меняют и одобрение claim, и правки организации). Типы разрешений приходят отдельно из `GET /permit-types?waterId=` (T-12), правила — из `GET /waters/:id/rules` (T-16). Не-UUID → 400.
 - **`GET /species`** — весь справочник (≈ 15 видов) без пагинации, по `namePl`: `id, latinName, namePl, nameEn, nameRu, isProtected`.
-- **`POST /waters/suggestions`** (T-27, FR-25) `{ name, type, region, lat, lng }` → 201, карточка как `GET /waters/:id`. `name` — 2–200 символов после trim, `type` — enum, `region` — воеводство, `lat`/`lng` — числа в границах Польши (`POLAND_BOUNDS`); те же пределы — `waterSuggestionSchema` в `packages/shared/src/catalog/water-suggestion.ts` для формы. Создаётся строка `FishingWater` с `source: USER`, `sourceRef` — новый UUID, `isPublished: false`, `status: UNCLAIMED`: её нет ни в `GET /waters`, ни в `GET /waters/:id`, пока суперадмин не опубликует. **Автор не записывается** (решение пользователя: без изменения схемы и без персональных данных в каталоге) — поэтому предложение не входит в экспорт и удаление аккаунта, в `AuditLog` не пишется, а о решении рыбак узнаёт по карте. Лимита на число предложений нет — троттлинг перенесён в T-28.
+- **`POST /waters/suggestions`** (T-27, FR-25) `{ name, type, region, lat, lng }` → 201, карточка как `GET /waters/:id`. `name` — 2–200 символов после trim, `type` — enum, `region` — воеводство, `lat`/`lng` — числа в границах Польши (`POLAND_BOUNDS`); те же пределы — `waterSuggestionSchema` в `packages/shared/src/catalog/water-suggestion.ts` для формы. Создаётся строка `FishingWater` с `source: USER`, `sourceRef` — новый UUID, `isPublished: false`, `status: UNCLAIMED`: её нет ни в `GET /waters`, ни в `GET /waters/:id`, пока суперадмин не опубликует. **Автор не записывается** (решение пользователя: без изменения схемы и без персональных данных в каталоге) — поэтому предложение не входит в экспорт и удаление аккаунта, в `AuditLog` не пишется, а о решении рыбак узнаёт по карте. Не больше 10 попыток в сутки на аккаунт, отклонённые тоже (T-28) → 429 `RATE_LIMITED`.
 
 ### Разрешения и оплата
 
@@ -92,7 +92,7 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 
 Детали (T-13, FR-08):
 
-- **Покупка:** `POST /permits` `{ permitTypeId, validFrom }` → 201 `{ permit, paymentUrl }`. Проверки по порядку: `validFrom` — дата `YYYY-MM-DD` (иначе 400); раньше сегодняшней варшавской даты → 422 `PERMIT_START_IN_PAST` (`details.today`); позже чем через 365 дней → 400 `VALIDATION_FAILED` (`details.fields.validFrom`); тип не найден → 404 `NOT_FOUND`; тип снят с продажи или организация не `ACTIVE` → 422 `PERMIT_TYPE_INACTIVE`; возраст на `validFrom` не подходит к льготе → 422 `DISCOUNT_NOT_ELIGIBLE` (`details.discountKind`). Правила дат и возраста — `02-business-rules.md` → «Уточнения».
+- **Покупка:** `POST /permits` `{ permitTypeId, validFrom }` → 201 `{ permit, paymentUrl }`. Проверки по порядку: `validFrom` — дата `YYYY-MM-DD` (иначе 400); раньше сегодняшней варшавской даты → 422 `PERMIT_START_IN_PAST` (`details.today`); позже чем через 365 дней → 400 `VALIDATION_FAILED` (`details.fields.validFrom`); тип не найден → 404 `NOT_FOUND`; тип снят с продажи или организация не `ACTIVE` → 422 `PERMIT_TYPE_INACTIVE`; возраст на `validFrom` не подходит к льготе → 422 `DISCOUNT_NOT_ELIGIBLE` (`details.discountKind`); у платного типа, если у аккаунта уже 3 разрешения `PENDING_PAYMENT` (`MAX_PENDING_PURCHASES`), → 409 `TOO_MANY_PENDING_PAYMENTS` (`details.limit`, T-28): брошенная оплата фиксирует условия типа, место освобождают оплата, отказ или таймаут 30 мин. Покупки одного аккаунта идут по очереди (advisory-lock транзакции `purchases:<userId>`, первым шагом), поэтому две одновременные не займут последнее место обе. Бесплатное разрешение лимит не проверяет. Правила дат и возраста — `02-business-rules.md` → «Уточнения».
 - `permit` — тот же объект, что `GET /me/permits/:id`; `validTo = validFrom + durationDays − 1`, `pricePaidGrosze` — цена типа на момент покупки. Разрешение (`PENDING_PAYMENT`) и `Payment` (`PENDING`, `sessionId` — случайный UUID) пишутся в одной короткой транзакции, транзакция регистрируется у провайдера после неё; `paymentUrl` — страница оплаты провайдера. Провайдер отказал в регистрации → платёж `FAILED`, разрешение `CANCELLED`, ответ 500.
 - **Бесплатный тип** (цена 0): разрешение сразу `PAID`, `Payment` не создаётся, `paymentUrl` ведёт прямо на `${WEB_URL}/payment/return?permitId=…`.
 - **Возврат браузера:** провайдер возвращает покупателя на `${WEB_URL}/payment/return?permitId=…`; возврат ничего не меняет, страница опрашивает `GET /me/permits/:id`.
@@ -282,10 +282,20 @@ REST, префикс `/api/v1`, JSON. Swagger UI — `/api/docs`, OpenAPI JSON �
 | 401 | `UNAUTHENTICATED`, `INVALID_CREDENTIALS`, `EMAIL_NOT_VERIFIED`, `TOKEN_EXPIRED` |
 | 403 | `FORBIDDEN`, `ORG_SCOPE_VIOLATION`, `ORG_NOT_ACTIVE`, `INVITATION_EMAIL_MISMATCH` |
 | 404 | `NOT_FOUND` |
-| 409 | `EMAIL_TAKEN`, `NIP_TAKEN`, `CLAIM_ALREADY_PENDING`, `WATER_ALREADY_CONNECTED`, `CLAIM_NOT_PENDING`, `PERMIT_TYPE_IN_USE`, `RULE_ALREADY_EXISTS`, `EXTERNAL_PERMIT_IN_USE`, `WATER_IN_USE`, `ALREADY_MEMBER`, `LAST_ORG_ADMIN` |
+| 409 | `EMAIL_TAKEN`, `NIP_TAKEN`, `CLAIM_ALREADY_PENDING`, `WATER_ALREADY_CONNECTED`, `CLAIM_NOT_PENDING`, `PERMIT_TYPE_IN_USE`, `RULE_ALREADY_EXISTS`, `EXTERNAL_PERMIT_IN_USE`, `WATER_IN_USE`, `ALREADY_MEMBER`, `LAST_ORG_ADMIN`, `TOO_MANY_PENDING_PAYMENTS` |
 | 422 | Бизнес-правила: `PERMIT_START_IN_PAST`, `DISCOUNT_NOT_ELIGIBLE`, `PERMIT_TYPE_INACTIVE`, `EDIT_WINDOW_CLOSED`, `PERMIT_NOT_REVOCABLE`, `PERMIT_NOT_VALID`, `INVITATION_EXPIRED` |
-| 429 | `RATE_LIMITED` |
+| 429 | `RATE_LIMITED` — лимиты auth-маршрутов и записей аккаунта (ниже); заголовок `Retry-After-<имя лимита>` |
 | 500 | `INTERNAL_ERROR` — необработанное исключение; `message` не раскрывает детали, они только в логе |
+
+**Лимиты записей аккаунта** (T-28, `@nestjs/throttler`, счётчики в памяти единственного экземпляра API; `apps/api/src/common/throttling`). Считается каждая попытка, отклонённая валидацией тоже (guard работает до валидации DTO и до чтения файла), но после guard-ов ролей и организации, которые `@Roles` вешает на класс контроллера — запрос, получивший 403, счётчик не тратит:
+
+| Лимит | Маршруты | Предел | Счётчик |
+| --- | --- | --- | --- |
+| `suggestion` | `POST /waters/suggestions` | 10 в сутки | аккаунт |
+| `externalPermit` | `POST /me/external-permits` | 20 в сутки | аккаунт |
+| `upload` | `PUT /me/external-permits/:id/photo`, `PUT /catches/:id/photo`, `PUT /orgs/:orgId/waters/:id/photo`, `POST /orgs/:orgId/claims` | 30 в час, общий на все маршруты | аккаунт |
+| `invitationAdmin` | `POST /orgs/:orgId/invitations` | 20 в час, во всех организациях | админ |
+| `invitationOrg` | `POST /orgs/:orgId/invitations` | 50 в сутки | организация |
 
 Ошибки самого фреймворка (неизвестный маршрут, отказ guard, битый JSON) кода не несут — фильтр подбирает его по HTTP-статусу: 401 → `UNAUTHENTICATED`, 403 → `FORBIDDEN`, 404 → `NOT_FOUND`, 429 → `RATE_LIMITED`, прочие 4xx → `VALIDATION_FAILED`, 5xx → `INTERNAL_ERROR` (с фиксированным `message`). Статус ответа при этом сохраняется. Объект ошибки со своим `statusCode`, брошенный не фреймворком (например, HTTP-клиентом внешнего сервиса), считается необработанным исключением → 500.
 

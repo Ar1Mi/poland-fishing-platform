@@ -2,6 +2,7 @@ import { Body, Controller, Post } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiCreatedResponse,
   ApiNotFoundResponse,
   ApiOperation,
@@ -33,6 +34,10 @@ export class PermitsController {
     description: 'VALIDATION_FAILED (also validFrom more than 365 days ahead)',
   })
   @ApiNotFoundResponse({ ...error, description: 'NOT_FOUND (permit type)' })
+  @ApiConflictResponse({
+    ...error,
+    description: 'TOO_MANY_PENDING_PAYMENTS (details.limit: unpaid purchases of the account)',
+  })
   @ApiUnprocessableEntityResponse({
     ...error,
     description: 'PERMIT_START_IN_PAST, DISCOUNT_NOT_ELIGIBLE, PERMIT_TYPE_INACTIVE',

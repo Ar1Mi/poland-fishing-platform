@@ -1,4 +1,5 @@
-import { type BrowserContext, expect, type Page, test } from '@playwright/test';
+import type { BrowserContext, Page } from '@playwright/test';
+import { expect, newWatchedContext, test } from './fixtures';
 import { logIn, notAcrossMidnight, withPage } from './helpers';
 
 // Scenario Б of docs/09-scenarios.md: catches recorded without network (ADR-0009). Jan has a
@@ -54,7 +55,8 @@ test('Б: two phones record catches offline; the server rejects the one over the
   browser,
 }) => {
   await notAcrossMidnight();
-  const contexts = [await browser.newContext(), await browser.newContext()];
+  const watched = [await newWatchedContext(browser), await newWatchedContext(browser)];
+  const contexts = watched.map(({ context }) => context);
   try {
     const [first, second] = contexts as [BrowserContext, BrowserContext];
     const phoneA = await phone(first);
@@ -143,6 +145,9 @@ test('Б: two phones record catches offline; the server rejects the one over the
         await expect(caughtToday.getByText('Odrzucony')).toHaveCount(1);
       });
     });
+    for (const { assertNoCspViolations } of watched) {
+      assertNoCspViolations();
+    }
   } finally {
     await Promise.all(contexts.map((context) => context.close()));
   }

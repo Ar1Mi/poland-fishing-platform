@@ -35,6 +35,7 @@ describe('error codes', () => {
         'WATER_IN_USE',
         'ALREADY_MEMBER',
         'LAST_ORG_ADMIN',
+        'TOO_MANY_PENDING_PAYMENTS',
       ],
       422: [
         'PERMIT_START_IN_PAST',
