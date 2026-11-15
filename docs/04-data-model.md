@@ -295,6 +295,7 @@ model Permit {
   inspections          Inspection[]
 
   @@index([userId, validTo])
+  @@index([permitTypeId]) // проданные разрешения типа (T-23) и статистика продаж (T-24), T-29
 }
 
 /// Хранимые статусы. SCHEDULED/ACTIVE/EXPIRED вычисляются из дат (ADR-0005).
@@ -483,9 +484,12 @@ CREATE UNIQUE INDEX rule_one_general ON "SpeciesRule" ("speciesId") WHERE "organ
 
 -- одна активная заявка на водоём от организации
 CREATE UNIQUE INDEX claim_one_pending ON "WaterClaim" ("fishingWaterId", "organizationId") WHERE "status" = 'PENDING';
+
+-- только для скорости (T-29): таймаут оплаты читает неоплаченные платежи старше 30 минут
+CREATE INDEX payment_pending_created ON "Payment" ("createdAt") WHERE "status" = 'PENDING';
 ```
 
-Все ограничения — в `apps/api/prisma/migrations/20261018095038_init/migration.sql`, каждое проверено тестом `apps/api/test/database-constraints.e2e-spec.ts`. `rule_closed_period` проверяет только форму `MM-DD`: несуществующий день месяца (`02-30`) отсекает валидация входа API правил (T-16).
+Все ограничения — в `apps/api/prisma/migrations/20261018095038_init/migration.sql`, каждое проверено тестом `apps/api/test/database-constraints.e2e-spec.ts`. Частичные индексы только для скорости — `permit_expiry_reminder_due` (T-25, ниже) и `payment_pending_created` (T-29, миграция `permit_type_and_pending_payment_indexes`: `PaymentExpiryJob` раз в минуту ищет `PENDING`-платежи старше таймаута, а оплаченные — почти вся таблица). Prisma 7 умеет частичные индексы в схеме (`previewFeatures = ["partialIndexes"]`, `@@index(where:)`), но с ним `migrate dev` считает индексы, написанные SQL-ом, расхождением и удаляет их — поэтому, по правилу проекта, такие индексы остаются в SQL миграций, а Prisma их не видит (`migrate diff` пуст). `rule_closed_period` проверяет только форму `MM-DD`: несуществующий день месяца (`02-30`) отсекает валидация входа API правил (T-16).
 
 Удаление (`onDelete`), отличное от умолчаний Prisma:
 
