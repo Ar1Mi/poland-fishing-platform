@@ -240,4 +240,27 @@ describe('database constraints', () => {
       }
     });
   });
+
+  describe('claim_proof_kept (T-30)', () => {
+    const claimWithoutDocument = async (status: 'PENDING' | 'APPROVED' | 'REJECTED') =>
+      prisma.waterClaim.create({
+        data: {
+          fishingWaterId: (await createWater(prisma)).id,
+          organizationId: (await createOrganization(prisma)).id,
+          status,
+          proofFileKey: null,
+        },
+      });
+
+    it.each(['PENDING', 'APPROVED'] as const)(
+      'keeps the document of a %s claim',
+      async (status) => {
+        await expect(claimWithoutDocument(status)).rejects.toThrow(/claim_proof_kept/);
+      },
+    );
+
+    it('lets a rejected claim lose its document', async () => {
+      await expect(claimWithoutDocument('REJECTED')).resolves.toMatchObject({ proofFileKey: null });
+    });
+  });
 });

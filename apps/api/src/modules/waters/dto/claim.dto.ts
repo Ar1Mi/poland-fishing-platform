@@ -101,8 +101,12 @@ export class AdminClaimDto extends ClaimDto {
   organization!: ClaimOrganizationDto;
 
   @ApiProperty({
+    type: String,
+    nullable: true,
     example: 'application/pdf',
-    description: 'Type of the document at GET /admin/claims/{id}/document',
+    description:
+      'Type of the document at GET /admin/claims/{id}/document; null once the document of a ' +
+      'rejected claim is deleted (90 days after the decision)',
   })
-  documentType!: string;
+  documentType!: string | null;
 }

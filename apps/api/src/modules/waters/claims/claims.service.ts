@@ -23,6 +23,15 @@ import type { AdminClaimDto, ClaimDto, ReviewClaimDto } from '../dto/claim.dto';
 /** Folder of claim documents in StorageService. */
 const PROOF_FOLDER = 'claims';
 
+/**
+ * Days the document of a REJECTED claim is kept after the decision (T-30, docs/07-security.md →
+ * «Сроки хранения»): time for the organization to ask why or to submit again. Contracts in
+ * these documents may carry personal data; pending and approved claims keep theirs.
+ */
+export const CLAIM_DOCUMENT_RETENTION_DAYS = 90;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 type ClaimWithWater = WaterClaim & { water: FishingWater };
 
 /** Claims of catalogue waters by organizations, decided by the super admin (FR-24). */
@@ -223,20 +232,53 @@ export class ClaimsService {
     if (!claim) {
       throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'Claim not found');
     }
+    const key = claim.proofFileKey;
+    if (key === null) {
+      throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'Claim document deleted');
+    }
     let content: Buffer;
     try {
-      content = await this.storage.read(claim.proofFileKey);
+      content = await this.storage.read(key);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
         throw error;
       }
       // The row outlived its file (volume restored from an older backup, manual cleanup).
-      this.logger.error({ claimId: id, key: claim.proofFileKey }, 'Claim document is missing');
+      this.logger.error({ claimId: id, key }, 'Claim document is missing');
       throw new DomainError(ErrorCode.NOT_FOUND, undefined, 'Claim document not found');
     }
-    const type = documentTypeOf(claim.proofFileKey);
-    const extension = claim.proofFileKey.slice(claim.proofFileKey.lastIndexOf('.') + 1);
+    const type = documentTypeOf(key);
+    const extension = key.slice(key.lastIndexOf('.') + 1);
     return { content, type, fileName: `claim-${claim.id}.${extension}` };
+  }
+
+  /**
+   * Deletes the documents of claims rejected more than CLAIM_DOCUMENT_RETENTION_DAYS ago; the
+   * claim rows stay (history, AuditLog). The key is cleared first and the file removed after
+   * the commit: a crash in between leaves a file without a row, never a row pointing nowhere.
+   * Rows are locked, so two API instances running it at once clear each key once.
+   */
+  async deleteExpiredDocuments(): Promise<number> {
+    const before = new Date(this.clock.now().getTime() - CLAIM_DOCUMENT_RETENTION_DAYS * DAY_MS);
+    const cleared = await this.prisma.$queryRaw<{ id: string; key: string }[]>`
+      UPDATE "WaterClaim" AS claim SET "proofFileKey" = NULL
+      FROM (
+        SELECT "id", "proofFileKey" FROM "WaterClaim"
+        WHERE "status" = 'REJECTED' AND "proofFileKey" IS NOT NULL
+          AND COALESCE("reviewedAt", "createdAt") < ${before}
+        FOR UPDATE
+      ) AS expired
+      WHERE claim."id" = expired."id"
+      RETURNING claim."id", expired."proofFileKey" AS "key"`;
+    for (const { id, key } of cleared) {
+      try {
+        await this.storage.delete(key);
+      } catch (err) {
+        // The row no longer names the file: it is only disk space, found by its folder.
+        this.logger.error({ err, claimId: id, key }, 'Deleting an expired claim document failed');
+      }
+    }
+    return cleared.length;
   }
 
   /** Concurrently reviewed (the other decision won) → CLAIM_NOT_PENDING, rolling back. */
@@ -268,7 +310,7 @@ export class ClaimsService {
       return {
         ...toClaim(claim),
         organization,
-        documentType: documentTypeOf(claim.proofFileKey),
+        documentType: documentTypeOrNull(claim.proofFileKey),
       };
     });
   }
@@ -288,4 +330,8 @@ function toClaim(claim: ClaimWithWater): ClaimDto {
 
 function documentTypeOf(key: string): string {
   return claimProofTypeOf(key) ?? 'application/octet-stream';
+}
+
+function documentTypeOrNull(key: string | null): string | null {
+  return key === null ? null : documentTypeOf(key);
 }

@@ -406,6 +406,22 @@ describe('admin claims page', () => {
     expect(request?.headers.get('Authorization')).toBe('Bearer access-1');
   });
 
+  it('says the document of a long-rejected claim is deleted instead of offering it (T-30)', async () => {
+    mockApi({
+      'GET /api/v1/me': () => jsonResponse(admin),
+      'GET /api/v1/admin/claims': queue([
+        { ...pendingAdminClaim, status: 'REJECTED', documentType: null },
+      ]),
+    });
+    renderRoute('/admin/claims?status=REJECTED', { accessToken: 'access-1' });
+
+    const card = await screen.findByRole('region', { name: 'Zalew Zegrzyński' });
+    expect(
+      within(card).getByText('Dokument usunięty — wniosek odrzucono ponad 90 dni temu.'),
+    ).toBeVisible();
+    expect(within(card).queryByRole('button', { name: 'Pobierz dokument' })).toBeNull();
+  });
+
   it('switches the filter to every claim', async () => {
     const fetch = mockApi({
       'GET /api/v1/me': () => jsonResponse(admin),

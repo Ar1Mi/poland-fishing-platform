@@ -32,8 +32,7 @@ import { AdminNav } from '../../orgs/components/AdminNav';
 const STATUSES = Object.values(ClaimStatus);
 const ALL = 'ALL';
 
-function documentFileName(claim: AdminClaim): string {
-  const { documentType } = claim;
+function documentFileName(claim: AdminClaim, documentType: string): string {
   const extension = isClaimProofMimeType(documentType)
     ? CLAIM_PROOF_EXTENSIONS[documentType]
     : 'bin';
@@ -85,6 +84,7 @@ function AdminClaimCard({ claim }: { claim: AdminClaim }) {
   const { t, i18n } = useTranslation();
   const locale = i18n.resolvedLanguage ?? 'pl';
   const download = useClaimDocument();
+  const { documentType } = claim;
   const titleId = `claim-${claim.id}`;
   return (
     <Card aria-labelledby={titleId}>
@@ -125,20 +125,25 @@ function AdminClaimCard({ claim }: { claim: AdminClaim }) {
             </>
           )}
         </dl>
-        <Button
-          type="button"
-          variant="secondary"
-          className="w-fit"
-          disabled={download.isPending}
-          onClick={() =>
-            download.mutate(claim.id, {
-              onSuccess: (blob) => saveFile(blob, documentFileName(claim)),
-            })
-          }
-        >
-          <Download aria-hidden />
-          {t('claims.admin.document')}
-        </Button>
+        {documentType === null ? (
+          // Deleted after the retention period of rejected claims (T-30).
+          <p className="text-small text-muted-foreground">{t('claims.admin.documentDeleted')}</p>
+        ) : (
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-fit"
+            disabled={download.isPending}
+            onClick={() =>
+              download.mutate(claim.id, {
+                onSuccess: (blob) => saveFile(blob, documentFileName(claim, documentType)),
+              })
+            }
+          >
+            <Download aria-hidden />
+            {t('claims.admin.document')}
+          </Button>
+        )}
         {download.isError && <ApiErrorAlert error={download.error} />}
         {claim.status === 'PENDING' && <ReviewForm claimId={claim.id} />}
       </CardContent>

@@ -50,6 +50,7 @@
     "submittedAt": "Złożony",
     "comment": "Komentarz",
     "document": "Pobierz dokument",
+    "documentDeleted": "Dokument usunięty — wniosek odrzucono ponad 90 dni temu.",
     "commentField": "Komentarz dla organizacji",
     "commentHint": "Opcjonalnie. Przy odrzuceniu napisz, czego brakuje.",
     "commentTooLong": "Komentarz może mieć najwyżej 1000 znaków.",

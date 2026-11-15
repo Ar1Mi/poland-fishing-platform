@@ -104,7 +104,7 @@ describe('water claims', () => {
       });
       expect(claim).toMatchObject({ organizationId: admin.organizationId, status: 'PENDING' });
       expect(claim.proofFileKey).toMatch(/^claims\/[0-9a-f-]{36}\.pdf$/);
-      expect(await readFile(join(UPLOADS_DIR, claim.proofFileKey))).toEqual(PDF);
+      expect(await readFile(join(UPLOADS_DIR, claim.proofFileKey!))).toEqual(PDF);
     });
 
     it('stores an image with the extension of its real type', async () => {
