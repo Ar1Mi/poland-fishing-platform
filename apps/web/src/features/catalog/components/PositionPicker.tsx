@@ -3,6 +3,7 @@ import 'leaflet/dist/leaflet.css';
 import { useEffect } from 'react';
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import { POLAND_BOUNDS, toLatLngBounds } from '../lib/map';
+import { TILES } from '../lib/tiles';
 import { waterMarkerIcon } from './water-marker';
 
 const icon = waterMarkerIcon(false);
@@ -28,9 +29,10 @@ export function PositionPicker({
         className="h-72 w-full rounded-lg border border-border"
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-          // The page sends no referrer (index.html); the OSM tile policy needs one: the origin is enough.
+          attribution={TILES.attribution}
+          url={TILES.url}
+          // The page sends no referrer (index.html); the OSM tile policy needs one, and a MapTiler key
+          // is restricted to the allowed origins: the origin is enough.
           referrerPolicy="origin"
           maxZoom={19}
         />
