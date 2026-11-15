@@ -4,6 +4,10 @@
 {$SITE_ADDRESS:localhost} {
 	encode zstd gzip
 
+	# HTTPS only, for the app and the API alike (Caddy redirects http itself). `>`: set after
+	# the handler, so it replaces the HSTS helmet of the API sends — one policy, this one.
+	header >Strict-Transport-Security "max-age={$HSTS_MAX_AGE:0}"
+
 	# The API and its Swagger UI; the API sends its own security headers (helmet).
 	handle /api/* {
 		# Caddy trusts no proxy before it, so it replaces any X-Forwarded-For of the client

@@ -99,7 +99,8 @@ jobs:
           registry="ghcr.io/$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')"
           scp docker-compose.prod.yml "vps:$VPS_DIR/docker-compose.prod.yml"
           # Read by compose for interpolation only; the secrets stay in prod.env on the VPS.
-          printf 'LOWISKO_REGISTRY=%s\nLOWISKO_TAG=%s\nSITE_ADDRESS=%s\n' "$registry" "$TAG" "$SITE_ADDRESS" |
+          printf 'LOWISKO_REGISTRY=%s\nLOWISKO_TAG=%s\nSITE_ADDRESS=%s\nHSTS_MAX_AGE=31536000\n' \
+            "$registry" "$TAG" "$SITE_ADDRESS" |
             ssh vps "cat > '$VPS_DIR/.env'"
 
       - name: Pull and restart

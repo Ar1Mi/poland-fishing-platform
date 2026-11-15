@@ -6,6 +6,7 @@
 #   SITE_ADDRESS        host name Caddy serves and gets a certificate for; default localhost
 #   LOWISKO_REGISTRY    image prefix; default `lowisko` (local build), deploy: ghcr.io/<owner>
 #   LOWISKO_TAG         image tag; default latest
+#   HSTS_MAX_AGE        Strict-Transport-Security max-age; default 0 (deploy.yml: one year)
 #   VITE_MAP_TILE_URL, VITE_MAP_TILE_ATTRIBUTION — map tiles of a local build of the web image
 # Not `lowisko`: that is the project of the dev docker-compose.yml (directory name), and a shared
 # name would make this stack take over the dev containers and the dev database volume.
@@ -20,6 +21,9 @@ x-logging: &logging # Rotated: the default json-file driver grows without limit 
 services:
   db:
     image: postgres:16-alpine
+    # Sessions in UTC whatever the server's default: @prisma/adapter-pg sends a Date as UTC time
+    # without an offset, and Postgres reads it in the session time zone (ROADMAP T-24, review).
+    command: ['postgres', '-c', 'timezone=UTC']
     restart: unless-stopped
     env_file: prod.env
     volumes:
@@ -80,6 +84,9 @@ services:
     restart: unless-stopped
     environment:
       SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
+      # HSTS (seconds); 0 — the browser keeps nothing: a local run must not pin https on
+      # localhost (it would break `pnpm dev` on http://localhost). deploy.yml sets one year.
+      HSTS_MAX_AGE: ${HSTS_MAX_AGE:-0}
     ports:
       - '80:80'
       - '443:443'
