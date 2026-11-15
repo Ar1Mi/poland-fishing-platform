@@ -1,0 +1,26 @@
+# Build context of the images (apps/api/Dockerfile, apps/web/Dockerfile): sources and the
+# lockfile only. Secrets never enter it (`.env*`, `prod.env`).
+**/node_modules
+**/dist
+**/dist-*
+**/coverage
+**/uploads
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+!**/.env.example
+prod.env
+backups
+.git
+.github
+.husky
+.claude
+docs
+data
+tests
+apps/web/e2e
+apps/web/zap
+apps/web/perf
+apps/web/test-results
+apps/web/playwright-report
+apps/api/src/generated

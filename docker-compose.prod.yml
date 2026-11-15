@@ -1,0 +1,116 @@
+# Production stack (T-30, NFR-10, docs/08-testing-and-infra.md → «Docker Compose»):
+#   docker compose -f docker-compose.prod.yml up -d
+# Containers read prod.env (secrets; template prod.env.example). Compose itself interpolates
+# the variables below from the shell or the .env file next to this one (on the VPS: written by
+# deploy.yml; locally the defaults build the images from the sources).
+#   SITE_ADDRESS        host name Caddy serves and gets a certificate for; default localhost
+#   LOWISKO_REGISTRY    image prefix; default `lowisko` (local build), deploy: ghcr.io/<owner>
+#   LOWISKO_TAG         image tag; default latest
+#   VITE_MAP_TILE_URL, VITE_MAP_TILE_ATTRIBUTION — map tiles of a local build of the web image
+# Not `lowisko`: that is the project of the dev docker-compose.yml (directory name), and a shared
+# name would make this stack take over the dev containers and the dev database volume.
+name: lowisko-prod
+
+x-logging: &logging # Rotated: the default json-file driver grows without limit on the VPS disk.
+  driver: local
+  options:
+    max-size: 10m
+    max-file: '5'
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file: prod.env
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    logging: *logging
+
+  # Migrations and seed on every start (species, general rules; demo data with SEED_DEMO=true),
+  # then exits; the API starts only after it succeeded.
+  migrate:
+    image: ${LOWISKO_REGISTRY:-lowisko}/api-migrate:${LOWISKO_TAG:-latest}
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: migrate
+    env_file: prod.env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: 'no'
+    logging: *logging
+
+  api:
+    image: ${LOWISKO_REGISTRY:-lowisko}/api:${LOWISKO_TAG:-latest}
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: runtime
+    restart: unless-stopped
+    env_file: prod.env
+    environment:
+      API_PORT: '3000'
+      UPLOADS_DIR: /data/uploads
+      # Caddy in front: the client address comes from its X-Forwarded-For.
+      TRUST_PROXY: '1'
+    volumes:
+      - uploads:/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    logging: *logging
+
+  # Caddy: HTTPS, the static PWA, /api → api (apps/web/Caddyfile).
+  web:
+    image: ${LOWISKO_REGISTRY:-lowisko}/web:${LOWISKO_TAG:-latest}
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        VITE_MAP_TILE_URL: ${VITE_MAP_TILE_URL:-}
+        VITE_MAP_TILE_ATTRIBUTION: ${VITE_MAP_TILE_ATTRIBUTION:-}
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      # Certificates and the ACME account survive a new image.
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      api:
+        condition: service_healthy
+    logging: *logging
+
+  backup:
+    image: ${LOWISKO_REGISTRY:-lowisko}/backup:${LOWISKO_TAG:-latest}
+    build: deploy/backup
+    restart: unless-stopped
+    env_file: prod.env
+    environment:
+      # Only here: the API keeps UTC and converts to Warsaw time itself.
+      TZ: Europe/Warsaw
+    volumes:
+      - ./backups:/backups
+      - uploads:/uploads:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *logging
+
+volumes:
+  db-data:
+  uploads:
+  caddy-data:
+  caddy-config:

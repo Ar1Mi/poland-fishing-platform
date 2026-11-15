@@ -37,3 +37,7 @@ apps/web/.lighthouseci/
 # Claude Code (personal)
 CLAUDE.local.md
 .claude/settings.local.json
+
+# production stack (docker-compose.prod.yml)
+prod.env
+backups/

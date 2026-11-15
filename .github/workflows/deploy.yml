@@ -1,0 +1,124 @@
+# Deploy to the VPS on a version tag (T-30, docs/08-testing-and-infra.md → «Деплой»):
+#   git tag v1.0.0 && git push origin v1.0.0
+# Builds the images, pushes them to GHCR, then on the VPS: compose pull && up -d.
+#
+# Repository secrets: VPS_HOST, VPS_USER, VPS_SSH_KEY (private key of a deploy user in the docker
+# group), VPS_KNOWN_HOSTS (`ssh-keyscan <host>`, checked: no blind trust of the host key).
+# Repository variables: SITE_ADDRESS (host name of the site), VPS_DIR (default /opt/lowisko, holds
+# prod.env), VITE_MAP_TILE_URL and VITE_MAP_TILE_ATTRIBUTION (MapTiler; public in the bundle anyway).
+name: Deploy
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+# One deploy at a time; a newer tag waits instead of cancelling a half-done `up`.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ github.ref_name }}
+
+jobs:
+  images:
+    name: Build and push images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Log in to GHCR
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+
+      - name: Build and push
+        env:
+          OWNER: ${{ github.repository_owner }}
+          VITE_MAP_TILE_URL: ${{ vars.VITE_MAP_TILE_URL }}
+          VITE_MAP_TILE_ATTRIBUTION: ${{ vars.VITE_MAP_TILE_ATTRIBUTION }}
+        run: |
+          set -eu
+          if [ -z "$VITE_MAP_TILE_URL" ]; then
+            echo "::error::VITE_MAP_TILE_URL is not set: production must not load tile.openstreetmap.org"
+            exit 1
+          fi
+          registry="ghcr.io/$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')"
+          build() { docker buildx build --push --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" "$@"; }
+          build -f apps/api/Dockerfile --target migrate -t "$registry/api-migrate:$TAG" .
+          build -f apps/api/Dockerfile --target runtime -t "$registry/api:$TAG" .
+          build -f apps/web/Dockerfile -t "$registry/web:$TAG" \
+            --build-arg VITE_MAP_TILE_URL --build-arg VITE_MAP_TILE_ATTRIBUTION .
+          build -t "$registry/backup:$TAG" deploy/backup
+
+  deploy:
+    name: Deploy to the VPS
+    needs: images
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Protection rules (required reviewers) can be added to this environment in the settings.
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_DIR: ${{ vars.VPS_DIR || '/opt/lowisko' }}
+      SITE_ADDRESS: ${{ vars.SITE_ADDRESS }}
+      OWNER: ${{ github.repository_owner }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: SSH key and known host
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf 'Host vps\n  HostName %s\n  User %s\n  IdentityFile ~/.ssh/deploy\n  IdentitiesOnly yes\n' \
+            "$VPS_HOST" "$VPS_USER" > ~/.ssh/config
+
+      - name: Copy the compose file and the image versions
+        run: |
+          set -eu
+          registry="ghcr.io/$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')"
+          scp docker-compose.prod.yml "vps:$VPS_DIR/docker-compose.prod.yml"
+          # Read by compose for interpolation only; the secrets stay in prod.env on the VPS.
+          printf 'LOWISKO_REGISTRY=%s\nLOWISKO_TAG=%s\nSITE_ADDRESS=%s\n' "$registry" "$TAG" "$SITE_ADDRESS" |
+            ssh vps "cat > '$VPS_DIR/.env'"
+
+      - name: Pull and restart
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -eu
+          # The job token lets the VPS pull private images; it expires with this job.
+          echo "$TOKEN" | ssh vps "docker login ghcr.io -u '$ACTOR' --password-stdin"
+          ssh vps "cd '$VPS_DIR' && docker compose -f docker-compose.prod.yml pull \
+            && docker compose -f docker-compose.prod.yml up -d --no-build --remove-orphans \
+            && docker image prune -f; status=\$?; docker logout ghcr.io; exit \$status"
+
+      - name: Check the site
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS "https://$SITE_ADDRESS/api/v1/health"; then exit 0; fi
+            sleep 5
+          done
+          echo "::error::https://$SITE_ADDRESS/api/v1/health did not answer"
+          exit 1
