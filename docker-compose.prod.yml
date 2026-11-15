@@ -1,6 +1,7 @@
 # Production stack (T-30, NFR-10, docs/08-testing-and-infra.md → «Docker Compose»):
 #   docker compose -f docker-compose.prod.yml up -d
-# Containers read prod.env (secrets; template prod.env.example). Compose itself interpolates
+# Containers read db.env (PostgreSQL account: db, backup) and prod.env (the API's secrets:
+# migrate, api); templates *.example. Compose itself interpolates
 # the variables below from the shell or the .env file next to this one (on the VPS: written by
 # deploy.yml; locally the defaults build the images from the sources).
 #   SITE_ADDRESS        host name Caddy serves and gets a certificate for; default localhost
@@ -25,7 +26,7 @@ services:
     # without an offset, and Postgres reads it in the session time zone (ROADMAP T-24, review).
     command: ['postgres', '-c', 'timezone=UTC']
     restart: unless-stopped
-    env_file: prod.env
+    env_file: db.env
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
@@ -104,7 +105,7 @@ services:
     image: ${LOWISKO_REGISTRY:-lowisko}/backup:${LOWISKO_TAG:-latest}
     build: deploy/backup
     restart: unless-stopped
-    env_file: prod.env
+    env_file: db.env
     environment:
       # Only here: the API keeps UTC and converts to Warsaw time itself.
       TZ: Europe/Warsaw

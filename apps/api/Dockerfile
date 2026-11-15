@@ -37,6 +37,8 @@ RUN pnpm --filter @lowisko/shared build && pnpm --filter api build
 FROM build AS migrate
 WORKDIR /repo/apps/api
 ENV NODE_ENV=production
+# Reads the sources, writes only to the database.
+USER node
 CMD ["sh", "-c", "pnpm exec prisma migrate deploy && pnpm exec prisma db seed"]
 
 FROM build AS prune

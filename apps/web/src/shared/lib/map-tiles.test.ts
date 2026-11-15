@@ -19,13 +19,23 @@ describe('tileSource', () => {
     ).toEqual({ url: MAPTILER, attribution: '&copy; MapTiler' });
   });
 
+  it('refuses another provider without its attribution', () => {
+    expect(() => tileSource({ VITE_MAP_TILE_URL: MAPTILER })).toThrow('VITE_MAP_TILE_ATTRIBUTION');
+  });
+
   it('refuses a template it could not allow in the CSP', () => {
     expect(() =>
-      tileSource({ VITE_MAP_TILE_URL: 'https://{s}.tile.example/{z}/{x}/{y}.png' }),
+      tileSource({
+        VITE_MAP_TILE_URL: 'https://{s}.tile.example/{z}/{x}/{y}.png',
+        VITE_MAP_TILE_ATTRIBUTION: 'x',
+      }),
     ).toThrow('VITE_MAP_TILE_URL');
-    expect(() => tileSource({ VITE_MAP_TILE_URL: 'http://tiles.example/{z}/{x}/{y}.png' })).toThrow(
-      'VITE_MAP_TILE_URL',
-    );
+    expect(() =>
+      tileSource({
+        VITE_MAP_TILE_URL: 'http://tiles.example/{z}/{x}/{y}.png',
+        VITE_MAP_TILE_ATTRIBUTION: 'x',
+      }),
+    ).toThrow('VITE_MAP_TILE_URL');
   });
 });
 

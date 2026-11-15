@@ -10,6 +10,10 @@
 
 	# The API and its Swagger UI; the API sends its own security headers (helmet).
 	handle /api/* {
+		# Files are at most 5 MB (the API checks each limit); larger bodies stop here.
+		request_body {
+			max_size 6MB
+		}
 		# Caddy trusts no proxy before it, so it replaces any X-Forwarded-For of the client
 		# with the client's address: the API (TRUST_PROXY=1) counts its rate limits by it.
 		reverse_proxy api:3000
@@ -40,8 +44,7 @@
 		}
 	}
 
-	log {
-		output stdout
-		format json
-	}
+	# No access log: URIs carry secrets — the QR token in /verify/<token> (valid until the
+	# permit ends) and one-time ?token= links of emails. The API logs every request itself,
+	# with those redacted (docs/07-security.md); Caddy still logs its own errors.
 }

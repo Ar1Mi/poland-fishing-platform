@@ -40,4 +40,5 @@ CLAUDE.local.md
 
 # production stack (docker-compose.prod.yml)
 prod.env
+db.env
 backups/

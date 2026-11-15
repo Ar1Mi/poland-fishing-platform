@@ -23,11 +23,15 @@ export function tileSource(env: {
 }): TileSource {
   const url = env.VITE_MAP_TILE_URL?.trim() || OSM_TILE_URL;
   tileOrigin(url);
-  return {
-    url,
-    attribution:
-      env.VITE_MAP_TILE_ATTRIBUTION?.trim() || (url === OSM_TILE_URL ? OSM_ATTRIBUTION : ''),
-  };
+  const attribution = env.VITE_MAP_TILE_ATTRIBUTION?.trim();
+  if (attribution) {
+    return { url, attribution };
+  }
+  if (url !== OSM_TILE_URL) {
+    // Tile providers' terms (MapTiler, and OSM whose data they draw) require the attribution.
+    throw new Error('VITE_MAP_TILE_ATTRIBUTION must be set with VITE_MAP_TILE_URL');
+  }
+  return { url, attribution: OSM_ATTRIBUTION };
 }
 
 /**
