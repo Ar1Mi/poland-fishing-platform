@@ -136,7 +136,7 @@ export class CatchesController {
   @ApiOkResponse({ type: CatchDto })
   @ApiBadRequestResponse({
     ...error,
-    description: 'VALIDATION_FAILED (id, no file, unsupported type)',
+    description: 'VALIDATION_FAILED (id, no file, unsupported type, undecodable or over 100 MP)',
   })
   @ApiPayloadTooLargeResponse({ ...error, description: 'VALIDATION_FAILED (file over 5 MB)' })
   @ApiNotFoundResponse({ ...error, description: 'NOT_FOUND (also a catch of someone else)' })

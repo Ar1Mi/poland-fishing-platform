@@ -14,7 +14,8 @@ export const PHOTO_MAX_SIDE = 1280;
 
 /**
  * Larger images are refused before decoding: a 5 MB file can declare a huge canvas
- * (decompression bomb). 100 MP is above any phone camera.
+ * (decompression bomb). A limit against that, not a camera size: a 100 MP photo is far over
+ * the 5 MB upload limit anyway.
  */
 export const PHOTO_MAX_INPUT_PIXELS = 100_000_000;
 
@@ -33,16 +34,14 @@ export class InvalidPhotoError extends Error {
  * extension still tells it (`waterPhotoTypeOf`, `catchPhotoTypeOf`).
  */
 export async function optimizePhoto(content: Buffer, type: PhotoType): Promise<Buffer> {
-  // `failOn: 'error'`: a truncated or corrupt file is refused, not stored half-decoded.
-  // An animated WebP keeps its first frame (the default `pages: 1`).
-  const image = sharp(content, { failOn: 'error', limitInputPixels: PHOTO_MAX_INPUT_PIXELS })
-    .rotate()
-    .resize({
-      width: PHOTO_MAX_SIDE,
-      height: PHOTO_MAX_SIDE,
-      fit: 'inside',
-      withoutEnlargement: true,
-    });
+  // sharp's default `failOn: 'warning'`: even what the decoder only warns about (a truncated or
+  // corrupt file) is refused, not stored half-decoded. An animated WebP keeps its first frame.
+  const image = sharp(content, { limitInputPixels: PHOTO_MAX_INPUT_PIXELS }).rotate().resize({
+    width: PHOTO_MAX_SIDE,
+    height: PHOTO_MAX_SIDE,
+    fit: 'inside',
+    withoutEnlargement: true,
+  });
   // No `withMetadata()`: sharp writes none, except the ICC profile turned into sRGB.
   const encoded =
     type === 'image/jpeg'

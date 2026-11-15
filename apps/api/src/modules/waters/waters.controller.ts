@@ -217,7 +217,7 @@ export class OrgWatersController {
   @ApiOkResponse({ type: WaterDetailDto })
   @ApiBadRequestResponse({
     ...error,
-    description: 'VALIDATION_FAILED (id, no file, unsupported type)',
+    description: 'VALIDATION_FAILED (id, no file, unsupported type, undecodable or over 100 MP)',
   })
   @ApiPayloadTooLargeResponse({ ...error, description: 'VALIDATION_FAILED (file over 5 MB)' })
   @ApiNotFoundResponse({ ...error, description: 'NOT_FOUND (not a water of the organization)' })

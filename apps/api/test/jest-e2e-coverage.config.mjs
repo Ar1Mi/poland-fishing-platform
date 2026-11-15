@@ -20,10 +20,18 @@ export default {
   coverageProvider: 'v8',
   coverageDirectory: '<rootDir>/coverage/e2e',
   coverageReporters: ['text-summary', ['text', { skipFull: false }], 'json-summary'],
-  // Business logic of the API: the services and the scheduled jobs (controllers, DTOs and
-  // modules are wiring). The pure rules (CatchValidator, prices, statuses) are in
-  // packages/shared and measured by its own `test:coverage`.
-  collectCoverageFrom: ['src/modules/**/*.service.ts', 'src/modules/**/*.job.ts'],
+  // Business logic of the API: the services, the scheduled jobs, the payment providers
+  // (P24 signature and verification), the access guards and the photo processing.
+  // Controllers, DTOs and modules are wiring. The pure rules (CatchValidator, prices, statuses)
+  // are in packages/shared and measured by its own `test:coverage`.
+  collectCoverageFrom: [
+    'src/modules/**/*.service.ts',
+    'src/modules/**/*.job.ts',
+    'src/modules/**/*.provider.ts',
+    'src/modules/**/*.guard.ts',
+    'src/common/images/*.ts',
+    '!**/*.spec.ts',
+  ],
   // NFR-09: at least 70 % (docs/01-requirements.md).
   coverageThreshold: { global: { statements: 70, branches: 70, functions: 70, lines: 70 } },
 };
