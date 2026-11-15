@@ -12,11 +12,35 @@ import {
 } from '@nestjs/swagger';
 import { ErrorResponseDto } from '../../common/errors/error-response.dto';
 import { Audit, AuditedResponse } from '../audit/audit.interceptor';
+import { type AuthUser, CurrentUser } from '../auth/decorators/auth.decorators';
+import { SeasonQueryDto } from '../catches/dto/catch.dto';
 import { Roles } from '../organizations/decorators/org-access.decorators';
-import { OrgStatsDto, StatsQueryDto } from './dto/stats.dto';
+import { MyStatsDto, OrgStatsDto, StatsQueryDto } from './dto/stats.dto';
 import { ReportsService } from './reports.service';
 
 const error = { type: ErrorResponseDto };
+
+@ApiTags('me')
+@ApiBearerAuth()
+@ApiUnauthorizedResponse({ ...error, description: 'UNAUTHENTICATED, TOKEN_EXPIRED' })
+@Controller('me/stats')
+export class MyStatsController {
+  constructor(private readonly reports: ReportsService) {}
+
+  @Get()
+  // Personal data: no copy in browser or proxy caches, as for `/me/catches`.
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({
+    summary:
+      'My accepted catches of a season by species and water (FR-20), on platform and external ' +
+      'permits alike',
+  })
+  @ApiOkResponse({ type: MyStatsDto })
+  @ApiBadRequestResponse({ ...error, description: 'VALIDATION_FAILED (season)' })
+  stats(@CurrentUser() user: AuthUser, @Query() query: SeasonQueryDto): Promise<MyStatsDto> {
+    return this.reports.myStats(user.id, query.season);
+  }
+}
 
 @ApiTags('orgs')
 @ApiBearerAuth()

@@ -8,6 +8,7 @@ import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
 import { Link } from 'react-router';
 import type { WaterSummary } from '../api/useWaters';
 import { bboxOf, POLAND_BOUNDS, toLatLngBounds, withPosition } from '../lib/map';
+import { waterMarkerIcon } from './water-marker';
 import { WaterStatusBadge } from './WaterStatusBadge';
 
 interface WatersMapProps {
@@ -19,16 +20,8 @@ interface WatersMapProps {
 }
 
 // Shape and fill differ by status, not only colour (docs/10-design-system.md); the popup says it in text.
-const markerIcon = (connected: boolean) =>
-  L.divIcon({
-    className: '',
-    html: `<span class="water-marker${connected ? ' water-marker--connected' : ''}"></span>`,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
-    popupAnchor: [0, -14],
-  });
-const connectedIcon = markerIcon(true);
-const unclaimedIcon = markerIcon(false);
+const connectedIcon = waterMarkerIcon(true);
+const unclaimedIcon = waterMarkerIcon(false);
 
 /** Catalogue map with OSM tiles and marker clusters; the list under it is the accessible view. */
 export function WatersMap({ waters, onBoundsChange, fitToWaters }: WatersMapProps) {

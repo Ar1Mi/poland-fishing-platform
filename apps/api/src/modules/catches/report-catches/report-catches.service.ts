@@ -19,6 +19,13 @@ export interface CatchCount {
   count: number;
 }
 
+interface CountRow {
+  speciesId: string;
+  waterId: string;
+  kept: boolean;
+  count: number;
+}
+
 /** A catch as the organization's export lists it: no angler, no position (T-24). */
 export interface ExportedCatch {
   caughtAt: Date;
@@ -52,15 +59,35 @@ export class ReportCatchesService {
   /** Accepted catches in the period (Warsaw days of `caughtAt`) by species, water and kept. */
   async counts(permits: OrgPermitsRelation, range: StatsRange): Promise<CatchCount[]> {
     const { start, end } = statsRangeBounds(range);
-    const rows = await this.prisma.$queryRaw<
-      { speciesId: string; waterId: string; kept: boolean; count: number }[]
-    >`
+    return this.named(
+      await this.prisma.$queryRaw<CountRow[]>`
       SELECT c."speciesId", c."fishingWaterId" AS "waterId", c."kept", count(*)::int AS "count"
       FROM "CatchRecord" c
       JOIN (${permits}) p ON p."id" = c."permitId"
       WHERE c."syncStatus" = ${CatchSyncStatus.ACCEPTED}::"CatchSyncStatus"
         AND c."caughtAt" >= ${start} AND c."caughtAt" < ${end}
-      GROUP BY c."speciesId", c."fishingWaterId", c."kept"`;
+      GROUP BY c."speciesId", c."fishingWaterId", c."kept"`,
+    );
+  }
+
+  /**
+   * The angler's own accepted catches in the period (FR-20), on permits of both kinds: the
+   * register is the user's, whoever sold the permit.
+   */
+  async countsOfUser(userId: string, range: StatsRange): Promise<CatchCount[]> {
+    const { start, end } = statsRangeBounds(range);
+    return this.named(
+      await this.prisma.$queryRaw<CountRow[]>`
+      SELECT c."speciesId", c."fishingWaterId" AS "waterId", c."kept", count(*)::int AS "count"
+      FROM "CatchRecord" c
+      WHERE c."userId" = ${userId}::uuid
+        AND c."syncStatus" = ${CatchSyncStatus.ACCEPTED}::"CatchSyncStatus"
+        AND c."caughtAt" >= ${start} AND c."caughtAt" < ${end}
+      GROUP BY c."speciesId", c."fishingWaterId", c."kept"`,
+    );
+  }
+
+  private async named(rows: CountRow[]): Promise<CatchCount[]> {
     const names = await this.waters.findNames([...new Set(rows.map((row) => row.waterId))]);
     return rows.map(({ waterId, ...row }) => ({
       ...row,

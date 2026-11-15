@@ -58,5 +58,12 @@
       "hint": "Plik CSV dla arkusza kalkulacyjnego: wszystkie połowy z okresu na zezwoleniach organizacji, także odrzucone z przyczyną. Zawiera numer zezwolenia, bez danych wędkarza i miejsca połowu.",
       "download": "Pobierz plik CSV"
     }
+  },
+  "myStats": {
+    "title": "Moje statystyki",
+    "back": "Wróć do rejestru",
+    "season": "Sezon",
+    "catches": "Połowy w sezonie {{season}}",
+    "hint": "Połowy przyjęte w rejestrze na Twoich zezwoleniach — z serwisu i zewnętrznych — według dnia połowu."
   }
 }

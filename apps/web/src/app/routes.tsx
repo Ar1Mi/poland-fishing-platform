@@ -7,9 +7,11 @@ import { ProfilePage } from '../features/auth/pages/ProfilePage';
 import { RegisterPage } from '../features/auth/pages/RegisterPage';
 import { ResetPasswordPage } from '../features/auth/pages/ResetPasswordPage';
 import { VerifyEmailPage } from '../features/auth/pages/VerifyEmailPage';
+import { AdminWatersPage } from '../features/catalog/pages/AdminWatersPage';
 import { CatalogPage } from '../features/catalog/pages/CatalogPage';
 import { OrgWaterPage } from '../features/catalog/pages/OrgWaterPage';
 import { OrgWatersPage } from '../features/catalog/pages/OrgWatersPage';
+import { SuggestWaterPage } from '../features/catalog/pages/SuggestWaterPage';
 import { MyCatchesPage } from '../features/catches/pages/MyCatchesPage';
 import { NewCatchPage } from '../features/catches/pages/NewCatchPage';
 import { WaterPage } from '../features/catalog/pages/WaterPage';
@@ -34,6 +36,7 @@ import { OrgPermitsPage } from '../features/permits/pages/OrgPermitsPage';
 import { OrgPermitTypesPage } from '../features/permits/pages/OrgPermitTypesPage';
 import { OrgRulesPage } from '../features/rules/pages/OrgRulesPage';
 import { PaymentReturnPage } from '../features/permits/pages/PaymentReturnPage';
+import { MyStatsPage } from '../features/reports/pages/MyStatsPage';
 import { OrgStatsPage } from '../features/reports/pages/OrgStatsPage';
 import { NotFoundPage } from '../shared/pages/NotFoundPage';
 import { RouteErrorPage } from '../shared/pages/RouteErrorPage';
@@ -46,6 +49,15 @@ export const routes: RouteObject[] = [
     errorElement: <RouteErrorPage />,
     children: [
       { index: true, element: <CatalogPage /> },
+      // Before `waters/:id`: a suggestion is sent by a logged-in angler (FR-25).
+      {
+        path: 'waters/suggest',
+        element: (
+          <RequireAuth>
+            <SuggestWaterPage />
+          </RequireAuth>
+        ),
+      },
       { path: 'waters/:id', element: <WaterPage /> },
       {
         path: 'login',
@@ -117,6 +129,15 @@ export const routes: RouteObject[] = [
         element: (
           <RequireAuth offline>
             <MyCatchesPage />
+          </RequireAuth>
+        ),
+      },
+      // Figures come from the server: online only.
+      {
+        path: 'me/stats',
+        element: (
+          <RequireAuth>
+            <MyStatsPage />
           </RequireAuth>
         ),
       },
@@ -266,6 +287,14 @@ export const routes: RouteObject[] = [
         element: (
           <RequireAuth>
             <AdminClaimsPage />
+          </RequireAuth>
+        ),
+      },
+      {
+        path: 'admin/waters',
+        element: (
+          <RequireAuth>
+            <AdminWatersPage />
           </RequireAuth>
         ),
       },

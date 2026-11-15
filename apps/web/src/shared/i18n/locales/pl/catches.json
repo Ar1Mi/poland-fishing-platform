@@ -1,7 +1,8 @@
 {
   "links": {
     "add": "Dodaj połów",
-    "register": "Rejestr połowów"
+    "register": "Rejestr połowów",
+    "stats": "Moje statystyki"
   },
   "form": {
     "title": "Dodaj połów",
@@ -159,5 +160,19 @@
     "deleteConfirm": "Usunąć ten połów z urządzenia? Nie trafi do rejestru.",
     "sentNoAnswer": "Połów został wysłany, ale odpowiedź nie dotarła — mógł już trafić do rejestru. Po synchronizacji usuniesz go w rejestrze.",
     "fish": "Połów"
+  },
+  "photo": {
+    "alt": "Zdjęcie połowu: {{name}}",
+    "loading": "Ładowanie zdjęcia…",
+    "add": "Dodaj zdjęcie połowu: {{name}}",
+    "replace": "Zamień zdjęcie połowu: {{name}}",
+    "hint": "JPEG, PNG lub WebP, do {{mb}} MB. Zdjęcie widzisz tylko Ty.",
+    "type": "Wybierz zdjęcie JPEG, PNG lub WebP.",
+    "tooBig": "Zdjęcie jest większe niż {{mb}} MB.",
+    "submit": "Zapisz zdjęcie",
+    "remove": "Usuń zdjęcie",
+    "show": "Pokaż zdjęcie",
+    "showLabel": "Pokaż zdjęcie połowu: {{name}}",
+    "saved": "Zdjęcie zapisane."
   }
 }

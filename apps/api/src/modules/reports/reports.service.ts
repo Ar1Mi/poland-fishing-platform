@@ -14,7 +14,7 @@ import { ReportCatchesService } from '../catches/report-catches/report-catches.s
 import { ReportPermitsService } from '../permits/report-permits/report-permits.service';
 import { summarizeCatches } from './catch-stats';
 import { catchesCsv } from './catches-csv';
-import type { OrgStatsDto, StatsQueryDto } from './dto/stats.dto';
+import type { MyStatsDto, OrgStatsDto, StatsQueryDto } from './dto/stats.dto';
 
 export interface CatchesCsv {
   fileName: string;
@@ -44,6 +44,16 @@ export class ReportsService {
       this.catches.counts(this.permits.ofOrganization(organizationId), range),
     ]);
     return { ...range, sales, catches: summarizeCatches(counts) };
+  }
+
+  /** The angler's own season (FR-20): the current Warsaw year unless one is asked for. */
+  async myStats(userId: string, season?: number): Promise<MyStatsDto> {
+    const range =
+      season === undefined
+        ? seasonRange(warsawDate(this.clock.now()))
+        : { from: `${season}-01-01`, to: `${season}-12-31` };
+    const counts = await this.catches.countsOfUser(userId, range);
+    return { season: Number(range.from.slice(0, 4)), ...range, catches: summarizeCatches(counts) };
   }
 
   async catchesCsv(organizationId: string, query: StatsQueryDto): Promise<CatchesCsv> {

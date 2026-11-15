@@ -15,12 +15,13 @@ import {
   formatWeightInput,
 } from '../lib/catch-form';
 import { CatchForm, type CatchFormSubmit } from './CatchForm';
+import { CatchPhoto } from './CatchPhoto';
 import { CatchSummary } from './CatchSummary';
 
 /**
  * A catch of the register (docs/10-design-system.md → `CatchRow`): species, kept or released
- * and time; length and weight on the right. Within the BR-07 window it is corrected in place
- * or deleted after a second confirmation.
+ * and time; length and weight on the right; the photo, if any (FR-14). Within the BR-07 window
+ * it is corrected in place, gets or loses its photo, or is deleted after a second confirmation.
  */
 export function CatchRow({
   fish,
@@ -98,6 +99,7 @@ export function CatchRow({
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
       <CatchSummary fish={fish} species={species} />
+      <CatchPhoto fish={fish} editable={editable} alt={`${name}, ${time}`} />
       {editable && (
         <>
           <p className="text-small text-muted-foreground">

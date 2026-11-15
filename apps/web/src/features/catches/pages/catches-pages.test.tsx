@@ -627,6 +627,7 @@ const caught = (changes: Partial<Catch>): Catch => ({
   status: 'REJECTED',
   violations: [{ code: 'WEIGHT_REQUIRED', ruleId: 'BR-11' }],
   // 6 October ends at 22:00 UTC; the window a day later.
+  photoType: null,
   editableUntil: '2026-10-07T22:00:00.000Z',
   createdAt: '2026-10-06T08:01:00.000Z',
   ...changes,
@@ -642,6 +643,7 @@ const older = caught({
   weightG: 2350,
   status: 'ACCEPTED',
   violations: [],
+  photoType: null,
   editableUntil: '2026-10-05T22:00:00.000Z',
 });
 
@@ -1030,5 +1032,148 @@ describe('links to the register', () => {
 
     expect(await screen.findByRole('link', { name: 'Rejestr połowów' })).toBeVisible();
     expect(screen.queryByRole('link', { name: 'Dodaj połów' })).not.toBeInTheDocument();
+  });
+});
+
+describe('photo of a catch (FR-14)', () => {
+  const photoPath = `/api/v1/catches/${rejected.id}/photo`;
+  const image = () => new Response(new Blob(['png'], { type: 'image/png' }));
+  const picture = () => new File(['png'], 'ryba.png', { type: 'image/png' });
+
+  beforeEach(() => {
+    // jsdom has no object URLs (and every test file gets a fresh jsdom).
+    Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:photo'), revokeObjectURL: vi.fn() });
+  });
+
+  it('adds a photo within the window as multipart and shows it', async () => {
+    let list = [rejected];
+    const fetch = mockApi({
+      ...forRegister(() => list),
+      [`PUT ${photoPath}`]: () => {
+        list = [{ ...rejected, photoType: 'image/png' }];
+        return jsonResponse(list[0]);
+      },
+      [`GET ${photoPath}`]: image,
+    });
+    renderRoute('/me/catches', { accessToken: 'access-1' });
+
+    const field = await screen.findByLabelText('Dodaj zdjęcie połowu: Leszcz, 10:00');
+    expect(screen.queryByRole('img', { name: /Zdjęcie połowu/ })).not.toBeInTheDocument();
+    // Nothing to save until a file is chosen.
+    expect(screen.queryByRole('button', { name: 'Zapisz zdjęcie' })).not.toBeInTheDocument();
+    await userEvent.upload(field, picture());
+    await userEvent.click(screen.getByRole('button', { name: 'Zapisz zdjęcie' }));
+
+    expect(
+      await screen.findByRole('img', { name: 'Zdjęcie połowu: Leszcz, 10:00' }),
+    ).toHaveAttribute('src', 'blob:photo');
+    expect(screen.getByRole('status')).toHaveTextContent('Zdjęcie zapisane.');
+    expect(screen.getByLabelText('Zamień zdjęcie połowu: Leszcz, 10:00')).toHaveFocus();
+    const sent = fetch.mock.calls
+      .map(([request]) => request)
+      .filter((request) => request.method === 'PUT');
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.headers.get('content-type')).toMatch(/^multipart\/form-data/);
+    expect(screen.getByLabelText('Zamień zdjęcie połowu: Leszcz, 10:00')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Zapisz zdjęcie' })).not.toBeInTheDocument();
+  });
+
+  it('fetches a photo only when asked to show it', async () => {
+    const fetch = mockApi({
+      ...forRegister(() => [{ ...rejected, photoType: 'image/png' }]),
+      [`GET ${photoPath}`]: image,
+    });
+    renderRoute('/me/catches', { accessToken: 'access-1' });
+
+    const show = await screen.findByRole('button', {
+      name: 'Pokaż zdjęcie połowu: Leszcz, 10:00',
+    });
+    const photoRequests = () =>
+      fetch.mock.calls.filter(([request]) => new URL(request.url).pathname === photoPath);
+    expect(photoRequests()).toHaveLength(0);
+    await userEvent.click(show);
+
+    expect(await screen.findByRole('img', { name: 'Zdjęcie połowu: Leszcz, 10:00' })).toBeVisible();
+    expect(photoRequests()).toHaveLength(1);
+  });
+
+  it('removes the photo and moves the focus to the file field', async () => {
+    let list: Catch[] = [{ ...rejected, photoType: 'image/png' }];
+    const fetch = mockApi({
+      ...forRegister(() => list),
+      [`GET ${photoPath}`]: image,
+      [`DELETE ${photoPath}`]: () => {
+        list = [rejected];
+        return noContent();
+      },
+    });
+    renderRoute('/me/catches', { accessToken: 'access-1' });
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: 'Pokaż zdjęcie połowu: Leszcz, 10:00' }),
+    );
+    expect(await screen.findByRole('img', { name: 'Zdjęcie połowu: Leszcz, 10:00' })).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Usuń zdjęcie' }));
+
+    const field = await screen.findByLabelText('Dodaj zdjęcie połowu: Leszcz, 10:00');
+    await waitFor(() => expect(field).toHaveFocus());
+    expect(screen.queryByRole('img', { name: /Zdjęcie połowu/ })).not.toBeInTheDocument();
+    expect(fetch.mock.calls.some(([request]) => request.method === 'DELETE')).toBe(true);
+  });
+
+  it('checks the file before uploading', async () => {
+    const fetch = mockApi(forRegister(() => [rejected]));
+    renderRoute('/me/catches', { accessToken: 'access-1' });
+
+    const field = await screen.findByLabelText('Dodaj zdjęcie połowu: Leszcz, 10:00');
+    await userEvent.upload(field, new File(['%PDF'], 'ryba.pdf', { type: 'application/pdf' }), {
+      applyAccept: false,
+    });
+
+    expect(field).toHaveAccessibleDescription(/Wybierz zdjęcie JPEG, PNG lub WebP\./);
+    expect(screen.queryByRole('button', { name: 'Zapisz zdjęcie' })).not.toBeInTheDocument();
+    expect(fetch.mock.calls.some(([request]) => request.method === 'PUT')).toBe(false);
+  });
+
+  it('only shows the photo of a catch whose window has closed', async () => {
+    mockApi({
+      ...forRegister(() => [{ ...older, photoType: 'image/jpeg' }]),
+      [`GET /api/v1/catches/${older.id}/photo`]: image,
+    });
+    renderRoute('/me/catches', { accessToken: 'access-1' });
+
+    const row = await screen.findByRole('region', { name: 'niedziela, 4 października' });
+    await userEvent.click(
+      within(row).getByRole('button', { name: 'Pokaż zdjęcie połowu: Szczupak, 18:30' }),
+    );
+    expect(
+      await within(row).findByRole('img', { name: 'Zdjęcie połowu: Szczupak, 18:30' }),
+    ).toBeVisible();
+    expect(within(row).queryByRole('button')).not.toBeInTheDocument();
+    expect(within(row).queryByLabelText(/zdjęcie połowu/)).not.toBeInTheDocument();
+  });
+
+  it('shows why the server refused the photo', async () => {
+    mockApi({
+      ...forRegister(() => [rejected]),
+      [`PUT ${photoPath}`]: () =>
+        jsonResponse(
+          {
+            code: 'EDIT_WINDOW_CLOSED',
+            message: 'Closed',
+            details: { editableUntil: '2026-10-06T15:00:00.000Z' },
+          },
+          422,
+        ),
+    });
+    renderRoute('/me/catches', { accessToken: 'access-1' });
+
+    await userEvent.upload(
+      await screen.findByLabelText('Dodaj zdjęcie połowu: Leszcz, 10:00'),
+      picture(),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Zapisz zdjęcie' }));
+
+    expect(await screen.findByText('Czas na zmianę tego wpisu minął.')).toBeVisible();
   });
 });

@@ -32,6 +32,7 @@ describe('error codes', () => {
         'PERMIT_TYPE_IN_USE',
         'RULE_ALREADY_EXISTS',
         'EXTERNAL_PERMIT_IN_USE',
+        'WATER_IN_USE',
         'ALREADY_MEMBER',
         'LAST_ORG_ADMIN',
       ],

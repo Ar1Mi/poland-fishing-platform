@@ -1,5 +1,5 @@
 import { warsawDate } from '@lowisko/shared';
-import { CircleCheck, LoaderCircle, Plus, WifiOff } from 'lucide-react';
+import { ChartColumn, CircleCheck, LoaderCircle, Plus, WifiOff } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router';
@@ -95,6 +95,16 @@ export function MyCatchesPage() {
             </option>
           ))}
         </SelectField>
+        {/* Figures need the server (FR-20): the link is not offered without it. */}
+        {connected && (
+          <Link
+            to={season === currentSeason ? '/me/stats' : `/me/stats?season=${season}`}
+            className="flex min-h-11 items-center gap-2 font-semibold text-primary underline"
+          >
+            <ChartColumn aria-hidden className="size-5" />
+            {t('catches.links.stats')}
+          </Link>
+        )}
       </div>
       {notice && (
         <Alert ref={noticeRef} tabIndex={-1} variant="success" className="focus:outline-none">

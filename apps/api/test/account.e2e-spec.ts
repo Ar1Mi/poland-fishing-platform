@@ -381,6 +381,7 @@ describe('account: RODO export and deletion (T-26)', () => {
             organizations: [],
             cancelledInvitations: 0,
             catchesWithPosition: 0,
+            catchPhotos: 0,
             externalPermitPhotos: 0,
           },
         }),
