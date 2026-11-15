@@ -1,46 +1,137 @@
 import type { RouteObject } from 'react-router';
 import { GuestOnly } from '../features/auth/components/GuestOnly';
 import { RequireAuth } from '../features/auth/components/RequireAuth';
-import { AccountDeletedPage } from '../features/auth/pages/AccountDeletedPage';
-import { LoginPage } from '../features/auth/pages/LoginPage';
-import { ProfilePage } from '../features/auth/pages/ProfilePage';
-import { RegisterPage } from '../features/auth/pages/RegisterPage';
-import { ResetPasswordPage } from '../features/auth/pages/ResetPasswordPage';
-import { VerifyEmailPage } from '../features/auth/pages/VerifyEmailPage';
-import { AdminWatersPage } from '../features/catalog/pages/AdminWatersPage';
 import { CatalogPage } from '../features/catalog/pages/CatalogPage';
-import { OrgWaterPage } from '../features/catalog/pages/OrgWaterPage';
-import { OrgWatersPage } from '../features/catalog/pages/OrgWatersPage';
-import { SuggestWaterPage } from '../features/catalog/pages/SuggestWaterPage';
-import { MyCatchesPage } from '../features/catches/pages/MyCatchesPage';
-import { NewCatchPage } from '../features/catches/pages/NewCatchPage';
-import { WaterPage } from '../features/catalog/pages/WaterPage';
-import { OrgInspectionsPage } from '../features/inspections/pages/OrgInspectionsPage';
-import { VerifyPage } from '../features/inspections/pages/VerifyPage';
-import { AdminClaimsPage } from '../features/claims/pages/AdminClaimsPage';
-import { OrgClaimsPage } from '../features/claims/pages/OrgClaimsPage';
-import { PrivacyPolicyPage } from '../features/legal/pages/PrivacyPolicyPage';
-import { AcceptInvitationPage } from '../features/orgs/pages/AcceptInvitationPage';
-import { AdminOrganizationsPage } from '../features/orgs/pages/AdminOrganizationsPage';
-import { MyOrganizationsPage } from '../features/orgs/pages/MyOrganizationsPage';
-import { OrgApplicationPage } from '../features/orgs/pages/OrgApplicationPage';
-import { OrgMembersPage } from '../features/orgs/pages/OrgMembersPage';
-import { BuyPermitPage } from '../features/permits/pages/BuyPermitPage';
-import { ExternalPermitPage } from '../features/permits/pages/ExternalPermitPage';
-import { ExternalPermitsPage } from '../features/permits/pages/ExternalPermitsPage';
-import { FakePaymentPage } from '../features/permits/pages/FakePaymentPage';
-import { MyPermitPage } from '../features/permits/pages/MyPermitPage';
-import { MyPermitsPage } from '../features/permits/pages/MyPermitsPage';
-import { NewExternalPermitPage } from '../features/permits/pages/NewExternalPermitPage';
-import { OrgPermitsPage } from '../features/permits/pages/OrgPermitsPage';
-import { OrgPermitTypesPage } from '../features/permits/pages/OrgPermitTypesPage';
-import { OrgRulesPage } from '../features/rules/pages/OrgRulesPage';
-import { PaymentReturnPage } from '../features/permits/pages/PaymentReturnPage';
-import { MyStatsPage } from '../features/reports/pages/MyStatsPage';
-import { OrgStatsPage } from '../features/reports/pages/OrgStatsPage';
 import { NotFoundPage } from '../shared/pages/NotFoundPage';
 import { RouteErrorPage } from '../shared/pages/RouteErrorPage';
 import { AppLayout } from './AppLayout';
+import { lazyPage } from './lazy-page';
+
+// Each screen is its own chunk (T-29): the first visit loads the catalogue, the rest on the way.
+// The service worker precaches all chunks, so the offline screens open without network.
+const AccountDeletedPage = lazyPage(
+  () => import('../features/auth/pages/AccountDeletedPage'),
+  'AccountDeletedPage',
+);
+const LoginPage = lazyPage(() => import('../features/auth/pages/LoginPage'), 'LoginPage');
+const ProfilePage = lazyPage(() => import('../features/auth/pages/ProfilePage'), 'ProfilePage');
+const RegisterPage = lazyPage(() => import('../features/auth/pages/RegisterPage'), 'RegisterPage');
+const ResetPasswordPage = lazyPage(
+  () => import('../features/auth/pages/ResetPasswordPage'),
+  'ResetPasswordPage',
+);
+const VerifyEmailPage = lazyPage(
+  () => import('../features/auth/pages/VerifyEmailPage'),
+  'VerifyEmailPage',
+);
+const AdminWatersPage = lazyPage(
+  () => import('../features/catalog/pages/AdminWatersPage'),
+  'AdminWatersPage',
+);
+const OrgWaterPage = lazyPage(
+  () => import('../features/catalog/pages/OrgWaterPage'),
+  'OrgWaterPage',
+);
+const OrgWatersPage = lazyPage(
+  () => import('../features/catalog/pages/OrgWatersPage'),
+  'OrgWatersPage',
+);
+const SuggestWaterPage = lazyPage(
+  () => import('../features/catalog/pages/SuggestWaterPage'),
+  'SuggestWaterPage',
+);
+const MyCatchesPage = lazyPage(
+  () => import('../features/catches/pages/MyCatchesPage'),
+  'MyCatchesPage',
+);
+const NewCatchPage = lazyPage(
+  () => import('../features/catches/pages/NewCatchPage'),
+  'NewCatchPage',
+);
+const WaterPage = lazyPage(() => import('../features/catalog/pages/WaterPage'), 'WaterPage');
+const OrgInspectionsPage = lazyPage(
+  () => import('../features/inspections/pages/OrgInspectionsPage'),
+  'OrgInspectionsPage',
+);
+const VerifyPage = lazyPage(() => import('../features/inspections/pages/VerifyPage'), 'VerifyPage');
+const AdminClaimsPage = lazyPage(
+  () => import('../features/claims/pages/AdminClaimsPage'),
+  'AdminClaimsPage',
+);
+const OrgClaimsPage = lazyPage(
+  () => import('../features/claims/pages/OrgClaimsPage'),
+  'OrgClaimsPage',
+);
+const PrivacyPolicyPage = lazyPage(
+  () => import('../features/legal/pages/PrivacyPolicyPage'),
+  'PrivacyPolicyPage',
+);
+const AcceptInvitationPage = lazyPage(
+  () => import('../features/orgs/pages/AcceptInvitationPage'),
+  'AcceptInvitationPage',
+);
+const AdminOrganizationsPage = lazyPage(
+  () => import('../features/orgs/pages/AdminOrganizationsPage'),
+  'AdminOrganizationsPage',
+);
+const MyOrganizationsPage = lazyPage(
+  () => import('../features/orgs/pages/MyOrganizationsPage'),
+  'MyOrganizationsPage',
+);
+const OrgApplicationPage = lazyPage(
+  () => import('../features/orgs/pages/OrgApplicationPage'),
+  'OrgApplicationPage',
+);
+const OrgMembersPage = lazyPage(
+  () => import('../features/orgs/pages/OrgMembersPage'),
+  'OrgMembersPage',
+);
+const BuyPermitPage = lazyPage(
+  () => import('../features/permits/pages/BuyPermitPage'),
+  'BuyPermitPage',
+);
+const ExternalPermitPage = lazyPage(
+  () => import('../features/permits/pages/ExternalPermitPage'),
+  'ExternalPermitPage',
+);
+const ExternalPermitsPage = lazyPage(
+  () => import('../features/permits/pages/ExternalPermitsPage'),
+  'ExternalPermitsPage',
+);
+const FakePaymentPage = lazyPage(
+  () => import('../features/permits/pages/FakePaymentPage'),
+  'FakePaymentPage',
+);
+const MyPermitPage = lazyPage(
+  () => import('../features/permits/pages/MyPermitPage'),
+  'MyPermitPage',
+);
+const MyPermitsPage = lazyPage(
+  () => import('../features/permits/pages/MyPermitsPage'),
+  'MyPermitsPage',
+);
+const NewExternalPermitPage = lazyPage(
+  () => import('../features/permits/pages/NewExternalPermitPage'),
+  'NewExternalPermitPage',
+);
+const OrgPermitsPage = lazyPage(
+  () => import('../features/permits/pages/OrgPermitsPage'),
+  'OrgPermitsPage',
+);
+const OrgPermitTypesPage = lazyPage(
+  () => import('../features/permits/pages/OrgPermitTypesPage'),
+  'OrgPermitTypesPage',
+);
+const OrgRulesPage = lazyPage(() => import('../features/rules/pages/OrgRulesPage'), 'OrgRulesPage');
+const PaymentReturnPage = lazyPage(
+  () => import('../features/permits/pages/PaymentReturnPage'),
+  'PaymentReturnPage',
+);
+const MyStatsPage = lazyPage(() => import('../features/reports/pages/MyStatsPage'), 'MyStatsPage');
+const OrgStatsPage = lazyPage(
+  () => import('../features/reports/pages/OrgStatsPage'),
+  'OrgStatsPage',
+);
 
 // Screens are added by their feature tasks (docs/06-frontend.md → «Маршруты»).
 export const routes: RouteObject[] = [

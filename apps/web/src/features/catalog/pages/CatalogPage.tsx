@@ -1,6 +1,6 @@
 import { isRegion, WaterStatus, WaterType } from '@lowisko/shared';
 import { LoaderCircle, MapPinPlus, ZoomIn } from 'lucide-react';
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router';
 import { Alert, AlertDescription } from '../../../shared/ui/alert';
@@ -10,7 +10,12 @@ import { useLowestPrices } from '../../permits/api/usePermitTypes';
 import { useWaters } from '../api/useWaters';
 import { CatalogFilters, type CatalogFilterValues } from '../components/CatalogFilters';
 import { WaterCard } from '../components/WaterCard';
-import { WatersMap } from '../components/WatersMap';
+
+// Leaflet and its plugins are most of the catalogue's code (T-29): their own chunk, so the
+// heading, filters and list do not wait for them.
+const WatersMap = lazy(async () => ({
+  default: (await import('../components/WatersMap')).WatersMap,
+}));
 
 /** The list renders this many entries; the map shows all of them. */
 export const LIST_LIMIT = 100;
@@ -63,12 +68,19 @@ export function CatalogPage() {
         <p className="text-muted-foreground">{t('catalog.page.lead')}</p>
       </div>
       <CatalogFilters value={filters} onChange={(next) => setParams(toParams(next))} />
-      <WatersMap
-        waters={items}
-        onBoundsChange={setBbox}
-        // Kept previous data still holds the old viewport: zoom only to the search results.
-        fitToWaters={searching && !waters.isPlaceholderData}
-      />
+      {/* The placeholder has the map's size: nothing below it moves when the map comes. */}
+      <Suspense
+        fallback={
+          <div className="h-[50dvh] min-h-72 w-full rounded-lg border border-border bg-secondary" />
+        }
+      >
+        <WatersMap
+          waters={items}
+          onBoundsChange={setBbox}
+          // Kept previous data still holds the old viewport: zoom only to the search results.
+          fitToWaters={searching && !waters.isPlaceholderData}
+        />
+      </Suspense>
       {waters.isError && <ApiErrorAlert error={waters.error} />}
       {waters.data?.truncated && (
         <Alert variant="warning" role="status">

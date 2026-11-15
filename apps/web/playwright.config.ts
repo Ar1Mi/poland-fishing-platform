@@ -3,9 +3,9 @@ import { defineConfig, devices } from '@playwright/test';
 
 // E2E scenarios of docs/09-scenarios.md (`pnpm e2e`). Own ports, so a run does not collide
 // with `pnpm dev` (3000, 5173); the API gets a fresh database every run (apps/api/test/e2e-server.ts).
-const API_URL = 'http://localhost:3100';
+export const API_URL = 'http://localhost:3100';
 const WEB_PORT = 4173;
-const WEB_URL = `http://localhost:${WEB_PORT}`;
+export const WEB_URL = `http://localhost:${WEB_PORT}`;
 
 // The runner and each worker load this file; workers inherit the runner's environment, so the
 // password made here is both the one the seed gets and the one the tests log in with.

@@ -12,6 +12,7 @@
     "vite.config.ts",
     "security-headers.ts",
     "playwright.config.ts",
-    "playwright.zap.config.ts"
+    "playwright.zap.config.ts",
+    "playwright.perf.config.ts"
   ]
 }

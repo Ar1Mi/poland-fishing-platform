@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, test } from './fixtures';
+import { expect, expectAccessible, test } from './fixtures';
 import { logIn, notAcrossMidnight, withPage } from './helpers';
 
 // The end-to-end MVP of docs/09-scenarios.md: Д (shortened, through the demo seed) → А (fake
@@ -47,6 +47,8 @@ test('MVP: a seeded organization sells a permit, the angler records catches, the
 
   await test.step('Д: the organization from the seed sells permits on its water', async () => {
     await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1, name: 'Łowiska w Polsce' })).toBeVisible();
+    await expectAccessible(page, 'catalogue and map');
     // The filters are a <details> collapsed on the phone; <summary> has no ARIA role.
     await page.getByText('Filtry', { exact: true }).click();
     await page.getByLabel('Nazwa łowiska').fill(WATER);
@@ -56,13 +58,17 @@ test('MVP: a seeded organization sells a permit, the angler records catches, the
     await expect(page.getByRole('heading', { level: 1, name: WATER })).toBeVisible();
     await expect(page.getByText(ORGANIZATION)).toBeVisible();
     await expect(page.getByRole('list', { name: 'Rodzaje zezwoleń' })).toBeVisible();
+    await expectAccessible(page, 'water card');
   });
 
   const permit = await test.step('А: the angler buys a day permit and pays (fake)', async () => {
     await page.getByRole('link', { name: 'Kup: Dzienne' }).click();
     // A guest is sent to log in and comes back to the purchase.
+    await expect(page.getByLabel('E-mail')).toBeVisible();
+    await expectAccessible(page, 'login');
     await logIn(page, ANGLER.email);
     await expect(page.getByRole('heading', { name: 'Kup zezwolenie' })).toBeVisible();
+    await expectAccessible(page, 'permit purchase');
     await page.getByRole('button', { name: 'Przejdź do płatności' }).click();
 
     await expect(page.getByRole('heading', { name: 'Płatność testowa' })).toBeVisible();
@@ -78,6 +84,7 @@ test('MVP: a seeded organization sells a permit, the angler records catches, the
 
     // Paid by the provider's confirmation (the fake one confirms at once), not by the return.
     await expect(page.getByText('Zezwolenie opłacone')).toBeVisible();
+    await expectAccessible(page, 'payment return');
     const permit = (await (await paid).json()) as PaidPermit;
     await page.getByRole('link', { name: 'Pokaż zezwolenie i kod QR' }).click();
 
@@ -86,6 +93,7 @@ test('MVP: a seeded organization sells a permit, the angler records catches, the
     await expect(
       page.getByRole('img', { name: `Kod QR zezwolenia ${permit.number}` }),
     ).toBeVisible();
+    await expectAccessible(page, 'permit with its QR code');
     return permit;
   });
 
@@ -105,6 +113,7 @@ test('MVP: a seeded organization sells a permit, the angler records catches, the
     // 35 cm is the organization's own rule: carp has no general one (demo-data.ts).
     await expect(page.getByText('Zabrać można rybę od 35 cm — tę trzeba wypuścić.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Zapisz połów' })).toBeDisabled();
+    await expectAccessible(page, 'catch form with a violation');
     await page.getByRole('button', { name: 'Wypuszczona' }).click();
     await page.getByRole('button', { name: 'Zapisz połów' }).click();
     await expect(page.getByRole('heading', { name: 'Połów zapisany w rejestrze' })).toBeVisible();
@@ -113,18 +122,21 @@ test('MVP: a seeded organization sells a permit, the angler records catches, the
     await expect(page.getByRole('heading', { name: 'Rejestr połowów' })).toBeVisible();
     await expect(page.getByText('Przyjęty')).toHaveCount(2);
     await expect(page.getByText(/^Wypuszczona · /)).toHaveCount(1);
+    await expectAccessible(page, 'catch register');
   });
 
   await test.step('В: a forged code is invalid, a guest sees only the public part', async () => {
     await withPage(browser, async (guest) => {
       await guest.goto(`/verify/${forged(permit.qrToken)}`);
       await expect(guest.getByText('Zezwolenie nieważne')).toBeVisible();
+      await expectAccessible(guest, 'invalid QR code');
 
       await guest.goto(`/verify/${permit.qrToken}`);
       await expect(guest.getByText('Zezwolenie ważne')).toBeVisible();
       await expect(guest.getByText(ORGANIZATION)).toBeVisible();
       await expect(guest.getByText(/^Ważne od .+ do .+ włącznie$/)).toBeVisible();
       await expect(guest.getByText(ANGLER.name)).toHaveCount(0);
+      await expectAccessible(guest, 'valid QR code, public part');
     });
   });
 
@@ -159,6 +171,7 @@ test('MVP: a seeded organization sells a permit, the angler records catches, the
       await expect(today.getByRole('listitem').filter({ hasText: 'Karp' })).toHaveCount(2);
       await expect(today.getByText(/^Wypuszczona · /)).toBeVisible();
 
+      await expectAccessible(inspector, 'inspection');
       await inspector.getByRole('button', { name: 'Naruszenie' }).click();
       await inspector
         .getByLabel('Uwagi')
@@ -179,6 +192,7 @@ test('MVP: a seeded organization sells a permit, the angler records catches, the
       await expect(protocol).toContainText('Naruszenie');
       await expect(protocol).toContainText(ANGLER.name);
       await expect(protocol).toContainText(INSPECTOR.name);
+      await expectAccessible(admin, 'inspection protocols of the organization');
     });
   });
 });

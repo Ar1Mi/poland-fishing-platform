@@ -100,6 +100,36 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rolldownOptions: {
+      output: {
+        // Few files for the first screen (T-29): on a phone every request costs a round trip,
+        // and over HTTP/1.1 at most six go at once. What the entry imports is three chunks
+        // (React with the router, other libraries, the app); each lazy screen is its own; the code its screens share and Leaflet
+        // are one chunk each.
+        codeSplitting: {
+          groups: [
+            // The libraries of the first screen apart from the app's code: a release that
+            // changes only the app keeps the browser's copy of the libraries.
+            {
+              name: 'react',
+              tags: ['$initial'],
+              test: /[\\/]node_modules[\\/].*[\\/](react|react-dom|scheduler|react-router)[\\/]/,
+              priority: 50,
+            },
+            { name: 'vendor', tags: ['$initial'], test: /[\\/]node_modules[\\/]/, priority: 40 },
+            { name: 'app', tags: ['$initial'], priority: 30 },
+            {
+              name: 'leaflet',
+              test: /[\\/]node_modules[\\/].*(leaflet|markercluster)/,
+              priority: 20,
+            },
+            { name: 'shared', minShareCount: 2, priority: 10 },
+          ],
+        },
+      },
+    },
+  },
   server: {
     // Same origin as in production, where Caddy proxies /api (docs/08-testing-and-infra.md).
     // `vite preview` uses it too; the Playwright run points it at its own API.
@@ -115,7 +145,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: false,
-    // Playwright: the scenarios (pnpm e2e) and the ZAP baseline (pnpm security:zap).
-    exclude: [...configDefaults.exclude, 'e2e/**', 'zap/**'],
+    // Playwright: the scenarios (pnpm e2e), the ZAP baseline (pnpm security:zap), Lighthouse and
+    // k6 (pnpm perf:lighthouse, pnpm perf:load).
+    exclude: [...configDefaults.exclude, 'e2e/**', 'zap/**', 'perf/**'],
   },
 });

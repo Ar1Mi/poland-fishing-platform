@@ -9,6 +9,7 @@ import { Injectable } from '@nestjs/common';
 import { PinoLogger } from 'nestjs-pino';
 import { ClockService } from '../../../common/clock/clock.service';
 import { DomainError } from '../../../common/errors/domain-error';
+import { optimizeUploadedPhoto } from '../../../common/images/photo-optimizer';
 import { detectFileType } from '../../../common/storage/file-signature';
 import { StorageService } from '../../../common/storage/storage.service';
 import { PrismaService } from '../../../database/prisma.service';
@@ -56,6 +57,8 @@ export class CatchPhotoService {
         'Unsupported photo type',
       );
     }
+    // Scaled down and without EXIF (GPS), before the transaction: decoding takes a while.
+    const optimized = await optimizeUploadedPhoto(photo, mime);
     let photoKey: string | undefined;
     let changed: { updated: CatchRecord; replaced: string | null };
     try {
@@ -64,7 +67,11 @@ export class CatchPhotoService {
         await this.users.assertActiveForWrite(tx, userId);
         const stored = await this.lock(tx, userId, id);
         assertEditable(stored.caughtAt, this.clock.now());
-        photoKey = await this.storage.save(CATCH_PHOTO_FOLDER, CATCH_PHOTO_EXTENSIONS[mime], photo);
+        photoKey = await this.storage.save(
+          CATCH_PHOTO_FOLDER,
+          CATCH_PHOTO_EXTENSIONS[mime],
+          optimized,
+        );
         const updated = await tx.catchRecord.update({ where: { id }, data: { photoKey } });
         return { updated, replaced: stored.photoKey };
       });

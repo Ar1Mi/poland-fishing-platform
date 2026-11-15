@@ -269,6 +269,8 @@ model Permit {
   inspections          Inspection[]
 
   @@index([userId, validTo])
+  // Sold permits of a type (T-23) and the sales statistics (T-24) filter by it (T-29).
+  @@index([permitTypeId])
 }
 
 /// Хранимые статусы. SCHEDULED/ACTIVE/EXPIRED вычисляются из дат (ADR-0005).

@@ -13,8 +13,9 @@ const orgRulesKey = (orgId: string) => ['orgs', orgId, 'rules'] as const;
 const waterRulesKey = ['water-rules'] as const;
 
 /** The species dictionary (≈ 15 entries); it changes only with a release of the seed. */
-export function useSpecies() {
+export function useSpecies({ enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
+    enabled,
     queryKey: ['species'],
     queryFn: ({ signal }) => request(() => api.GET('/api/v1/species', { signal })),
     staleTime: Infinity,
@@ -29,9 +30,13 @@ export function useOrgRules(orgId: string) {
   });
 }
 
-/** Effective rules per species for the water card (FR-16). */
-export function useWaterRules(waterId: string) {
+/**
+ * Effective rules per species for the water card (FR-16). `enabled: false` only watches the
+ * query another component runs (the card waits for its sections, T-29).
+ */
+export function useWaterRules(waterId: string, { enabled = true }: { enabled?: boolean } = {}) {
   return useQuery({
+    enabled,
     queryKey: [...waterRulesKey, waterId],
     queryFn: ({ signal }) =>
       request(() =>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DiscountKind } from '../enums.js';
+import { addDays } from '../time/calendar.js';
 import {
-  addDays,
   ageOn,
   isDiscountEligible,
   latestPermitStart,

@@ -14,12 +14,8 @@ import {
   createSpecies,
   createWater,
 } from './factories';
+import { PNG } from './images';
 import { loginOrgMember, type OrgMember } from './org-helpers';
-
-const PNG = Buffer.from(
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGD4DwABBAEAwS2OUAAAAABJRU5ErkJggg==',
-  'base64',
-);
 
 const METHODS = ['get', 'post', 'put', 'patch', 'delete'] as const;
 type Method = (typeof METHODS)[number];

@@ -1,5 +1,5 @@
 import type { DateOnly } from '../time/warsaw.js';
-import { addDays } from './purchase.js';
+import { addDays } from '../time/calendar.js';
 
 // The "your permit expires soon" email (FR-21). Rule and reasons — docs/02-business-rules.md →
 // «Напоминание об истечении». The API sweep selects the same permits in SQL.

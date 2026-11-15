@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../../shared/ui/car
 import { activeAdminOrgs, useMyOrgs } from '../../orgs/api/useMyOrgs';
 import { useWaterPermitTypes } from '../../permits/api/usePermitTypes';
 import { PermitTypeTerms } from '../../permits/components/PermitTypeTerms';
+import { useSpecies, useWaterRules } from '../../rules/api/useRules';
 import { WaterRules } from '../../rules/components/WaterRules';
 import { useWater, type WaterDetail, waterPhotoUrl } from '../api/useWaters';
 import { WaterStatusBadge } from '../components/WaterStatusBadge';
@@ -56,13 +57,34 @@ export function WaterPage() {
   );
 }
 
+/**
+ * Waiting is worth it only for a first answer on its way: a query paused without network (the
+ * service worker keeps no permit types) or one that failed and retries does not hold back the
+ * other sections — each shows its own loading or error state.
+ */
+function loadingFirstTime(query: {
+  isPending: boolean;
+  fetchStatus: string;
+  failureCount: number;
+}): boolean {
+  return query.isPending && query.fetchStatus === 'fetching' && query.failureCount === 0;
+}
+
 function WaterDetails({ water }: { water: WaterDetail }) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const connected = water.status === 'CONNECTED';
   // A blocked organization keeps its waters, but does not sell permits meanwhile.
   const suspended = connected && water.organization?.isActive === false;
-  const ownerName = connected ? water.organization?.name : water.externalOwnerName;
-  const externalUrl = connected ? null : safeExternalUrl(water.externalInfoUrl);
+  // The sections under the photo appear together (T-29): each one growing on its own pushed
+  // the next down while the angler was reading (CLS of the card in Lighthouse). They mount at
+  // once, hidden, and run their queries side by side; here the queries are only watched.
+  const types = useWaterPermitTypes(water.id, { enabled: false });
+  const rules = useWaterRules(water.id, { enabled: false });
+  const species = useSpecies({ enabled: false });
+  const settling =
+    (connected && !suspended && loadingFirstTime(types)) ||
+    loadingFirstTime(rules) ||
+    loadingFirstTime(species);
   return (
     <>
       <div className="flex flex-col gap-2">
@@ -82,6 +104,8 @@ function WaterDetails({ water }: { water: WaterDetail }) {
           <img
             src={waterPhotoUrl(water.id, water.photoVersion)}
             alt={t('catalog.water.photoAlt', { name: water.name })}
+            // The largest element of the card (LCP, T-29): fetched before the other images.
+            fetchPriority="high"
             className="aspect-video w-full rounded-lg border border-border object-cover"
           />
         )}
@@ -92,6 +116,28 @@ function WaterDetails({ water }: { water: WaterDetail }) {
           </p>
         )}
       </div>
+      {settling && (
+        <Badge variant="neutral" role="status">
+          <LoaderCircle aria-hidden className="animate-spin" />
+          {t('catalog.water.loading')}
+        </Badge>
+      )}
+      <div hidden={settling} className="flex flex-col gap-3">
+        <WaterSections water={water} />
+      </div>
+    </>
+  );
+}
+
+/** Who sells permits, the rules, the season and the description: shown once all are loaded. */
+function WaterSections({ water }: { water: WaterDetail }) {
+  const { t, i18n } = useTranslation();
+  const connected = water.status === 'CONNECTED';
+  const suspended = connected && water.organization?.isActive === false;
+  const ownerName = connected ? water.organization?.name : water.externalOwnerName;
+  const externalUrl = connected ? null : safeExternalUrl(water.externalInfoUrl);
+  return (
+    <>
       <Card>
         <CardHeader>
           <CardTitle>{t('catalog.water.permitsTitle')}</CardTitle>

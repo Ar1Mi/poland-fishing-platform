@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { DiscountKind } from '../enums.js';
-import { assertDateOnly, type DateOnly } from '../time/warsaw.js';
+import { addDays, assertCalendarDate } from '../time/calendar.js';
+import type { DateOnly } from '../time/warsaw.js';
 
 // Buying a permit (FR-08, BR-08, BR-09): dates and the discount check shared by the API and
 // the purchase form. Rules and their reasons — docs/02-business-rules.md → «Уточнения».
@@ -19,22 +20,6 @@ export const PAYMENT_TIMEOUT_MINUTES = 30;
  * pins the terms of its type, so a script must not pin them all. Freed by the payment timeout.
  */
 export const MAX_PENDING_PURCHASES = 3;
-
-/** A `YYYY-MM-DD` that exists: Date arithmetic would silently roll `02-30` over into March. */
-function assertCalendarDate(date: string): asserts date is DateOnly {
-  assertDateOnly(date);
-  if (new Date(`${date}T00:00:00.000Z`).toISOString().slice(0, 10) !== date) {
-    throw new RangeError(`Not a calendar date: "${date}"`);
-  }
-}
-
-/** `date` moved by `days` calendar days; UTC arithmetic, so no daylight saving shift. */
-export function addDays(date: DateOnly, days: number): DateOnly {
-  assertCalendarDate(date);
-  const moved = new Date(`${date}T00:00:00.000Z`);
-  moved.setUTCDate(moved.getUTCDate() + days);
-  return moved.toISOString().slice(0, 10);
-}
 
 /** Last valid day (inclusive) of a permit lasting `durationDays` from `validFrom`. */
 export function permitValidTo(validFrom: DateOnly, durationDays: number): DateOnly {

@@ -48,8 +48,9 @@ jobs:
       # Fails below 90 % coverage of the fishing rules and the CatchValidator (vitest.config.ts).
       - run: pnpm --filter @lowisko/shared test:coverage
 
-      # Testcontainers starts PostgreSQL on the runner's Docker.
-      - run: pnpm --filter api test:e2e
+      # Testcontainers starts PostgreSQL on the runner's Docker. Fails below 70 % coverage of the
+      # API services and jobs (NFR-09, test/jest-e2e-coverage.config.mjs).
+      - run: pnpm --filter api test:e2e:coverage
 
       - run: pnpm build
 

@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  PERMIT_PRICE_MAX_GROSZE,
-  PERMIT_TYPE_MAX_WATERS,
-  parsePriceGrosze,
-  permitTypeFormSchema,
-  permitTypeSchema,
-} from './permit-types.js';
+import { PERMIT_PRICE_MAX_GROSZE, PERMIT_TYPE_MAX_WATERS } from './permit-type-limits.js';
+import { parsePriceGrosze, permitTypeFormSchema, permitTypeSchema } from './permit-types.js';
 
 const WATER = '0b1d4c8e-6f2a-4d3b-9c5e-1a2b3c4d5e6f';
 const OTHER_WATER = '7e8f9a0b-1c2d-4e3f-8a5b-6c7d8e9f0a1b';

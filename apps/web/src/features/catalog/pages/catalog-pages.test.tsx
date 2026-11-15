@@ -1,3 +1,4 @@
+import { onlineManager } from '@tanstack/react-query';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useEffect } from 'react';
@@ -351,6 +352,86 @@ describe('water page', () => {
     expect(permitTypeRequests(fetch).map((url) => url.searchParams.get('waterId'))).toEqual([
       zegrze.id,
     ]);
+  });
+
+  const connectedWater = () =>
+    detail({
+      status: 'CONNECTED',
+      organization: { id: '2d9f6c1e-1c1e-4f43-9a51-0d6c2f0d9a13', name: 'Koło', isActive: true },
+      description: 'Zbiornik na Narwi',
+    });
+
+  it('shows the sections under the photo together, once the permit types are there (T-29)', async () => {
+    let answerTypes!: () => void;
+    const water = connectedWater();
+    mockApi({
+      [`GET /api/v1/waters/${water.id}`]: () => jsonResponse(water),
+      'GET /api/v1/permit-types': () =>
+        new Promise<Response>((resolve) => (answerTypes = () => resolve(jsonResponse([])))),
+      [`GET /api/v1/waters/${water.id}/rules`]: () => jsonResponse([]),
+      'GET /api/v1/species': () => jsonResponse([]),
+    });
+    renderRoute(`/waters/${water.id}`);
+
+    expect(await screen.findByRole('heading', { level: 1, name: water.name })).toBeVisible();
+    // The rules are loaded, but wait for the section above them: nothing jumps later.
+    await waitFor(() => expect(answerTypes).toBeDefined());
+    expect(screen.getByRole('status')).toHaveTextContent('Ładowanie łowiska…');
+    expect(screen.getByText('Zasady połowu')).not.toBeVisible();
+    expect(screen.getByText('Zbiornik na Narwi')).not.toBeVisible();
+
+    act(() => answerTypes());
+
+    expect(await screen.findByRole('heading', { name: 'Zasady połowu' })).toBeVisible();
+    expect(screen.getByText('Zbiornik na Narwi')).toBeVisible();
+    expect(screen.getByText('To łowisko nie ma jeszcze zezwoleń w sprzedaży.')).toBeVisible();
+  });
+
+  it('does not hide the rules and the description when the permit types fail', async () => {
+    const water = connectedWater();
+    mockApi({
+      [`GET /api/v1/waters/${water.id}`]: () => jsonResponse(water),
+      'GET /api/v1/permit-types': () =>
+        jsonResponse({ code: 'UNKNOWN_ERROR', message: 'boom' }, 500),
+      [`GET /api/v1/waters/${water.id}/rules`]: () => jsonResponse([]),
+      'GET /api/v1/species': () => jsonResponse([]),
+    });
+    renderRoute(`/waters/${water.id}`);
+
+    expect(await screen.findByRole('heading', { name: 'Zasady połowu' })).toBeVisible();
+    expect(screen.getByText('Zbiornik na Narwi')).toBeVisible();
+    expect(screen.getByRole('alert')).toBeVisible();
+  });
+
+  it('shows the sections without network, each with its own state, instead of waiting', async () => {
+    const water = connectedWater();
+    let wentOffline = false;
+    mockApi({
+      // The network goes once the card is there: the queries of its sections are paused.
+      [`GET /api/v1/waters/${water.id}`]: () => {
+        // Only the first answer: the card is asked again when the network is back.
+        if (!wentOffline) {
+          wentOffline = true;
+          onlineManager.setOnline(false);
+        }
+        return jsonResponse(water);
+      },
+      // Asked when the network is back.
+      'GET /api/v1/permit-types': () => jsonResponse([]),
+      [`GET /api/v1/waters/${water.id}/rules`]: () => jsonResponse([]),
+      'GET /api/v1/species': () => jsonResponse([]),
+    });
+    try {
+      renderRoute(`/waters/${water.id}`);
+
+      expect(await screen.findByRole('heading', { name: 'Zasady połowu' })).toBeVisible();
+      expect(screen.getByText('Zbiornik na Narwi')).toBeVisible();
+    } finally {
+      act(() => onlineManager.setOnline(true));
+    }
+    expect(
+      await screen.findByText('To łowisko nie ma jeszcze zezwoleń w sprzedaży.'),
+    ).toBeVisible();
   });
 
   it('links each type on sale to its purchase from this water', async () => {
