@@ -8,10 +8,27 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
     <!-- Email links carry one-time tokens in the URL: never send it to other sites. -->
     <meta name="referrer" content="no-referrer" />
+    <meta
+      name="description"
+      content="Łowiska w Polsce na mapie, zezwolenia wędkarskie online i elektroniczny rejestr połowów."
+    />
     <title>Łowisko</title>
   </head>
   <body>
-    <div id="root"></div>
+    <!--
+      App shell (T-29): the header of AppLayout as static HTML, painted before the scripts load
+      and run (First Contentful Paint on a slow phone). React replaces it on its first render;
+      the markup and classes must stay those of AppLayout, or the header jumps (CLS).
+    -->
+    <div id="root">
+      <div class="flex min-h-dvh flex-col">
+        <header class="bg-primary-dark text-primary-foreground">
+          <div class="mx-auto flex h-14 w-full max-w-5xl items-center justify-between gap-4 px-4">
+            <a href="/" class="text-h2">Łowisko</a>
+          </div>
+        </header>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
