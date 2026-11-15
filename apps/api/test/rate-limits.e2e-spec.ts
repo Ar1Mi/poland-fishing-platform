@@ -54,6 +54,17 @@ describe('rate limits of account writes (T-28)', () => {
     await db.drop();
   });
 
+  it('ignores X-Forwarded-For without TRUST_PROXY: a client cannot pick its address (T-30)', async () => {
+    let sent = 0;
+    const loginAs = (n: number) =>
+      request(app.getHttpServer())
+        .post('/api/v1/auth/login')
+        .set('X-Forwarded-For', `198.51.100.${n}`)
+        .send({ email: `client-${n}@lowisko.test` });
+
+    await expectLimit(20, () => loginAs(sent++));
+  });
+
   it('allows 10 water suggestions a day per account, then answers RATE_LIMITED', async () => {
     const angler = await loginAngler();
 

@@ -20,6 +20,11 @@ export function setupApp(app: NestExpressApplication): void {
   const config = app.get<ConfigService<Env, true>>(ConfigService);
 
   app.useLogger(app.get(Logger));
+  // Behind Caddy (docs/08-testing-and-infra.md): `req.ip` is the client, not the proxy.
+  const proxies = config.get('TRUST_PROXY', { infer: true });
+  if (proxies > 0) {
+    app.set('trust proxy', proxies);
+  }
   app.setGlobalPrefix(GLOBAL_PREFIX);
   // Mounted before the body parser and the router: every response is logged, carries a
   // request id and security headers, even when the request never reaches a controller.
