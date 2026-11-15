@@ -220,7 +220,7 @@ test('Д: a new organization joins, takes over a water, invites an inspector, re
       await angler.goto('/me/permits');
       await logIn(angler, ANGLER);
       await angler.getByRole('link', { name: new RegExp(number) }).click();
-      await expect(angler.getByText('Unieważnione')).toBeVisible();
+      await expect(angler.getByText('Unieważnione', { exact: true })).toBeVisible();
       await expect(angler.getByRole('img', { name: `Kod QR zezwolenia ${number}` })).toHaveCount(0);
       await expectAccessible(angler, 'revoked permit');
     });
