@@ -1,7 +1,8 @@
 {
   "app": {
     "name": "Łowisko",
-    "skipToContent": "Skip to content"
+    "skipToContent": "Skip to content",
+    "loading": "Loading…"
   },
   "language": {
     "label": "Language",

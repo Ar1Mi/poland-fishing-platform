@@ -1,8 +1,10 @@
+import { Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Outlet } from 'react-router';
 import { useProfileLocale, useSessionStatus } from '../features/auth/api/useAuth';
 import { AccountMenu } from '../features/auth/components/AccountMenu';
 import { cn } from '../shared/lib/cn';
+import { PageLoading } from '../shared/ui/page-loading';
 import { BottomNav } from './BottomNav';
 import { LanguageSwitcher } from './LanguageSwitcher';
 
@@ -41,7 +43,10 @@ export function AppLayout() {
           withNav && 'pb-24 md:pb-4',
         )}
       >
-        <Outlet />
+        {/* Screens are lazy chunks (routes.tsx); the header and navigation stay meanwhile. */}
+        <Suspense fallback={<PageLoading />}>
+          <Outlet />
+        </Suspense>
       </main>
       {withNav && <BottomNav />}
     </div>

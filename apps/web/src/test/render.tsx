@@ -1,10 +1,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import { RouterProvider, createMemoryRouter } from 'react-router';
-import { vi } from 'vitest';
+import { beforeAll, vi } from 'vitest';
+import { preloadAllPages } from '../app/lazy-page';
 import { routes } from '../app/routes';
 import { endSession, startSession } from '../shared/auth/session';
 import { recordUnexpectedRequest } from './unexpected-requests';
+
+// Screens are lazy chunks (routes.tsx, T-29): loaded before the tests of a file, as the eager
+// imports were, so a test sees the screen on the first render.
+beforeAll(preloadAllPages);
 
 /**
  * Renders the real route tree at `path`, with a fresh query cache and no retries.
