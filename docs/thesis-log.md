@@ -16,6 +16,29 @@
 
 ---
 
+## 2026-11-15 · T-30 Продакшн-сборка и деплой (без VPS)
+
+**Сделано:**
+- Продакшн-стек одной командой `docker compose -f docker-compose.prod.yml up -d` (NFR-10): multi-stage образы API (стадии `migrate` и `runtime`) и web (Caddy со сборкой PWA), сервис `migrate` (миграции и seed при каждом старте, API ждёт его успеха), ночной `backup` (`pg_dump` + архив `uploads`, 14 дней, предупреждение о диске), HTTPS, HTTP/2, HSTS, ротация логов. `deploy.yml` по тегу `v*`: образы в GHCR → SSH → `compose pull && up -d` → проверка health.
+- Тайлы карты — `VITE_MAP_TILE_URL` (продакшн — MapTiler, OSM только в разработке); хост тайлов из одной переменной попадает в карты, CSP и кэш Service Worker. Заголовки безопасности Caddy генерирует сборка из того же `security-headers.ts`, что отдаёт `vite preview`, — разойтись им негде.
+- API за прокси: `TRUST_PROXY` — без него Caddy стал бы «одним клиентом» для всех лимитов по IP; без прокси `X-Forwarded-For` игнорируется. БД закреплена в `timezone=UTC` (из ревью T-24).
+- Документы отклонённых заявок claim удаляются через 90 дней после решения (`ClaimDocumentCleanupJob`), `proofFileKey` стал необязательным, CHECK `claim_proof_kept` не даёт потерять документ рассматриваемой или одобренной заявки; суперадмин видит «Dokument usunięty».
+
+**Решения:** пользователь: 90 дней для отклонённых документов (одобренные — доказательство передачи водоёма), MapTiler (бесплатный план, ключ ограничен origin), проверка локально — VPS ещё не выбран. Агент: миграции отдельным одноразовым сервисом, а не в entrypoint API (рабочему образу не нужны prisma CLI и tsx); секреты — `prod.env` только у сервисов, которым нужны (Caddy его не получает); HSTS `0` по умолчанию, год — только из `deploy.yml` (локальный запуск не должен закрепить https за `localhost`); значение Caddy заменяет HSTS helmet на ответах API — иначе два противоречивых заголовка. Ключ claim сначала обнуляется, файл удаляется после: сбой между ними оставляет лишний файл, а не строку без файла.
+
+**Проблемы:**
+- **Найдена ошибка T-21:** `urlPattern`-функции `vite.config.ts` ссылались на константы файла (`WATERS_API` …), а workbox копирует функции в `sw.js` исходным текстом — там этих констант нет, и правила каталога, фото и видов бросали `ReferenceError` на каждом запросе: офлайн-кэш каталога не работал (сценарий Б его не проверял — он про уловы). Правила вынесены в `pwa-runtime-caching.ts` без внешних ссылок, тест собирает каждое из его текста, как SW; на стеке кэш `catalog-api` наполняется, каталог открывается без сети.
+- Первый запуск prod-compose взял имя проекта `lowisko` — то же, что у dev-compose (по каталогу): стек забрал dev-контейнер `db` и том dev-базы. Данные не пострадали (пароль другой — migrate не вошёл), проект переименован в `lowisko-prod`, причина записана в файле.
+- `try_files` Caddy не принимает матчер — `@spa` читался как имя файла, и отсутствующий `/assets/x.js` получал `index.html` (200); разнесено по `handle`. Prisma `migrate` в slim-образе требует OpenSSL; zsh `echo` превращал `\n` ключей PEM в переносы — `printf`.
+- Service Worker не регистрируется на недоверенном сертификате (локальный CA Caddy) даже с `ignoreHTTPSErrors` — для проверки Chromium запущен с `--ignore-certificate-errors`.
+- Не сделано: оплата P24 sandbox на публичном URL (пункт T-30 и T-14), ZAP и Lighthouse по публичному URL, предел памяти `sharp` — после выбора VPS, чек-лист в `docs/08-testing-and-infra.md` → «Деплой на VPS». Образ API ~1 ГБ (`@prisma/client` тянет CLI prisma).
+
+**Подтверждение:** `pnpm lint`, `typecheck`, `test` (shared 415, api 304, web 428); `pnpm --filter api test:e2e:coverage` — 768, пороги покрытия выполнены (`claim-document-cleanup.e2e-spec.ts`, `trust-proxy.e2e-spec.ts`, `claim_proof_kept` в `database-constraints.e2e-spec.ts`); `pnpm e2e` — 6 сценариев; `prisma migrate diff` после миграций пуст. Локальный стек (`SITE_ADDRESS=localhost`): db → migrate → api (healthy) → web, HTTP/2, CSP и кэш-заголовки, `/assets/missing.js` → 404, HSTS один; Playwright по `https://localhost`: SW управляет страницей, кэши `catalog-api`/`map-tiles` наполнены, каталог без сети, вход демо-рыбака и обновление сессии по `Secure`-cookie, 0 нарушений CSP; дамп восстановлен в пустую БД (20 видов, 5 водоёмов, 7 миграций).
+
+**Для текста:** `apps/web/pwa-runtime-caching.ts:1-20` и `pwa-runtime-caching.test.ts` — ошибка, которую не видит ни TypeScript, ни unit-тест конфига: код исполняется не там, где написан (сериализация функции в другой контекст), и тест, воспроизводящий эту сериализацию. `apps/api/src/modules/waters/claims/claims.service.ts:261-282` — удаление по сроку хранения одним `UPDATE … FROM (SELECT … FOR UPDATE) RETURNING`: старый ключ возвращается, хотя в строке уже `NULL`, и два экземпляра не удаляют один файл дважды.
+
+---
+
 ## 2026-11-15 · T-29 Производительность и доступность
 
 **Сделано:**
