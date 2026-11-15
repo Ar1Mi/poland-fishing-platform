@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { warsawDate } from '@lowisko/shared';
-import { expect, test } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { logIn, notAcrossMidnight } from './helpers';
 
 // Scenario Г of docs/09-scenarios.md: a catch on a water that is not connected. The angler

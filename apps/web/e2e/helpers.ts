@@ -1,5 +1,6 @@
 import { warsawDate, warsawDayEnd } from '@lowisko/shared';
-import { type Browser, type Page, test } from '@playwright/test';
+import type { Browser, Page } from '@playwright/test';
+import { newWatchedContext, test } from './fixtures';
 
 // Steps shared by the scenarios of docs/09-scenarios.md. Accounts come from
 // apps/api/prisma/demo-data.ts; their password is made per run in playwright.config.ts.
@@ -15,9 +16,11 @@ export async function logIn(page: Page, email: string): Promise<void> {
 
 /** Another person on another phone: a context of their own, closed even when a step fails. */
 export async function withPage<T>(browser: Browser, use: (page: Page) => Promise<T>): Promise<T> {
-  const context = await browser.newContext();
+  const { context, assertNoCspViolations } = await newWatchedContext(browser);
   try {
-    return await use(await context.newPage());
+    const result = await use(await context.newPage());
+    assertNoCspViolations();
+    return result;
   } finally {
     await context.close();
   }

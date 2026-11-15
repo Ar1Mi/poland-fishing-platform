@@ -1,4 +1,5 @@
-import { expect, type Page, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
+import { expect, test } from './fixtures';
 import { logIn, notAcrossMidnight, withPage } from './helpers';
 
 // The end-to-end MVP of docs/09-scenarios.md: Д (shortened, through the demo seed) → А (fake
