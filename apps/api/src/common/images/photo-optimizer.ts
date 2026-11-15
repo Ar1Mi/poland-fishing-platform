@@ -6,10 +6,11 @@ import { DomainError } from '../errors/domain-error';
 export type PhotoType = 'image/jpeg' | 'image/png' | 'image/webp';
 
 /**
- * Longest side of a stored photo in pixels: about twice the width of the card on a phone
- * (high-density screens), so the card stays sharp and the file is a fraction of the upload.
+ * Longest side of a stored photo in pixels: the card on a phone (about 380 CSS px) at a
+ * 3× screen, and the widest card on a desktop (1024 px). Measured in Lighthouse (T-29): the card
+ * photo is its Largest Contentful Paint, and every kilobyte of it is on a slow phone network.
  */
-export const PHOTO_MAX_SIDE = 1600;
+export const PHOTO_MAX_SIDE = 1280;
 
 /**
  * Larger images are refused before decoding: a 5 MB file can declare a huge canvas

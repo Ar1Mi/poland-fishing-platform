@@ -23,7 +23,7 @@ describe('optimizePhoto', () => {
 
     const meta = await sharp(output).metadata();
     expect(meta.format).toBe('jpeg');
-    expect([meta.width, meta.height]).toEqual([PHOTO_MAX_SIDE, 1200]);
+    expect([meta.width, meta.height]).toEqual([PHOTO_MAX_SIDE, 960]);
     expect(meta.exif).toBeUndefined();
     expect(meta.xmp).toBeUndefined();
     expect(meta.iptc).toBeUndefined();
@@ -60,7 +60,7 @@ describe('optimizePhoto', () => {
 
     expect((await detectFileType(output))?.mime).toBe(type);
     const meta = await sharp(output).metadata();
-    expect([meta.width, meta.height]).toEqual([PHOTO_MAX_SIDE, 667]);
+    expect([meta.width, meta.height]).toEqual([PHOTO_MAX_SIDE, 533]);
     expect(meta.exif).toBeUndefined();
   });
 
