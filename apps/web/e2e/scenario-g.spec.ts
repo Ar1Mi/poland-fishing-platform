@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { warsawDate } from '@lowisko/shared';
-import { expect, test } from './fixtures';
+import { expect, expectAccessible, test } from './fixtures';
 import { logIn, notAcrossMidnight } from './helpers';
 
 // Scenario Г of docs/09-scenarios.md: a catch on a water that is not connected. The angler
@@ -47,6 +47,7 @@ test('Г: an external permit for an unconnected water, catches on it and the sea
     await page.getByRole('link', { name: 'Dodaj zezwolenie zewnętrzne na to łowisko' }).click();
     // The water of the card is already chosen.
     await expect(page.getByRole('button', { name: `Usuń łowisko ${WATER}` })).toBeVisible();
+    await expectAccessible(page, 'external permit form');
     await page.getByLabel('Wydał').fill(ISSUER);
     await page.getByLabel('Numer zezwolenia (opcjonalnie)').fill(`W/${season}/0042`);
     await page.getByLabel('Ważne od').fill(`${season}-01-01`);
@@ -59,6 +60,7 @@ test('Г: an external permit for an unconnected water, catches on it and the sea
     await expect(page.getByRole('heading', { level: 1, name: ISSUER })).toBeVisible();
     await expect(page.getByText('Aktywne')).toBeVisible();
     await expect(page.getByText('Dodano zdjęcie zezwolenia.')).toBeVisible();
+    await expectAccessible(page, 'external permit');
   });
 
   await test.step('records catches on it, checked against the general rules', async () => {

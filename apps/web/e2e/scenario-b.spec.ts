@@ -1,5 +1,5 @@
 import type { BrowserContext, Page } from '@playwright/test';
-import { expect, newWatchedContext, test } from './fixtures';
+import { expect, expectAccessible, newWatchedContext, test } from './fixtures';
 import { logIn, notAcrossMidnight, withPage } from './helpers';
 
 // Scenario Б of docs/09-scenarios.md: catches recorded without network (ADR-0009). Jan has a
@@ -68,6 +68,7 @@ test('Б: two phones record catches offline; the server rejects the one over the
       await phoneA.reload();
       await expect(phoneA.getByText('Offline', { exact: true })).toBeVisible();
       await expect(phoneA.getByText('Brak sieci', { exact: true })).toBeVisible();
+      await expectAccessible(phoneA, 'catch form without network');
 
       await keepCarp(phoneA, LAKE, '30');
       await expect(
@@ -118,6 +119,7 @@ test('Б: two phones record catches offline; the server rejects the one over the
       ).toBeVisible();
       // Nothing waits on the phone any more.
       await expect(phoneA.getByRole('region', { name: 'Na tym urządzeniu' })).toHaveCount(0);
+      await expectAccessible(phoneA, 'catch register with a rejected catch');
     });
 
     await test.step('В: the inspector sees the rejected catch with its reason', async () => {

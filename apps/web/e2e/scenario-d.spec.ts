@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, test } from './fixtures';
+import { expect, expectAccessible, test } from './fixtures';
 import { emailLink, logIn, notAcrossMidnight, withPage } from './helpers';
 
 // Scenario Д of docs/09-scenarios.md (T-23): a new organization joins the platform, takes over
@@ -53,6 +53,8 @@ test('Д: a new organization joins, takes over a water, invites an inspector, re
 
   await test.step('the representative registers and confirms the address', async () => {
     await page.goto('/register');
+    await expect(page.getByLabel('E-mail')).toBeVisible();
+    await expectAccessible(page, 'registration');
     await page.getByLabel('E-mail').fill(REPRESENTATIVE.email);
     await page.getByLabel('Hasło', { exact: true }).fill(REPRESENTATIVE.password);
     await page.getByLabel('Imię').fill(REPRESENTATIVE.firstName);
@@ -70,6 +72,7 @@ test('Д: a new organization joins, takes over a water, invites an inspector, re
     await page.goto('/org');
     await logInAs(page, REPRESENTATIVE.email, REPRESENTATIVE.password);
     await page.getByRole('link', { name: 'Zgłoś organizację do serwisu' }).click();
+    await expectAccessible(page, 'organization application');
     await page.getByLabel('Nazwa organizacji').fill(ORGANIZATION);
     await page.getByLabel('NIP').fill(NIP);
     await page.getByLabel('Rodzaj').selectOption({ label: 'Koło lub okręg PZW' });
@@ -87,6 +90,10 @@ test('Д: a new organization joins, takes over a water, invites an inspector, re
     await withPage(browser, async (admin) => {
       await admin.goto('/admin/orgs');
       await logIn(admin, SUPER_ADMIN);
+      await expect(
+        admin.getByRole('button', { name: `Aktywuj organizację ${ORGANIZATION}` }),
+      ).toBeVisible();
+      await expectAccessible(admin, 'organizations of the super admin');
       await admin.getByRole('button', { name: `Aktywuj organizację ${ORGANIZATION}` }).click();
       await expect(admin.getByText('Brak organizacji o tym statusie.')).toBeVisible();
     });
@@ -97,6 +104,7 @@ test('Д: a new organization joins, takes over a water, invites an inspector, re
     await page.getByLabel('Nazwa łowiska').fill(WATER);
     await page.getByRole('button', { name: 'Szukaj' }).click();
     await page.getByRole('button', { name: new RegExp(WATER) }).click();
+    await expectAccessible(page, 'water claim');
     await page
       .getByLabel('Dokument')
       .setInputFiles({ name: 'umowa.pdf', mimeType: 'application/pdf', buffer: PDF });
@@ -111,6 +119,8 @@ test('Д: a new organization joins, takes over a water, invites an inspector, re
       await admin.goto('/admin/claims');
       await logIn(admin, SUPER_ADMIN);
       const claim = admin.getByRole('region', { name: WATER });
+      await expect(claim).toBeVisible();
+      await expectAccessible(admin, 'claims of the super admin');
       await claim.getByRole('button', { name: 'Zatwierdź' }).click();
       await claim.getByRole('button', { name: 'Tak, zatwierdź' }).click();
       await expect(admin.getByText('Brak wniosków o tym statusie.')).toBeVisible();
@@ -128,17 +138,20 @@ test('Д: a new organization joins, takes over a water, invites an inspector, re
       .setInputFiles({ name: 'staw.png', mimeType: 'image/png', buffer: PNG });
     await page.getByRole('button', { name: 'Zapisz zdjęcie' }).click();
     await expect(page.getByRole('img', { name: `Zdjęcie łowiska ${WATER}` })).toBeVisible();
+    await expectAccessible(page, 'water profile of the organization');
 
     await page.getByRole('link', { name: 'Zobacz kartę łowiska' }).click();
     await expect(page.getByRole('heading', { level: 1, name: WATER })).toBeVisible();
     await expect(page.getByText(ORGANIZATION)).toBeVisible();
     await expect(page.getByText('1 V – 30 IX, od świtu do zmroku')).toBeVisible();
+    await expectAccessible(page, 'water card with a photo');
   });
 
   await test.step('it creates a permit type: the water card offers «Kup»', async () => {
     await openSection(page, 'Rodzaje zezwoleń');
     await page.getByRole('button', { name: 'Dodaj rodzaj zezwolenia' }).click();
     await page.getByLabel('Nazwa', { exact: true }).fill('Dzienne');
+    await expectAccessible(page, 'permit type form');
     await page.getByLabel('Cena (zł)').fill('20');
     // The only water of the organization is chosen already.
     await page.getByRole('button', { name: 'Dodaj', exact: true }).click();
@@ -147,6 +160,7 @@ test('Д: a new organization joins, takes over a water, invites an inspector, re
 
   await test.step('it invites the inspector, who accepts with the emailed link', async () => {
     await openSection(page, 'Członkowie i zaproszenia');
+    await expectAccessible(page, 'members and invitations');
     await page.getByLabel('E-mail', { exact: true }).fill(INSPECTOR);
     await page.getByLabel('Rola', { exact: true }).selectOption({ label: 'Strażnik' });
     await page.getByRole('button', { name: 'Wyślij zaproszenie' }).click();
@@ -157,6 +171,8 @@ test('Д: a new organization joins, takes over a water, invites an inspector, re
       await inspector.goto(link);
       // A guest logs in first and comes back to the invitation.
       await logIn(inspector, INSPECTOR);
+      await expect(inspector.getByRole('button', { name: 'Przyjmij zaproszenie' })).toBeVisible();
+      await expectAccessible(inspector, 'invitation');
       await inspector.getByRole('button', { name: 'Przyjmij zaproszenie' }).click();
       await expect(
         inspector.getByText(`Dołączyłeś do organizacji ${ORGANIZATION} jako Strażnik`),
@@ -191,6 +207,7 @@ test('Д: a new organization joins, takes over a water, invites an inspector, re
     await openSection(page, 'Sprzedane zezwolenia');
     const sold = page.getByRole('article', { name: number });
     await expect(sold.getByText('Jan Kowalski')).toBeVisible();
+    await expectAccessible(page, 'sold permits');
     await sold.getByRole('button', { name: `Unieważnij zezwolenie ${number}` }).click();
     await sold.getByLabel('Powód unieważnienia').fill('Rezygnacja wędkarza, zwrot przelewem');
     await sold.getByRole('button', { name: 'Unieważnij zezwolenie' }).click();
@@ -205,6 +222,7 @@ test('Д: a new organization joins, takes over a water, invites an inspector, re
       await angler.getByRole('link', { name: new RegExp(number) }).click();
       await expect(angler.getByText('Unieważnione')).toBeVisible();
       await expect(angler.getByRole('img', { name: `Kod QR zezwolenia ${number}` })).toHaveCount(0);
+      await expectAccessible(angler, 'revoked permit');
     });
   });
 });
