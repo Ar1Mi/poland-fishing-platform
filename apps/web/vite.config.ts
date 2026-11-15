@@ -115,7 +115,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: false,
-    // Playwright scenarios (pnpm e2e).
-    exclude: [...configDefaults.exclude, 'e2e/**'],
+    // Playwright: the scenarios (pnpm e2e) and the ZAP baseline (pnpm security:zap).
+    exclude: [...configDefaults.exclude, 'e2e/**', 'zap/**'],
   },
 });
