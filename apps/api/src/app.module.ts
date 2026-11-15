@@ -7,6 +7,7 @@ import { LoggingModule } from './common/logging/logging.module';
 import { createValidationPipe } from './common/pipes/validation.pipe';
 import { schedulingImports } from './common/scheduling/scheduling';
 import { StorageModule } from './common/storage/storage.module';
+import { ThrottlingModule } from './common/throttling/throttling.module';
 import { validateEnv } from './config/env';
 import { DatabaseModule } from './database/database.module';
 import { AccountModule } from './modules/account/account.module';
@@ -37,6 +38,7 @@ import { WatersModule } from './modules/waters/waters.module';
     ...schedulingImports(),
     DatabaseModule,
     StorageModule,
+    ThrottlingModule,
     HealthModule,
     AuthModule,
     UsersModule,

@@ -38,6 +38,7 @@ import {
 } from '@nestjs/swagger';
 import { DomainError } from '../../../common/errors/domain-error';
 import { ErrorResponseDto } from '../../../common/errors/error-response.dto';
+import { RateLimit } from '../../../common/throttling/rate-limit.decorator';
 import { type AuthUser, CurrentUser } from '../../auth/decorators/auth.decorators';
 import {
   CreateExternalPermitDto,
@@ -71,6 +72,7 @@ export class ExternalPermitsController {
   }
 
   @Post()
+  @RateLimit('externalPermit')
   @Header(...NO_STORE)
   @ApiOperation({ summary: 'Add a permit bought outside the platform; the photo goes separately' })
   @ApiCreatedResponse({ type: ExternalPermitDto })
@@ -132,6 +134,7 @@ export class ExternalPermitsController {
   }
 
   @Put(':id/photo')
+  @RateLimit('upload')
   @Header(...NO_STORE)
   @UseInterceptors(
     FileInterceptor('file', {

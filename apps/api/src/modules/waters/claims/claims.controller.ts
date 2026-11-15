@@ -32,6 +32,7 @@ import {
 } from '@nestjs/swagger';
 import { DomainError } from '../../../common/errors/domain-error';
 import { ErrorResponseDto } from '../../../common/errors/error-response.dto';
+import { RateLimit } from '../../../common/throttling/rate-limit.decorator';
 import { type AuthUser, CurrentUser } from '../../auth/decorators/auth.decorators';
 import { Roles, SuperAdmin } from '../../organizations/decorators/org-access.decorators';
 import {
@@ -55,6 +56,7 @@ export class OrgClaimsController {
   constructor(private readonly claims: ClaimsService) {}
 
   @Post()
+  @RateLimit('upload')
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: CLAIM_PROOF_MAX_BYTES, files: 1, fields: 1, parts: 2 },

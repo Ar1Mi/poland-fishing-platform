@@ -44,6 +44,7 @@ import {
 } from '@nestjs/swagger';
 import { DomainError } from '../../common/errors/domain-error';
 import { ErrorResponseDto } from '../../common/errors/error-response.dto';
+import { RateLimit } from '../../common/throttling/rate-limit.decorator';
 import { Audit, AuditedResponse } from '../audit/audit.interceptor';
 import { type AuthUser, CurrentUser, Public } from '../auth/decorators/auth.decorators';
 import { Roles, SuperAdmin } from '../organizations/decorators/org-access.decorators';
@@ -138,6 +139,7 @@ export class WaterSuggestionsController {
   constructor(private readonly admin: WaterAdminService) {}
 
   @Post()
+  @RateLimit('suggestion')
   @ApiOperation({
     summary:
       'Suggest a water missing from the catalogue (FR-25): unpublished until a super admin ' +
@@ -201,6 +203,7 @@ export class OrgWatersController {
   }
 
   @Put(':id/photo')
+  @RateLimit('upload')
   @UseInterceptors(photoUpload)
   @ApiOperation({ summary: 'Photo of the card (JPEG, PNG or WebP, up to 5 MB); replaces the last' })
   @ApiConsumes('multipart/form-data')

@@ -34,6 +34,7 @@ import {
 } from '@nestjs/swagger';
 import { DomainError } from '../../common/errors/domain-error';
 import { ErrorResponseDto } from '../../common/errors/error-response.dto';
+import { RateLimit } from '../../common/throttling/rate-limit.decorator';
 import { type AuthUser, CurrentUser } from '../auth/decorators/auth.decorators';
 import { CatchesService } from './catches.service';
 import { CatchPhotoService } from './photo/catch-photo.service';
@@ -112,6 +113,7 @@ export class CatchesController {
   }
 
   @Put(':id/photo')
+  @RateLimit('upload')
   @Header('Cache-Control', 'no-store')
   @UseInterceptors(
     FileInterceptor('file', {

@@ -8,7 +8,6 @@ import {
   HttpStatus,
   Res,
   StreamableFile,
-  UseGuards,
 } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
@@ -19,12 +18,11 @@ import {
   ApiOperation,
   ApiProduces,
   ApiTags,
-  ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { SkipThrottle, ThrottlerGuard } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { ErrorResponseDto } from '../../common/errors/error-response.dto';
+import { RateLimit } from '../../common/throttling/rate-limit.decorator';
 import { REFRESH_COOKIE, REFRESH_COOKIE_OPTIONS } from '../auth/auth.constants';
 import { type AuthUser, CurrentUser } from '../auth/decorators/auth.decorators';
 import { AccountService } from './account.service';
@@ -62,8 +60,7 @@ export class AccountController {
 
   @Delete()
   @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(ThrottlerGuard)
-  @SkipThrottle({ ip: true, login: true, email: true })
+  @RateLimit('password')
   @ApiOperation({
     summary: 'RODO: delete the account (anonymise), confirmed by the password',
     description:
@@ -78,7 +75,6 @@ export class AccountController {
     description: 'INVALID_CREDENTIALS (wrong password), UNAUTHENTICATED, TOKEN_EXPIRED',
   })
   @ApiConflictResponse({ ...error, description: 'LAST_ORG_ADMIN (details.organizationIds)' })
-  @ApiTooManyRequestsResponse({ ...error, description: 'RATE_LIMITED' })
   async delete(
     @CurrentUser() user: AuthUser,
     @Body() dto: DeleteAccountDto,

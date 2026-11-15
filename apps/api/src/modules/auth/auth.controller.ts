@@ -14,6 +14,7 @@ import {
 import { SkipThrottle, ThrottlerGuard } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { ErrorResponseDto } from '../../common/errors/error-response.dto';
+import { onlyThrottlers } from '../../common/throttling/rate-limit.decorator';
 import { REFRESH_COOKIE, REFRESH_COOKIE_OPTIONS, REFRESH_TOKEN_TTL_MS } from './auth.constants';
 import { AuthService, type Session } from './auth.service';
 import { type AuthUser, CurrentUser, Public } from './decorators/auth.decorators';
@@ -31,8 +32,8 @@ const error = { type: ErrorResponseDto };
 @ApiTags('auth')
 @Controller('auth')
 @UseGuards(ThrottlerGuard)
-// Only the per-IP limit by default; routes below switch on their own (auth-throttlers.ts).
-@SkipThrottle({ login: true, email: true, password: true })
+// Only the per-IP limit by default; routes below switch on their own (common/throttling).
+@SkipThrottle(onlyThrottlers('ip'))
 @ApiTooManyRequestsResponse({ ...error, description: 'RATE_LIMITED' })
 export class AuthController {
   constructor(private readonly auth: AuthService) {}
