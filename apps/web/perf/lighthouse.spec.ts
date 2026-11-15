@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, expect, test } from '@playwright/test';
 import { WEB_URL } from '../playwright.config';
@@ -71,6 +71,8 @@ test('Lighthouse CI: mobile Performance on the catalogue, a card with a photo an
     return water!.id;
   });
 
+  // Reports of an earlier run would pass for this one if lhci stopped before writing.
+  rmSync(join(DIR, 'report/lighthouse'), { recursive: true, force: true });
   const urls = [`${WEB_URL}/`, `${WEB_URL}/waters/${waterId}`, `${WEB_URL}/login`];
   const lhci = spawnSync(
     'pnpm',

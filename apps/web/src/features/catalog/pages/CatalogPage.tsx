@@ -9,13 +9,13 @@ import { Badge } from '../../../shared/ui/badge';
 import { useLowestPrices } from '../../permits/api/usePermitTypes';
 import { useWaters } from '../api/useWaters';
 import { CatalogFilters, type CatalogFilterValues } from '../components/CatalogFilters';
+import { WaterCard } from '../components/WaterCard';
 
 // Leaflet and its plugins are most of the catalogue's code (T-29): their own chunk, so the
 // heading, filters and list do not wait for them.
 const WatersMap = lazy(async () => ({
   default: (await import('../components/WatersMap')).WatersMap,
 }));
-import { WaterCard } from '../components/WaterCard';
 
 /** The list renders this many entries; the map shows all of them. */
 export const LIST_LIMIT = 100;

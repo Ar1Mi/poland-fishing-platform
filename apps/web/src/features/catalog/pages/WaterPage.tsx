@@ -57,6 +57,19 @@ export function WaterPage() {
   );
 }
 
+/**
+ * Waiting is worth it only for a first answer on its way: a query paused without network (the
+ * service worker keeps no permit types) or one that failed and retries does not hold back the
+ * other sections — each shows its own loading or error state.
+ */
+function loadingFirstTime(query: {
+  isPending: boolean;
+  fetchStatus: string;
+  failureCount: number;
+}): boolean {
+  return query.isPending && query.fetchStatus === 'fetching' && query.failureCount === 0;
+}
+
 function WaterDetails({ water }: { water: WaterDetail }) {
   const { t } = useTranslation();
   const connected = water.status === 'CONNECTED';
@@ -69,7 +82,9 @@ function WaterDetails({ water }: { water: WaterDetail }) {
   const rules = useWaterRules(water.id, { enabled: false });
   const species = useSpecies({ enabled: false });
   const settling =
-    (connected && !suspended && types.isPending) || rules.isPending || species.isPending;
+    (connected && !suspended && loadingFirstTime(types)) ||
+    loadingFirstTime(rules) ||
+    loadingFirstTime(species);
   return (
     <>
       <div className="flex flex-col gap-2">

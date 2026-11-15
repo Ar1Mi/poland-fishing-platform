@@ -1,8 +1,14 @@
-# Public pages: the catalogue and the water cards. Accounts, permits, the register and the
-# panels need a login; the API answers JSON, not pages.
+# Public pages: the catalogue, the water cards and the legal pages. Everything else needs a
+# login or a one-time link from an email; the API answers JSON, not pages.
 User-agent: *
 Disallow: /api/
-Disallow: /me/
-Disallow: /org/
-Disallow: /admin/
+Disallow: /me
+Disallow: /org
+Disallow: /admin
 Disallow: /verify/
+Disallow: /catch/
+Disallow: /buy/
+Disallow: /payment/
+Disallow: /invitations/
+Disallow: /reset-password
+Disallow: /verify-email
