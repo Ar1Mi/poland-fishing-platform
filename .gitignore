@@ -29,6 +29,9 @@ test-results/
 # OWASP ZAP baseline reports (pnpm --filter web security:zap)
 apps/web/zap/report/
 apps/web/zap/zap.yaml
+# Lighthouse CI and k6 reports (pnpm --filter web perf:lighthouse, perf:load)
+apps/web/perf/report/
+apps/web/.lighthouseci/
 
 # Claude Code (personal)
 CLAUDE.local.md

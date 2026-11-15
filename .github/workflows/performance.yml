@@ -1,0 +1,69 @@
+# Lighthouse CI (NFR-02) and the k6 load test (NFR-01), T-29; docs/08-testing-and-infra.md.
+# Started by hand from the Actions tab: both measure speed, and the shared runners of a pull
+# request vary too much for a gate on every push. Each job starts the E2E stack on its own.
+name: Performance
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lighthouse:
+    name: Lighthouse CI (mobile)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Lighthouse runs in the Chromium of Playwright.
+      - run: pnpm --filter web exec playwright install --with-deps chromium
+
+      - run: pnpm --filter web perf:lighthouse
+
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse-report
+          path: apps/web/perf/report/lighthouse/
+          retention-days: 30
+
+  load:
+    name: k6 load test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # k6 runs in Docker against the API of the stack (no browser needed).
+      - run: pnpm --filter web perf:load
+
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: k6-report
+          path: apps/web/perf/report/k6-summary.*
+          retention-days: 30
