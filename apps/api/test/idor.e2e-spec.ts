@@ -191,6 +191,11 @@ describe('IDOR across organizations (T-28)', () => {
       params?: (victim: Victim) => Record<string, string>;
       body?: (victim: Victim) => object;
       photo?: boolean;
+      /**
+       * For a 400: the only field the API complains about. Without it the case could pass on a
+       * body that is invalid for another reason (both answers would be the same 400).
+       */
+      field?: string;
       /** B's object after the attempt: unchanged. */
       unchanged: (victim: Victim) => Promise<void>;
     }
@@ -311,12 +316,14 @@ describe('IDOR across organizations (T-28)', () => {
       // A water reference is a field of the form: 400 on it, as for a water that does not exist.
       'POST orgs/{orgId}/rules (fishingWaterId of B)': {
         expect: 400,
+        field: 'fishingWaterId',
         body: (v) => ({ speciesId: v.speciesId, fishingWaterId: v.waterId, minLengthCm: 10 }),
         unchanged: async ({ waterId }) =>
           expect(await prisma.speciesRule.count({ where: { fishingWaterId: waterId } })).toBe(0),
       },
       'POST orgs/{orgId}/permit-types (waterIds of B)': {
         expect: 400,
+        field: 'waterIds',
         body: (v) => ({
           name: 'Cudze',
           durationDays: 1,
@@ -415,6 +422,10 @@ describe('IDOR across organizations (T-28)', () => {
         const response = await attempt(victim);
 
         expect(response.status).toBe(testCase.expect);
+        if (testCase.field) {
+          const { details } = response.body as { details?: { fields?: object } };
+          expect(Object.keys(details?.fields ?? {})).toEqual([testCase.field]);
+        }
         expect(visible(response)).toEqual(visible(await attempt(nowhere)));
         await testCase.unchanged(victim);
       },

@@ -17,8 +17,10 @@ export function onlyThrottlers(...names: ThrottlerName[]): Record<ThrottlerName,
 
 /**
  * Applies the named limits (throttlers.ts) to one route; over a limit → 429 RATE_LIMITED.
- * On a method, after the guards of the class and the global ones (JwtAuthGuard, RolesGuard):
- * a rejected request does not count, and the tracker sees the logged-in user.
+ * On a method it runs after the global JwtAuthGuard and the guards of the class (`@Roles` puts
+ * RolesGuard and OrgScopeGuard there): a rejected request does not count, and the tracker sees
+ * the logged-in user. Keep `@Roles` on the class: a method-level `@Roles` above `@RateLimit`
+ * would let an outsider spend the quota of an organization.
  * Not for a controller that already uses ThrottlerGuard: the guard would count twice.
  */
 export const RateLimit = (...names: ThrottlerName[]): MethodDecorator =>

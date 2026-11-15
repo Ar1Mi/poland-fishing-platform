@@ -10,7 +10,7 @@ import { createOrganization } from './factories';
 import { loginOrgMember } from './org-helpers';
 
 /**
- * Limits of the account writes (T-28, docs/07-security.md → «Лимиты записей аккаунта»).
+ * Limits of the account writes (T-28, docs/05-api.md → «Лимиты записей аккаунта»).
  * Requests are invalid on purpose: every attempt counts (the guard runs before validation and
  * before the file is read), so the limits are reached without writing rows or files.
  */

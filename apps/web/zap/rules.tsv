@@ -1,5 +1,6 @@
 # OWASP ZAP baseline rules (T-28, `pnpm --filter web security:zap`): every passive rule FAILs
 # unless it is listed with a reason. WARN — accepted risk, kept in the report; IGNORE — not a risk.
+# Rules missing here count as WARN: after a new ZAP image regenerate the list (`-g`) and compare.
 # Format of zap-baseline.py -c: <rule id>\t<IGNORE|INFO|WARN|FAIL>\t(<comment>).
 10003	FAIL	(Vulnerable JS Library (Powered by Retire.js))
 10009	FAIL	(In Page Banner Information Leak)

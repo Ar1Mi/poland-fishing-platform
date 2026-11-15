@@ -4,7 +4,7 @@ import { expect, test } from './fixtures';
 // T-28: the production build is served with the security headers of security-headers.ts.
 // The scenarios run under them; this checks that they are there at all.
 
-test('the app is served with its Content-Security-Policy and framing is refused', async ({
+test('the app is served with its Content-Security-Policy and anti-framing headers', async ({
   page,
 }) => {
   const response = await page.goto('/');

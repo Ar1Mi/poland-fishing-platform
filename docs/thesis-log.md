@@ -39,6 +39,8 @@
 - ZAP из контейнера не видел `vite preview` (слушает только localhost) и получал бы 403 от проверки `Host`: для прогона ZAP — `--host` и `host.docker.internal` в `allowedHosts`. Vitest подхватил spec ZAP — исключён, как `e2e/`.
 - Первый прогон ZAP со строгими правилами нашёл в API стандартную CSP helmet (`https:` для стилей и шрифтов), отсутствие `Permissions-Policy` и «Unix-время» в константах бандла Swagger UI (ложное срабатывание — исключено только для этих файлов, `OUTOFSCOPE`).
 
+- Ревью (`code-reviewer`), исправлено: порядок блокировок покупки не был записан в `04-data-model.md`; ZAP в контейнере (uid 1000) не смог бы писать отчёты в рабочую копию раннера Linux — каталог открывается на запись перед запуском, как в официальном action (в GitHub Actions workflow ещё не запускался); у случаев IDOR с 400 не было положительного контроля — теперь ошибка должна быть ровно на поле ссылки; польский текст ошибки обещал «anuluj», а отмены неоплаченной покупки в приложении нет. Осталось как есть: `common/throttling` импортирует `normalizeEmail` из `UsersModule` (файл раньше жил в auth).
+
 **Подтверждение:**
 - `apps/api/test/idor.e2e-spec.ts` (22 теста), `apps/api/test/rate-limits.e2e-spec.ts` (6), `apps/api/test/permit-purchase.e2e-spec.ts` — 4 новых, в том числе гонка с удержанием блокировки; мутации (без advisory-lock; без фильтра `organizationId` в аннулировании) роняют тесты.
 - `apps/web/e2e/security-headers.spec.ts`, `apps/web/e2e/fixtures.ts`: 4 сценария + 2 теста заголовков проходят под CSP, внедрённый inline-скрипт не исполняется.

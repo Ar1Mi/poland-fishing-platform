@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 
@@ -27,6 +27,11 @@ interface ZapReport {
 for (const target of TARGETS) {
   test(`ZAP baseline of ${target.name}: no finding the rules file marks as FAIL`, () => {
     mkdirSync(join(DIR, 'report'), { recursive: true });
+    // ZAP runs as its own user (uid 1000) and writes zap.yaml and the reports into the mounted
+    // folder; on a Linux runner the checkout belongs to another uid (the official action does
+    // the same chmod).
+    chmodSync(DIR, 0o777);
+    chmodSync(join(DIR, 'report'), 0o777);
     const report = `report/zap-${target.name}`;
 
     const zap = spawnSync(
