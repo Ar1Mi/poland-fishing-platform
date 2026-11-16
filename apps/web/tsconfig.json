@@ -11,6 +11,9 @@
     "src",
     "vite.config.ts",
     "security-headers.ts",
+    "security-headers.test.ts",
+    "pwa-runtime-caching.ts",
+    "pwa-runtime-caching.test.ts",
     "playwright.config.ts",
     "playwright.zap.config.ts",
     "playwright.perf.config.ts"

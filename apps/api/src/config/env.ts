@@ -45,6 +45,10 @@ export const envSchema = z.object({
   // The safe mode is the default: development extras (debug level, pino-pretty) are opt-in.
   NODE_ENV: z.enum(['development', 'test', 'production']).default('production'),
   API_PORT: z.coerce.number().int().min(1).max(65535).default(3000),
+  // Reverse proxies in front of the API (T-30: Caddy, 1). Express then takes the client address
+  // from X-Forwarded-For, which the per-IP rate limits count by; 0 ignores the header, so a
+  // client cannot pick its own address when nothing in front of the API overwrites it.
+  TRUST_PROXY: z.coerce.number().int().min(0).max(5).default(0),
   API_URL: httpOrigin,
   WEB_URL: httpOrigin,
   DATABASE_URL: postgresUrl,

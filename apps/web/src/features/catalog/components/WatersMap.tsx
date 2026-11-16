@@ -8,6 +8,7 @@ import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
 import { Link } from 'react-router';
 import type { WaterSummary } from '../api/useWaters';
 import { bboxOf, POLAND_BOUNDS, toLatLngBounds, withPosition } from '../lib/map';
+import { TILES } from '../lib/tiles';
 import { waterMarkerIcon } from './water-marker';
 import { WaterStatusBadge } from './WaterStatusBadge';
 
@@ -23,7 +24,7 @@ interface WatersMapProps {
 const connectedIcon = waterMarkerIcon(true);
 const unclaimedIcon = waterMarkerIcon(false);
 
-/** Catalogue map with OSM tiles and marker clusters; the list under it is the accessible view. */
+/** Catalogue map with tiles (`TILES`) and marker clusters; the list under it is the accessible view. */
 export function WatersMap({ waters, onBoundsChange, fitToWaters }: WatersMapProps) {
   const { t } = useTranslation();
   const positioned = useMemo(() => withPosition(waters), [waters]);
@@ -44,9 +45,10 @@ export function WatersMap({ waters, onBoundsChange, fitToWaters }: WatersMapProp
       aria-label={t('catalog.map.label')}
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-        // The page sends no referrer (index.html); the OSM tile policy needs one: the origin is enough.
+        attribution={TILES.attribution}
+        url={TILES.url}
+        // The page sends no referrer (index.html); the OSM tile policy needs one, and a MapTiler key
+        // is restricted to the allowed origins: the origin is enough.
         referrerPolicy="origin"
         maxZoom={19}
       />

@@ -33,6 +33,7 @@ describe('validateEnv', () => {
     expect(validateEnv(valid)).toEqual({
       ...valid,
       API_PORT: 8080,
+      TRUST_PROXY: 0,
       NOMINATIM_URL: 'https://nominatim.openstreetmap.org',
       UPLOADS_DIR: './uploads',
       P24_BASE_URL: 'https://sandbox.przelewy24.pl',
@@ -166,6 +167,8 @@ describe('validateEnv', () => {
     ['non-http NOMINATIM_URL', { ...valid, NOMINATIM_URL: 'nominatim' }, 'NOMINATIM_URL'],
     ['unknown NODE_ENV', { ...valid, NODE_ENV: 'staging' }, 'NODE_ENV'],
     ['empty UPLOADS_DIR', { ...valid, UPLOADS_DIR: '' }, 'UPLOADS_DIR'],
+    ['negative TRUST_PROXY', { ...valid, TRUST_PROXY: '-1' }, 'TRUST_PROXY'],
+    ['TRUST_PROXY as true', { ...valid, TRUST_PROXY: 'true' }, 'TRUST_PROXY'],
     ['non-numeric P24_MERCHANT_ID', { ...valid, P24_MERCHANT_ID: 'abc' }, 'P24_MERCHANT_ID'],
     [
       'P24_BASE_URL with a path',

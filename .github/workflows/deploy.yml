@@ -1,0 +1,154 @@
+# Deploy to the VPS on a version tag (T-30, docs/08-testing-and-infra.md → «Деплой»):
+#   git tag v1.0.0 && git push origin v1.0.0
+# Builds the images, pushes them to GHCR, then on the VPS: compose pull && up -d.
+#
+# Repository secrets: VPS_HOST, VPS_USER, VPS_SSH_KEY (private key of a deploy user in the docker
+# group), VPS_KNOWN_HOSTS (`ssh-keyscan <host>`, checked: no blind trust of the host key).
+# Repository variables: SITE_ADDRESS (host name of the site), VPS_DIR (default /opt/lowisko, holds
+# prod.env), VITE_MAP_TILE_URL and VITE_MAP_TILE_ATTRIBUTION (MapTiler; public in the bundle anyway).
+name: Deploy
+
+on:
+  push:
+    tags: ['v*']
+  # Again, or back to an earlier version: Actions → Deploy → Run workflow with its tag. The
+  # database schema does not go back with it (migrations only move forward).
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Version tag to deploy (v…)
+        required: true
+
+permissions:
+  contents: read
+
+# One deploy at a time: a running one is never cancelled halfway through `up`. Only one run
+# waits; a third tag replaces the waiting one (the newest version wins).
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+
+jobs:
+  images:
+    name: Build and push images
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          # The whole history: the check below needs main.
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Only what passed CI on main reaches production (ci.yml runs on main and pull requests);
+      # protect `v*` tags with a ruleset too (docs/08-testing-and-infra.md → «Деплой на VPS»).
+      - name: The tag is on main
+        run: |
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::$TAG is not on main: merge it through a pull request first"
+            exit 1
+          fi
+
+      - name: Log in to GHCR
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: echo "$TOKEN" | docker login ghcr.io -u "$ACTOR" --password-stdin
+
+      - name: Build and push
+        env:
+          OWNER: ${{ github.repository_owner }}
+          VITE_MAP_TILE_URL: ${{ vars.VITE_MAP_TILE_URL }}
+          VITE_MAP_TILE_ATTRIBUTION: ${{ vars.VITE_MAP_TILE_ATTRIBUTION }}
+        run: |
+          set -eu
+          if [ -z "$VITE_MAP_TILE_URL" ] || [ -z "$VITE_MAP_TILE_ATTRIBUTION" ]; then
+            echo "::error::VITE_MAP_TILE_URL and VITE_MAP_TILE_ATTRIBUTION must be set: production must not load tile.openstreetmap.org, and the provider's terms require its attribution"
+            exit 1
+          fi
+          registry="ghcr.io/$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')"
+          build() { docker buildx build --push --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" "$@"; }
+          build -f apps/api/Dockerfile --target migrate -t "$registry/api-migrate:$TAG" .
+          build -f apps/api/Dockerfile --target runtime -t "$registry/api:$TAG" .
+          build -f apps/web/Dockerfile -t "$registry/web:$TAG" \
+            --build-arg VITE_MAP_TILE_URL --build-arg VITE_MAP_TILE_ATTRIBUTION .
+          build -t "$registry/backup:$TAG" deploy/backup
+
+  deploy:
+    name: Deploy to the VPS
+    needs: images
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Protection rules (required reviewers) can be added to this environment in the settings.
+    environment: production
+    permissions:
+      contents: read
+      packages: read
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      VPS_DIR: ${{ vars.VPS_DIR || '/opt/lowisko' }}
+      SITE_ADDRESS: ${{ vars.SITE_ADDRESS }}
+      OWNER: ${{ github.repository_owner }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          persist-credentials: false
+
+      # An empty one would become `localhost` in compose: a certificate nobody trusts.
+      - name: Site address
+        run: |
+          if [ -z "$SITE_ADDRESS" ]; then
+            echo "::error::SITE_ADDRESS is not set"
+            exit 1
+          fi
+
+      - name: SSH key and known host
+        env:
+          SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy && chmod 600 ~/.ssh/deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf 'Host vps\n  HostName %s\n  User %s\n  IdentityFile ~/.ssh/deploy\n  IdentitiesOnly yes\n  StrictHostKeyChecking yes\n' \
+            "$VPS_HOST" "$VPS_USER" > ~/.ssh/config
+
+      - name: Copy the compose file and the image versions
+        run: |
+          set -eu
+          registry="ghcr.io/$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')"
+          scp docker-compose.prod.yml "vps:$VPS_DIR/docker-compose.prod.yml"
+          # Read by compose for interpolation only; the secrets stay in prod.env on the VPS.
+          printf 'LOWISKO_REGISTRY=%s\nLOWISKO_TAG=%s\nSITE_ADDRESS=%s\nHSTS_MAX_AGE=31536000\n' \
+            "$registry" "$TAG" "$SITE_ADDRESS" |
+            ssh vps "cat > '$VPS_DIR/.env'"
+
+      - name: Pull and restart
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -eu
+          # The job token lets the VPS pull private images; it expires with this job.
+          echo "$TOKEN" | ssh vps "docker login ghcr.io -u '$ACTOR' --password-stdin"
+          ssh vps "cd '$VPS_DIR' && docker compose -f docker-compose.prod.yml pull \
+            && docker compose -f docker-compose.prod.yml up -d --no-build --remove-orphans \
+            && docker image prune -f; status=\$?; docker logout ghcr.io; exit \$status"
+
+      - name: Check the site
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS "https://$SITE_ADDRESS/api/v1/health"; then exit 0; fi
+            sleep 5
+          done
+          echo "::error::https://$SITE_ADDRESS/api/v1/health did not answer"
+          exit 1

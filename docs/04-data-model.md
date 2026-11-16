@@ -225,7 +225,7 @@ model WaterClaim {
   fishingWaterId String       @db.Uuid
   organizationId String       @db.Uuid
   status         ClaimStatus  @default(PENDING)
-  proofFileKey   String
+  proofFileKey   String?      // NULL — документ отклонённой заявки удалён по сроку (T-30)
   comment        String?
   reviewedById   String?      @db.Uuid
   reviewedAt     DateTime?    @db.Timestamptz(3)
@@ -482,6 +482,10 @@ ALTER TABLE "PermitType" ADD CONSTRAINT permit_type_positive CHECK ("durationDay
 -- одно общее правило на вид (правил организации и водоёма может быть несколько — они сливаются в самое строгое)
 CREATE UNIQUE INDEX rule_one_general ON "SpeciesRule" ("speciesId") WHERE "organizationId" IS NULL AND "fishingWaterId" IS NULL;
 
+-- документ теряет только отклонённая заявка (срок хранения, T-30)
+ALTER TABLE "WaterClaim" ADD CONSTRAINT claim_proof_kept
+  CHECK ("proofFileKey" IS NOT NULL OR "status" = 'REJECTED');
+
 -- одна активная заявка на водоём от организации
 CREATE UNIQUE INDEX claim_one_pending ON "WaterClaim" ("fishingWaterId", "organizationId") WHERE "status" = 'PENDING';
 
@@ -489,7 +493,7 @@ CREATE UNIQUE INDEX claim_one_pending ON "WaterClaim" ("fishingWaterId", "organi
 CREATE INDEX payment_pending_created ON "Payment" ("createdAt") WHERE "status" = 'PENDING';
 ```
 
-Все ограничения — в `apps/api/prisma/migrations/20261018095038_init/migration.sql`, каждое проверено тестом `apps/api/test/database-constraints.e2e-spec.ts`. Частичные индексы только для скорости — `permit_expiry_reminder_due` (T-25, ниже) и `payment_pending_created` (T-29, миграция `permit_type_and_pending_payment_indexes`: `PaymentExpiryJob` раз в минуту ищет `PENDING`-платежи старше таймаута, а оплаченные — почти вся таблица). Prisma 7 умеет частичные индексы в схеме (`previewFeatures = ["partialIndexes"]`, `@@index(where:)`), но с ним `migrate dev` считает индексы, написанные SQL-ом, расхождением и удаляет их — поэтому, по правилу проекта, такие индексы остаются в SQL миграций, а Prisma их не видит (`migrate diff` пуст). `rule_closed_period` проверяет только форму `MM-DD`: несуществующий день месяца (`02-30`) отсекает валидация входа API правил (T-16).
+Все ограничения — в `apps/api/prisma/migrations/20261018095038_init/migration.sql` (`claim_proof_kept` — в `claim_proof_retention`, T-30), каждое проверено тестом `apps/api/test/database-constraints.e2e-spec.ts`. Частичные индексы только для скорости — `permit_expiry_reminder_due` (T-25, ниже) и `payment_pending_created` (T-29, миграция `permit_type_and_pending_payment_indexes`: `PaymentExpiryJob` раз в минуту ищет `PENDING`-платежи старше таймаута, а оплаченные — почти вся таблица). Prisma 7 умеет частичные индексы в схеме (`previewFeatures = ["partialIndexes"]`, `@@index(where:)`), но с ним `migrate dev` считает индексы, написанные SQL-ом, расхождением и удаляет их — поэтому, по правилу проекта, такие индексы остаются в SQL миграций, а Prisma их не видит (`migrate diff` пуст). `rule_closed_period` проверяет только форму `MM-DD`: несуществующий день месяца (`02-30`) отсекает валидация входа API правил (T-16).
 
 Удаление (`onDelete`), отличное от умолчаний Prisma:
 
@@ -515,6 +519,7 @@ CREATE INDEX payment_pending_created ON "Payment" ("createdAt") WHERE "status" =
 - `source + sourceRef` unique — повторный импорт обновляет, а не дублирует.
 - Фильтр `bbox` (`lat`/`lng`) — без индекса (решение T-10). Каталог Mazowsza — порядка 10³ строк, всей страны — 10⁴: последовательный просмотр таблицы — единицы миллисекунд. B-tree по `(lat, lng)` сужал бы только по первому столбцу; настоящий пространственный индекс (GiST по точке) — вместе с ADR о серверной кластеризации, если каталог перерастёт `WATERS_LIST_LIMIT`.
 - `GeocodeCache.query` — запрос в нижнем регистре со схлопнутыми пробелами; «не найдено» тоже кэшируется (`lat`/`lng` = null), ошибки геокодера — нет.
+- `WaterClaim.proofFileKey` необязателен (T-30, миграция `claim_proof_retention`, решение пользователя): документ заявки, отклонённой больше 90 дней назад (`COALESCE(reviewedAt, createdAt)`), удаляет ночная задача `ClaimDocumentCleanupJob` (3:45 по Варшаве) — в договорах бывают персональные данные. Строка заявки остаётся (история, `AuditLog`). Сначала обнуляется ключ (`UPDATE … FROM (SELECT … FOR UPDATE) RETURNING` — два экземпляра API не удалят один ключ дважды), файл удаляется после: сбой между ними оставляет файл без строки, а не строку без файла. Момент удаления — в логе, не в `AuditLog` (действие системы по правилу, принятое решение). Документы `PENDING` и `APPROVED` хранятся, пока есть заявка: одобренная — доказательство передачи водоёма; `claim_proof_kept` не даёт обнулить их ключ.
 - Одобрение claim — одна транзакция: `WaterClaim.APPROVED` + `FishingWater.organizationId` + `CONNECTED`; другие PENDING-заявки на этот водоём → `REJECTED`; запись в `AuditLog` — в той же транзакции. Первым меняется водоём (условный `UPDATE … WHERE status = 'UNCLAIMED'`): второе одновременное одобрение ждёт его блокировку и видит `CONNECTED`, а не уходит в deadlock на строках заявок. Каждое изменение статуса заявки тоже условное (`WHERE status = 'PENDING'`). Подача заявки читает водоём с `SELECT … FOR SHARE` в своей транзакции: эта блокировка конфликтует с `UPDATE` одобрения, поэтому либо одобрение ждёт вставку и отклоняет новую заявку вместе с остальными, либо подача ждёт одобрение и видит `CONNECTED` (обычное чтение пропускало бы заявку после одобрения, и она оставалась бы `PENDING` у подключённого водоёма; FK-проверка вставки берёт `KEY SHARE`, совместимый с `UPDATE` без смены ключа). Одобряется только заявка `ACTIVE`-организации. `proofFileKey` — ключ `StorageService` (`claims/<uuid>.<ext>`), MIME документа выводится из расширения.
 - Условия проданного типа разрешения (срок, льгота, водоёмы) не меняются, а сам тип не удаляется — только снимается с продажи (`isActive = false`): водоёмы типа задают, что покрывает проданное разрешение (BR-01). Изменение и удаление сначала берут строку `PermitType` через `SELECT … FOR UPDATE`, затем считают разрешения. `FOR UPDATE` конфликтует с `KEY SHARE`, который FK-проверка вставки `Permit` берёт на строке типа: продажа либо закоммичена раньше и будет посчитана, либо ждёт изменения. Обычный `UPDATE` (`FOR NO KEY UPDATE`) с `KEY SHARE` совместим и продажу не остановил бы (проверено тестом: без блокировки изменение водоёмов проходит во время продажи, удаление падает 500 на FK). Связи с водоёмами (`_FishingWaterToPermitType`) удаляются вместе с типом каскадом.
 - Номер разрешения — последовательность PostgreSQL на год: `ZW-{YYYY}-{000001}` (см. «Номер разрешения»).

@@ -5,6 +5,7 @@ import { AuditModule } from '../audit/audit.module';
 import { OrganizationsModule } from '../organizations/organizations.module';
 import { WaterAdminService } from './admin/water-admin.service';
 import { AdminClaimsController, OrgClaimsController } from './claims/claims.controller';
+import { ClaimDocumentCleanupJob } from './claims/claim-document-cleanup.job';
 import { ClaimsService } from './claims/claims.service';
 import { GEOCODER } from './import/geocoder';
 import { GeocodingService } from './import/geocoding.service';
@@ -37,6 +38,7 @@ import { WatersService } from './waters.service';
   providers: [
     WatersService,
     ClaimsService,
+    ClaimDocumentCleanupJob,
     WaterImportService,
     WaterProfileService,
     WaterAdminService,

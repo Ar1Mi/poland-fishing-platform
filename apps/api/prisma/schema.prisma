@@ -199,7 +199,8 @@ model WaterClaim {
   fishingWaterId String       @db.Uuid
   organizationId String       @db.Uuid
   status         ClaimStatus  @default(PENDING)
-  proofFileKey   String
+  /// NULL once the document of a REJECTED claim is deleted (retention, T-30; CHECK claim_proof_kept)
+  proofFileKey   String?
   comment        String?
   reviewedById   String?      @db.Uuid
   reviewedAt     DateTime?    @db.Timestamptz(3)

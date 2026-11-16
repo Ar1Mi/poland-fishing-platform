@@ -1,0 +1,50 @@
+# Caddy of the production stack (T-30, docs/08-testing-and-infra.md → «Docker Compose»).
+# SITE_ADDRESS: the public host name — Caddy gets and renews its Let's Encrypt certificate
+# (ports 80 and 443 must reach the VPS); `localhost` — a certificate of Caddy's own local CA.
+{$SITE_ADDRESS:localhost} {
+	encode zstd gzip
+
+	# HTTPS only, for the app and the API alike (Caddy redirects http itself). `>`: set after
+	# the handler, so it replaces the HSTS helmet of the API sends — one policy, this one.
+	header >Strict-Transport-Security "max-age={$HSTS_MAX_AGE:0}"
+
+	# The API and its Swagger UI; the API sends its own security headers (helmet).
+	handle /api/* {
+		# Files are at most 5 MB (the API checks each limit); larger bodies stop here.
+		request_body {
+			max_size 6MB
+		}
+		# Caddy trusts no proxy before it, so it replaces any X-Forwarded-For of the client
+		# with the client's address: the API (TRUST_PROXY=1) counts its rate limits by it.
+		reverse_proxy api:3000
+	}
+
+	handle {
+		root * /srv
+		# The same headers `vite preview` sends (security-headers.ts → dist-caddy).
+		import /etc/caddy/security-headers.caddy
+
+		# Hashed file names: a new release has new names.
+		@hashed path /assets/* /workbox-*.js
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		# Everything else (index.html, sw.js, the manifest, icons) is checked on every load:
+		# a new service worker must reach the phones of the anglers.
+		@unhashed not path /assets/* /workbox-*.js
+		header @unhashed Cache-Control "no-cache"
+
+		# A missing file under /assets stays 404 (an old page asking for a chunk of a past
+		# release must fail, not get index.html as JavaScript).
+		handle /assets/* {
+			file_server
+		}
+		# Every route of the SPA is index.html.
+		handle {
+			try_files {path} /index.html
+			file_server
+		}
+	}
+
+	# No access log: URIs carry secrets — the QR token in /verify/<token> (valid until the
+	# permit ends) and one-time ?token= links of emails. The API logs every request itself,
+	# with those redacted (docs/07-security.md); Caddy still logs its own errors.
+}
