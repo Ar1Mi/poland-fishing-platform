@@ -215,7 +215,7 @@ function SuggestionCard({
               error={issue(errors.region?.message)}
               {...register('region')}
             >
-              {regionOptions(t, i18n.language).map((region) => (
+              {regionOptions(t, i18n.resolvedLanguage).map((region) => (
                 <option key={region.value} value={region.value}>
                   {region.label}
                 </option>

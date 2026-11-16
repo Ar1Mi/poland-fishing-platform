@@ -87,12 +87,29 @@ describe('translations', () => {
     expect(wrong).toEqual([]);
   });
 
+  // A plain key must keep exactly the pl tokens. A plural form is compared with all pl forms of
+  // its key and may leave out `{{count}}` ("one catch"), but no other variable or tag.
   it.each(TRANSLATED)('keeps the pl placeholders and tags in %s', (lng) => {
-    const plTokens = new Map(
-      [...leaves(pl)].map(([path, text]) => [baseKey(path), tokens(text).join()]),
-    );
+    const plLeaves = leaves(pl);
+    const plPluralTokens = new Map<string, Set<string>>();
+    for (const [path, text] of plLeaves) {
+      if (!PLURAL_SUFFIX.test(path)) continue;
+      const set = plPluralTokens.get(baseKey(path)) ?? new Set<string>();
+      for (const token of tokens(text)) set.add(token);
+      plPluralTokens.set(baseKey(path), set);
+    }
+    const withoutCount = (list: Iterable<string>) =>
+      [...new Set(list)]
+        .filter((token) => token !== '{{count}}')
+        .sort()
+        .join();
+
     const mismatched = [...leaves(resources[lng].translation)]
-      .filter(([path, text]) => tokens(text).join() !== plTokens.get(baseKey(path)))
+      .filter(([path, text]) =>
+        PLURAL_SUFFIX.test(path)
+          ? withoutCount(tokens(text)) !== withoutCount(plPluralTokens.get(baseKey(path)) ?? [])
+          : tokens(text).join() !== tokens(plLeaves.get(path) ?? '').join(),
+      )
       .map(([path]) => path);
 
     expect(mismatched).toEqual([]);
@@ -104,8 +121,19 @@ describe('translations', () => {
     expect(Object.keys(regions).sort()).toEqual([...REGIONS].sort());
   });
 
+  // The probe key is not in the typed resources, so call `t` without key checking.
+  const untyped = (lng: string) => i18n.getFixedT(lng) as (key: string) => string;
+
   // A key added to pl without a translation must still show (in Polish) until CI flags it.
   it('falls back to Polish for a key that has no translation', () => {
-    expect(i18n.options.fallbackLng).toEqual(['pl']);
+    i18n.addResource('pl', 'translation', 'fallbackProbe', 'Tylko po polsku');
+
+    try {
+      expect(untyped('ru')('fallbackProbe')).toBe('Tylko po polsku');
+      expect(untyped('en')('fallbackProbe')).toBe('Tylko po polsku');
+    } finally {
+      // The store keeps the imported `resources` object itself: do not leak the probe.
+      delete (i18n.store.data.pl!.translation as Record<string, unknown>).fallbackProbe;
+    }
   });
 });

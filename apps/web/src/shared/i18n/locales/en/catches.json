@@ -121,11 +121,11 @@
     },
     "DAILY_COUNT_LIMIT": {
       "title": "Daily count limit",
-      "text": "{{kept}} fish have already been kept that day with a limit of {{limit}} — fish from all waters count."
+      "text": "Already kept that day: {{kept}} of the {{limit}} fish allowed — fish from all waters count."
     },
     "DAILY_WEIGHT_LIMIT": {
       "title": "Daily weight limit",
-      "text": "{{kept}} has already been kept that day with a limit of {{limit}} — fish from all waters count."
+      "text": "Already kept that day: {{kept}} of the {{limit}} allowed — fish from all waters count."
     },
     "PROTECTED_SPECIES": {
       "title": "Protected species",

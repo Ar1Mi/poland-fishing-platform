@@ -10,7 +10,11 @@ export function regionLabel(t: TFunction, region: string): string {
 }
 
 /** All voivodeships with their names, in the alphabetical order of the interface language. */
-export function regionOptions(t: TFunction, language: string): { value: Region; label: string }[] {
+export function regionOptions(
+  t: TFunction,
+  language: string | undefined,
+): { value: Region; label: string }[] {
+  // `undefined` (before i18next resolves a language) uses the runtime default collation.
   const collator = new Intl.Collator(language);
   return REGIONS.map((value) => ({ value, label: regionLabel(t, value) })).sort((a, b) =>
     collator.compare(a.label, b.label),

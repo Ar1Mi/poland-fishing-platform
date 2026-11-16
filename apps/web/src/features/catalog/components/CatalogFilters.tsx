@@ -83,7 +83,7 @@ export function CatalogFilters({ value, onChange }: CatalogFiltersProps) {
             onChange={(event) => select('region', event.target.value)}
           >
             <option value="">{t('catalog.filters.any')}</option>
-            {regionOptions(t, i18n.language).map((region) => (
+            {regionOptions(t, i18n.resolvedLanguage).map((region) => (
               <option key={region.value} value={region.value}>
                 {region.label}
               </option>

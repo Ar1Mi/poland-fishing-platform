@@ -28,6 +28,7 @@ import {
 import { ClaimStatusBadge } from '../components/ClaimStatusBadge';
 import { saveFile } from '../../../shared/lib/save-file';
 import { AdminNav } from '../../orgs/components/AdminNav';
+import { regionLabel } from '../../catalog/lib/region';
 
 const STATUSES = Object.values(ClaimStatus);
 const ALL = 'ALL';
@@ -98,7 +99,7 @@ function AdminClaimCard({ claim }: { claim: AdminClaim }) {
           </Link>
         </CardTitle>
         <p className="text-small text-muted-foreground">
-          {claim.water.region} · {t(`catalog.status.${claim.water.status}`)}
+          {regionLabel(t, claim.water.region)} · {t(`catalog.status.${claim.water.status}`)}
         </p>
       </CardHeader>
       <CardContent>

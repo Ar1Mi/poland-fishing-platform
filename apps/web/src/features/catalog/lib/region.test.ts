@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { REGIONS } from '@lowisko/shared';
 import { afterEach, describe, expect, it } from 'vitest';
 import { i18n } from '../../../shared/i18n/i18n';
@@ -42,5 +44,20 @@ describe('regionOptions', () => {
 
     expect(labels.indexOf('łódzkie')).toBe(labels.indexOf('lubuskie') + 1);
     expect(labels.at(-1)).toBe('zachodniopomorskie');
+  });
+});
+
+describe('voivodeship output', () => {
+  // T-31: three screens were missed at first; a raw `{x.region}` in JSX shows `mazowieckie` in en/ru.
+  it('never renders a stored voivodeship without regionLabel', () => {
+    const root = join(__dirname, '../../..');
+    const files = readdirSync(root, { recursive: true, encoding: 'utf8' }).filter(
+      (file) => file.endsWith('.tsx') && !file.includes('.test.'),
+    );
+    const raw = files.filter((file) =>
+      /\{\s*[\w.?]+\.region\s*\}/.test(readFileSync(join(root, file), 'utf8')),
+    );
+
+    expect(raw).toEqual([]);
   });
 });

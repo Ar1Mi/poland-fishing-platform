@@ -112,7 +112,7 @@
     "submit": "Accept invitation",
     "noToken": "The link is missing the invitation code. Open the link from the email again.",
     "mismatchHint": "Log out and log in to the account with the address the invitation was sent to — or ask the organization to invite this address.",
-    "joined": "You have joined the organization {{name}} as {{role}}",
+    "joined": "You have joined the organization {{name}} with the role “{{role}}”",
     "inspectorHint": "To inspect an angler, scan the QR code on their permit with your phone camera.",
     "adminHint": "You will find the organization's sections in \"My organizations\".",
     "toMine": "Go to \"My organizations\""
