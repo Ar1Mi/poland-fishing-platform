@@ -24,6 +24,7 @@ import {
   useUpdatePermitType,
 } from '../api/usePermitTypes';
 import { PermitTypeTerms } from './PermitTypeTerms';
+import { regionLabel } from '../../catalog/lib/region';
 
 /**
  * New permit type, or changes to `type`. A sold type (`inUse`) keeps its duration, discount
@@ -246,7 +247,7 @@ function WaterChoice({
         {shown.map((water) => (
           <li key={water.id}>
             <CheckboxField
-              label={`${water.name} · ${water.region}`}
+              label={`${water.name} · ${regionLabel(t, water.region)}`}
               checked={value.includes(water.id)}
               aria-invalid={error ? true : undefined}
               onChange={(event) =>

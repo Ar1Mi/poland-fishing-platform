@@ -1,1 +1,63 @@
-{}
+{
+  "stats": {
+    "title": "Statistics",
+    "loading": "Loading statistics…",
+    "period": {
+      "label": "Statistics period",
+      "from": "From",
+      "to": "To",
+      "show": "Show",
+      "issue": {
+        "INVALID": "Enter a valid date.",
+        "ORDER": "The end of the period cannot be before its start.",
+        "TOO_LONG": "The period can be at most {{max}} days long.",
+        "OUT_OF_SEASONS": "The dates must fall within {{first}}–{{last}}."
+      }
+    },
+    "sales": {
+      "title": "Permit sales",
+      "count": "Sold",
+      "revenue": "Revenue",
+      "revoked": "Revoked",
+      "revokedHint": "The price of revoked permits is included in revenue: any refund happens outside the platform.",
+      "empty": "No permits were sold in this period.",
+      "byMonth": "Permits sold by month",
+      "monthValue_one": "{{month}}: {{count}} permit, {{revenue}}",
+      "monthValue_other": "{{month}}: {{count}} permits, {{revenue}}",
+      "monthTable": {
+        "show": "Show months in a table",
+        "month": "Month",
+        "count": "Permits",
+        "revenue": "Revenue"
+      },
+      "byType": "Revenue by permit type",
+      "typeValue_one": "{{count}} permit · {{revenue}}",
+      "typeValue_other": "{{count}} permits · {{revenue}}"
+    },
+    "catches": {
+      "title": "Catches",
+      "hint": "Catches accepted in the register on the organization's permits, by catch date.",
+      "count": "Catches",
+      "kept": "Kept",
+      "released": "Released",
+      "empty": "No catches were recorded in this period.",
+      "bySpecies": "By species",
+      "byWater": "By water",
+      "value_one": "{{count}} fish · kept: {{kept}}",
+      "value_other": "{{count}} fish · kept: {{kept}}",
+      "unknownSpecies": "Species not in the dictionary"
+    },
+    "export": {
+      "title": "Catch export",
+      "hint": "A CSV file for a spreadsheet: all catches of the period on the organization's permits, including rejected ones with the reason. It contains the permit number, without the angler's data or the catch location.",
+      "download": "Download CSV file"
+    }
+  },
+  "myStats": {
+    "title": "My statistics",
+    "back": "Back to the register",
+    "season": "Season",
+    "catches": "Catches in the {{season}} season",
+    "hint": "Catches accepted in the register on your permits — from the platform and external — by catch date."
+  }
+}

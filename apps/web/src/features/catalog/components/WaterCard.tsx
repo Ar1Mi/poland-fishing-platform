@@ -4,6 +4,7 @@ import { Link } from 'react-router';
 import { formatPrice } from '../../../shared/lib/format';
 import type { WaterSummary } from '../api/useWaters';
 import { WaterStatusBadge } from './WaterStatusBadge';
+import { regionLabel } from '../lib/region';
 
 /** List entry linking to the water card; a connected water on sale shows its «od» price. */
 export function WaterCard({
@@ -22,7 +23,7 @@ export function WaterCard({
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="text-body font-semibold">{water.name}</span>
         <span className="text-small text-muted-foreground">
-          {t(`catalog.waterType.${water.type}`)} · {water.region}
+          {t(`catalog.waterType.${water.type}`)} · {regionLabel(t, water.region)}
         </span>
         <div className="flex flex-wrap items-center gap-2">
           <WaterStatusBadge status={water.status} />

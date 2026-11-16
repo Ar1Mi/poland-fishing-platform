@@ -6,7 +6,7 @@ paths:
 # Frontend (React)
 
 - Код по фичам: `features/<name>/{pages,components,hooks,api}`; общее — в `shared/`.
-- Никаких строк интерфейса в JSX: только `t('feature.component.key')`. Новый ключ — сразу в `pl`; `en`/`ru` можно оставить на этап локализации.
+- Никаких строк интерфейса в JSX: только `t('feature.component.key')`. Новый ключ — сразу в `pl`, `en` и `ru` (с T-31 тест `i18n.test.ts` требует все три и формы множественного числа каждого языка).
 - Ошибки API показываются как `t('errors.' + code)`; новый `ErrorCode` — новый ключ.
 - Данные сервера — только через TanStack Query и типизированный клиент (`pnpm gen:api` после изменения API). Никакого `fetch` в компонентах.
 - Формы — React Hook Form + Zod-схема из `@lowisko/shared`, если она есть.

@@ -41,7 +41,8 @@ import ruRules from './locales/ru/rules.json';
 /*
  * One file per feature (`locales/{lng}/{feature}.json`), merged under the feature name into
  * a single i18next namespace, so keys read `feature.component.element` (docs/06-frontend.md).
- * `pl` is complete; a key missing in `en`/`ru` falls back to `pl` until the localisation stage (T-31).
+ * All three languages are complete (T-31, enforced by i18n.test.ts); the fallback to `pl` only
+ * covers a key that is still being added.
  */
 export const resources = {
   pl: {

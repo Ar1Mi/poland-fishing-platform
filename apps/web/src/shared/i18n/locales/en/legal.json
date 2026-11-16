@@ -1,1 +1,6 @@
-{}
+{
+  "privacy": {
+    "title": "Privacy policy",
+    "template": "Privacy policy template of the Łowisko service. The controller, the purposes and legal bases of processing, the retention period and user rights (access, export, account deletion) will be described before the service goes live."
+  }
+}

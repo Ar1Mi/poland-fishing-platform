@@ -18,6 +18,7 @@ import { Button } from '../../../shared/ui/button';
 import { FieldError, FileField, TextField } from '../../../shared/ui/form-field';
 import { useWater, useWaters } from '../../catalog/api/useWaters';
 import type { ExternalPermit } from '../api/useExternalPermits';
+import { regionLabel } from '../../catalog/lib/region';
 
 /** Search results offered at once; a longer list means the name should be more precise. */
 const PICKER_LIMIT = 10;
@@ -301,7 +302,7 @@ function WatersField({
                   >
                     {t('permits.external.form.waters.add', {
                       name: item.name,
-                      region: item.region,
+                      region: regionLabel(t, item.region),
                     })}
                   </Button>
                 </li>

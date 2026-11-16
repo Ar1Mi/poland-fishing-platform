@@ -1,1 +1,74 @@
-{}
+{
+  "terms": {
+    "minLength": "Minimum size: from {{cm}} cm",
+    "closedPeriod": "Closed season: {{from}} – {{to}}",
+    "dailyCount_one": "Daily limit: {{count}} fish",
+    "dailyCount_other": "Daily limit: {{count}} fish",
+    "dailyWeight": "Daily limit: {{weight}} in total",
+    "noKill": "No keeping — catch and release only (no-kill)",
+    "ineffective": "Not in force: the general regulations or the organization's rules are stricter."
+  },
+  "org": {
+    "title": "Fishing rules",
+    "lead": "The general regulations (the ordinance on fishing) always apply. The organization's and the water's rules can only make them stricter — of several values the strictest applies.",
+    "loading": "Loading rules…",
+    "add": "Add rule",
+    "listTitle": "Rules of the organization and its waters",
+    "empty": "The organization has no rules of its own — the general regulations apply.",
+    "wholeOrganization": "All waters of the organization",
+    "saved": "The rule has been saved.",
+    "deleted": "The rule has been deleted.",
+    "edit": "Edit",
+    "editLabel": "Edit rule: {{name}}",
+    "delete": "Delete",
+    "deleteLabel": "Delete rule: {{name}}",
+    "deleteConfirm": "Delete the rule for {{name}}?",
+    "deleteConfirmYes": "Yes, delete",
+    "deleteConfirmNo": "Cancel"
+  },
+  "form": {
+    "titleNew": "New rule",
+    "titleEdit": "Edit rule",
+    "species": {
+      "label": "Species",
+      "placeholder": "Choose a species",
+      "error": "Choose a species."
+    },
+    "scope": {
+      "label": "Applies to",
+      "organization": "All waters of the organization"
+    },
+    "emptyHint": "Empty field — no restriction.",
+    "limitHint": "Empty field — no limit; 0 — no keeping (no-kill).",
+    "minLength": {
+      "label": "Minimum size (cm)",
+      "error": "Enter a whole number from 1 to 300."
+    },
+    "closed": {
+      "legend": "Closed season",
+      "hint": "Month and day, e.g. 01-01 and 04-30. The period may span New Year (12-01 – 02-28); the end of February is 02-28.",
+      "from": "From",
+      "to": "To",
+      "error": "Enter an existing day in MM-DD format; the period needs both dates."
+    },
+    "dailyCount": {
+      "label": "Daily limit (fish)",
+      "error": "Enter a whole number from 0 to 100."
+    },
+    "dailyWeight": {
+      "label": "Daily limit (grams)",
+      "error": "Enter a whole number from 0 to 100,000."
+    },
+    "nothing": "A rule must restrict something: fill in at least one field.",
+    "submitNew": "Add rule",
+    "submitEdit": "Save changes",
+    "cancel": "Cancel"
+  },
+  "water": {
+    "title": "Fishing rules",
+    "loading": "Loading fishing rules…",
+    "lead": "The strictest of the general regulations and the water's rules. The register checks catches against them.",
+    "empty": "No specific species rules for this water.",
+    "protected": "Protected species — release only"
+  }
+}

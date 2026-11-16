@@ -18,5 +18,12 @@
   "routeError": {
     "title": "Something went wrong",
     "reload": "Reload the page"
+  },
+  "nav": {
+    "label": "Main navigation",
+    "waters": "Waters",
+    "permits": "Permits",
+    "catches": "Catches",
+    "profile": "Profile"
   }
 }

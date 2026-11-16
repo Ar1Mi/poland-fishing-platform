@@ -37,6 +37,11 @@ export function RuleForm({
   const { t, i18n } = useTranslation();
   const titleId = useId();
   const formErrorId = useId();
+  const language = i18n.resolvedLanguage ?? 'pl';
+  // As in the catch form: the API order is the database collation, not the interface language.
+  const sortedSpecies = [...species].sort((a, b) =>
+    speciesName(a, language).localeCompare(speciesName(b, language), language),
+  );
   const create = useCreateRule(orgId);
   const update = useUpdateRule(orgId);
   const mutation = rule ? update : create;
@@ -89,9 +94,9 @@ export function RuleForm({
             {...register('speciesId')}
           >
             <option value="">{t('rules.form.species.placeholder')}</option>
-            {species.map((item) => (
+            {sortedSpecies.map((item) => (
               <option key={item.id} value={item.id}>
-                {speciesName(item, i18n.resolvedLanguage)}
+                {speciesName(item, language)}
               </option>
             ))}
           </SelectField>

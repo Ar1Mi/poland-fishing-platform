@@ -1,6 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
-  REGIONS,
   WATER_NAME_MAX_LENGTH,
   WATER_NAME_MIN_LENGTH,
   type WaterFieldsFormValues,
@@ -29,6 +28,7 @@ import {
   useWaterSuggestions,
 } from '../api/useWaterSuggestions';
 import { issueOf } from './SuggestWaterPage';
+import { regionLabel, regionOptions } from '../lib/region';
 
 interface Decision {
   kind: 'published' | 'rejected';
@@ -160,7 +160,7 @@ function SuggestionCard({
       <CardHeader>
         <CardTitle id={titleId}>{water.name}</CardTitle>
         <p className="text-small text-muted-foreground">
-          {t(`catalog.waterType.${water.type}`)} · {water.region}
+          {t(`catalog.waterType.${water.type}`)} · {regionLabel(t, water.region)}
         </p>
       </CardHeader>
       <CardContent>
@@ -215,9 +215,9 @@ function SuggestionCard({
               error={issue(errors.region?.message)}
               {...register('region')}
             >
-              {REGIONS.map((region) => (
-                <option key={region} value={region}>
-                  {region}
+              {regionOptions(t, i18n.resolvedLanguage).map((region) => (
+                <option key={region.value} value={region.value}>
+                  {region.label}
                 </option>
               ))}
             </SelectField>

@@ -1,1 +1,73 @@
-{}
+{
+  "result": {
+    "OK": "No objections",
+    "VIOLATION": "Violation"
+  },
+  "verify": {
+    "title": "Permit check",
+    "loading": "Checking the permit…",
+    "valid": "Permit valid",
+    "invalid": "Permit invalid",
+    "notGenuine": "The code is invalid, forged, or the permit has already expired.",
+    "reason": {
+      "SCHEDULED": "The permit is valid only from {{from}}.",
+      "EXPIRED": "The permit expired on {{to}}.",
+      "REVOKED": "The permit has been revoked by the organization.",
+      "CANCELLED": "The permit was not paid for.",
+      "PENDING_PAYMENT": "The permit is awaiting payment confirmation."
+    },
+    "inspectorHint": "Are you inspecting on behalf of the organization that issued the permit?",
+    "login": "Log in as an inspector",
+    "publicOnly": "The holder's details, today's catches and the report are visible only to inspectors and administrators of the organization that issued the permit.",
+    "stale": "Could not refresh the check. Showing data from {{time}}."
+  },
+  "permit": {
+    "organization": "Issued by",
+    "validity": "Validity",
+    "holder": "Holder",
+    "waters": "Waters"
+  },
+  "holder": {
+    "title": "Inspection details",
+    "compare": "Compare with the angler's ID document.",
+    "name": "Full name",
+    "birthYear": "Year of birth",
+    "number": "Permit number"
+  },
+  "catches": {
+    "title": "Today's catches",
+    "empty": "No catches have been recorded on this permit today.",
+    "onlineOnly": "Only catches already sent from the angler's phone are shown."
+  },
+  "form": {
+    "title": "Inspection report",
+    "result": {
+      "label": "Inspection result",
+      "error": "Choose the inspection result."
+    },
+    "notes": {
+      "label": "Notes",
+      "hint": "Optional, up to {{max}} characters.",
+      "error": "The notes are too long."
+    },
+    "location": {
+      "add": "Add my location",
+      "locating": "Getting location…",
+      "added": "The location will be saved with the report.",
+      "remove": "Remove location",
+      "failed": "Could not get the location — you can save the report without it."
+    },
+    "submit": "Save report",
+    "saved": "Report saved at {{time}}"
+  },
+  "list": {
+    "title": "Inspection reports",
+    "season": "Season",
+    "loading": "Loading reports…",
+    "empty": "No reports were recorded this season.",
+    "permit": "Permit",
+    "holder": "Holder",
+    "inspector": "Inspector",
+    "anonymised": "Account deleted"
+  }
+}

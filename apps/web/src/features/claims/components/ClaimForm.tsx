@@ -13,6 +13,7 @@ import { Button } from '../../../shared/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../shared/ui/card';
 import { FileField, TextField } from '../../../shared/ui/form-field';
 import { useWater, useWaters } from '../../catalog/api/useWaters';
+import { regionLabel } from '../../catalog/lib/region';
 import { useSubmitClaim } from '../api/useClaims';
 
 /** Search results offered at once; a longer list means the name should be more precise. */
@@ -104,7 +105,7 @@ export function ClaimForm({
           <div className="flex flex-col gap-2">
             <p className="text-body font-semibold">{t('claims.form.water')}</p>
             <p className="text-body">
-              {water.name} · {water.region}
+              {water.name} · {regionLabel(t, water.region)}
             </p>
             <Button
               type="button"
@@ -197,7 +198,7 @@ function WaterPicker({ onChoose }: { onChoose: (water: WaterOption) => void }) {
                     className="h-auto min-h-12 w-full justify-start border-border text-left whitespace-normal"
                     onClick={() => onChoose({ id: item.id, name: item.name, region: item.region })}
                   >
-                    {item.name} · {item.region}
+                    {item.name} · {regionLabel(t, item.region)}
                   </Button>
                 </li>
               ))}
