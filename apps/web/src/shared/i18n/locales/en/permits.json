@@ -1,1 +1,303 @@
-{}
+{
+  "org": {
+    "title": "Permit types",
+    "loading": "Loading permit types…",
+    "add": "Add a permit type",
+    "listTitle": "The organization's permit types",
+    "empty": "The organization has no permit types yet.",
+    "noWaters": "A permit type covers waters connected to the organization. The organization has none yet.",
+    "noWatersLink": "Claim a water",
+    "active": "On sale",
+    "inactive": "Sales suspended",
+    "inUse": "Sold — validity, discount and waters are locked",
+    "waters": "Waters ({{count}})",
+    "edit": "Edit",
+    "stopSale": "Suspend sales",
+    "resumeSale": "Resume sales",
+    "delete": "Delete",
+    "deleteConfirm": "Delete the type \"{{name}}\"? This cannot be undone.",
+    "deleteConfirmYes": "Yes, delete",
+    "deleteConfirmNo": "Cancel",
+    "deleted": "The type \"{{name}}\" has been deleted.",
+    "saved": "Saved the type \"{{name}}\"."
+  },
+  "form": {
+    "titleNew": "New permit type",
+    "titleEdit": "Edit: {{name}}",
+    "name": {
+      "label": "Name",
+      "placeholder": "e.g. Day permit",
+      "error": "Enter a name (up to 100 characters)."
+    },
+    "durationDays": {
+      "label": "Validity (days)",
+      "hint": "Number of consecutive days, from 1 to 366.",
+      "error": "Enter a number of days from 1 to 366."
+    },
+    "price": {
+      "label": "Price (PLN)",
+      "hint": "E.g. 25 or 25.50. A price of 0 means a free permit.",
+      "error": "Enter the price in złoty, e.g. 25.50 (at most 10,000 PLN)."
+    },
+    "discountKind": {
+      "label": "Discount"
+    },
+    "waters": {
+      "legend": "Waters",
+      "hint": "The permit covers the selected waters of the organization.",
+      "error": "Select at least one water.",
+      "all": "Select all",
+      "none": "Deselect all",
+      "filter": "Search for a water",
+      "chosen": "{{chosen}} of {{total}} selected",
+      "noMatch": "No water matches the search."
+    },
+    "locked": "Permits of this type have already been sold, so the validity, discount and waters will not change. You can change the name and the price of future purchases or create a new type.",
+    "submitNew": "Add",
+    "submitEdit": "Save changes",
+    "cancel": "Cancel"
+  },
+  "terms": {
+    "duration_one": "{{count}} day",
+    "duration_other": "{{count}} days"
+  },
+  "discount": {
+    "NONE": "Standard",
+    "JUNIOR": "Reduced — youth",
+    "SENIOR": "Reduced — senior"
+  },
+  "offer": {
+    "loading": "Loading permits…",
+    "empty": "This water has no permits on sale yet.",
+    "listLabel": "Permit types",
+    "buy": "Buy",
+    "buyLabel": "Buy: {{name}}"
+  },
+  "status": {
+    "PENDING_PAYMENT": "Awaiting payment",
+    "SCHEDULED": "Scheduled",
+    "ACTIVE": "Active",
+    "EXPIRED": "Expired",
+    "CANCELLED": "Cancelled",
+    "REVOKED": "Revoked"
+  },
+  "validity": "Valid from {{from}} to {{to}} inclusive",
+  "buy": {
+    "title": "Buy a permit",
+    "loading": "Loading permit…",
+    "unavailable": "This permit type is no longer on sale for this water.",
+    "backToWater": "Back to the water",
+    "backToCatalog": "Back to the map of waters",
+    "water": "Water",
+    "price": "Price",
+    "validFrom": {
+      "label": "Start date",
+      "hint": "From today to {{latest}}.",
+      "errorInvalid": "Enter the start date.",
+      "errorPast": "The start date cannot be earlier than today.",
+      "errorTooLate": "The latest start date is {{latest}}."
+    },
+    "discount": {
+      "JUNIOR": "Reduced permit for people who are under {{age}} on the start date.",
+      "SENIOR": "Reduced permit for people who are {{age}} or older on the start date."
+    },
+    "paymentNote": "The permit will be valid once the payment operator confirms the payment.",
+    "submitPaid": "Go to payment",
+    "submitFree": "Get the free permit"
+  },
+  "payment": {
+    "fake": {
+      "title": "Test payment",
+      "notice": "This is a simulated payment gateway in the development environment — no money is charged.",
+      "amount": "Amount",
+      "pay": "Pay",
+      "reject": "Reject payment"
+    },
+    "return": {
+      "title": "Permit payment",
+      "missing": "We do not know which permit the payment is for.",
+      "loading": "Checking the payment…",
+      "waiting": "Waiting for payment confirmation…",
+      "timeout": "The payment has not been confirmed yet. If you have paid, the permit will take effect once the operator confirms the payment.",
+      "checkAgain": "Check again",
+      "paidTitle": "Permit paid",
+      "freeTitle": "Permit issued",
+      "cancelledTitle": "The payment was not completed",
+      "cancelled": "The permit has been cancelled. You can buy it again on the water's page.",
+      "revokedTitle": "Permit revoked",
+      "organization": "Issued by",
+      "backToCatalog": "Back to the map of waters",
+      "showPermit": "Show the permit and QR code"
+    }
+  },
+  "mine": {
+    "title": "My permits",
+    "loading": "Loading permits…",
+    "empty": "You have no permits yet.",
+    "toCatalog": "Find a water on the map",
+    "current": "Current",
+    "past": "Past",
+    "externalTitle": "External permits",
+    "externalLead": "Add a permit bought from a fishery operator outside the platform here to record catches in the register.",
+    "externalLink": "External permits"
+  },
+  "detail": {
+    "title": "Permit",
+    "loading": "Loading permit…",
+    "organization": "Issued by",
+    "terms": "Type",
+    "downloadPdf": "Download PDF",
+    "backToList": "All permits",
+    "revoked": "Permit revoked by the organization",
+    "revokedOn": "Permit revoked by the organization on {{date}}",
+    "revokeReason": "Reason: {{reason}}",
+    "revokedHint": "It no longer entitles you to fish or to record catches. For a refund, contact {{organization}}."
+  },
+  "qr": {
+    "alt": "QR code of permit {{number}}",
+    "showFullscreen": "Show the code in full screen",
+    "fullscreenTitle": "Show the code to the inspector",
+    "brightness": "Increase the screen brightness so the code scans more easily.",
+    "close": "Close"
+  },
+  "device": {
+    "notice": "No network — permits saved on this device, as of the last connection.",
+    "missing": "This permit is not on the device. Open it once you are connected to the network."
+  },
+  "external": {
+    "list": {
+      "title": "External permits",
+      "lead": "Permits bought outside the platform, e.g. from the fishery operator of a water not on the platform. You can record catches on them in the register and we will check them against the general regulations.",
+      "add": "Add a permit",
+      "loading": "Loading permits…",
+      "empty": "You have no external permits yet.",
+      "withPhoto": "With photo",
+      "toPermits": "Permits bought on the platform"
+    },
+    "new": {
+      "title": "New external permit",
+      "lead": "Copy the details from the permit and choose the waters where it is valid. A photo or scan will be useful during an inspection.",
+      "back": "External permits"
+    },
+    "form": {
+      "issuer": {
+        "label": "Issued by",
+        "hint": "Fishery operator or shop, e.g. \"Gospodarstwo Rybackie Wąsosze\".",
+        "required": "Enter who issued the permit."
+      },
+      "number": {
+        "label": "Permit number (optional)",
+        "hint": "As on the document."
+      },
+      "tooLong": "The text is too long.",
+      "validFrom": "Valid from",
+      "validTo": "Valid until (inclusive)",
+      "dates": {
+        "INVALID": "Enter a date.",
+        "ORDER": "The end date cannot be earlier than the start date.",
+        "TOO_LONG": "A permit can be valid for at most 366 days.",
+        "TOO_LATE": "A permit can start at most 365 days from now — check the year.",
+        "OUT_OF_SEASONS": "The dates must fall within 2000–2100."
+      },
+      "waters": {
+        "legend": "Waters",
+        "chosen": "Selected waters",
+        "remove": "Remove the water {{name}}",
+        "search": "Search for a water by name",
+        "searchPlaceholder": "e.g. Wąsosze",
+        "searchSubmit": "Search",
+        "results": "Waters found",
+        "noResults": "No water with this name was found.",
+        "narrow": "There are more results — enter a more precise name.",
+        "add": "Add: {{name}} · {{region}}",
+        "required": "Choose at least one water.",
+        "tooMany": "Choose at most {{max}} waters.",
+        "full": "{{max}} waters are already selected — remove one to add another."
+      },
+      "photo": {
+        "label": "Photo or scan of the permit (optional)",
+        "hint": "JPEG, PNG, WebP or PDF, up to 5 MB.",
+        "type": "Choose a photo (JPEG, PNG, WebP) or a PDF file.",
+        "tooBig": "The file is larger than 5 MB."
+      },
+      "submitNew": "Save permit",
+      "submitEdit": "Save changes",
+      "cancel": "Cancel"
+    },
+    "detail": {
+      "title": "External permit",
+      "loading": "Loading permit…",
+      "back": "External permits",
+      "photoNotAdded": "The permit was saved, but the photo was not added. Try again below.",
+      "number": "Number",
+      "noNumber": "no number",
+      "validity": "Validity",
+      "waters": "Waters",
+      "rulesNote": "Catches on this permit are checked against the general regulations; you know the water's rules from its fishery operator.",
+      "edit": "Correct details",
+      "editTitle": "Correct the permit",
+      "editLead": "Catches already recorded will not be checked again.",
+      "saved": "Changes saved."
+    },
+    "photo": {
+      "title": "Permit photo",
+      "none": "No photo added.",
+      "hasImage": "A photo of the permit has been added.",
+      "hasPdf": "A scan of the permit (PDF) has been added.",
+      "download": "Download",
+      "remove": "Delete photo",
+      "add": "Add a photo or scan",
+      "replace": "Change the photo or scan",
+      "submit": "Save photo",
+      "saved": "Photo saved."
+    },
+    "register": {
+      "title": "Catch register for the fishery operator",
+      "lead": "A PDF with the fish kept during the season — date, water, species, quantity, length and weight. Catches that break the rules are marked. Send it to the fishery operator, just like a paper register.",
+      "season": "Season",
+      "download": "Download the {{season}} register (PDF)"
+    },
+    "delete": {
+      "action": "Delete permit",
+      "confirm": "Delete the permit \"{{name}}\"? A permit with recorded catches cannot be deleted.",
+      "yes": "Yes, delete",
+      "no": "Do not delete",
+      "waiting": "Catches recorded on this permit are waiting to be sent on this device. Send them to the register first — a permit with catches cannot be deleted.",
+      "toRegister": "Go to the catch register"
+    }
+  },
+  "orgList": {
+    "title": "Sold permits",
+    "status": "Status",
+    "all": "All",
+    "number": "Permit number",
+    "search": "Search by number",
+    "loading": "Loading permits…",
+    "empty": "No permits sold.",
+    "total_one": "{{count}} permit",
+    "total_other": "{{count}} permits",
+    "pages": "List pages",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {{page}} of {{pages}}",
+    "holder": "Angler",
+    "anonymised": "Account deleted",
+    "type": "Type",
+    "validity": "Valid",
+    "range": "{{from}} – {{to}}",
+    "price": "Price",
+    "bought": "Bought",
+    "revokedAt": "Revocation date",
+    "reason": "Reason",
+    "revoke": "Revoke",
+    "revokeLabel": "Revoke permit {{number}}",
+    "revokeTitle": "Revoking permit {{number}}",
+    "revokeHint": "Revocation cannot be undone: the permit is no longer valid in inspections or in the catch register. Any refund is made outside the platform — note it in the reason.",
+    "reasonField": "Reason for revocation",
+    "reasonError": "Enter a reason (up to {{max}} characters).",
+    "revokeYes": "Revoke permit",
+    "revokeNo": "Cancel",
+    "noMatch": "No permit matches the filter.",
+    "revoked": "Permit {{number}} revoked."
+  }
+}

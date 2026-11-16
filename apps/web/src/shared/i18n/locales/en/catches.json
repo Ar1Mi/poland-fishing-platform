@@ -1,1 +1,174 @@
-{}
+{
+  "links": {
+    "add": "Add a catch",
+    "register": "Catch register",
+    "stats": "My statistics"
+  },
+  "form": {
+    "title": "Add a catch",
+    "titleEdit": "Correct the catch",
+    "loading": "Loading permits and species…",
+    "noPermit": "You record a catch on an active permit. None of your permits is valid right now.",
+    "toPermits": "Go to permits",
+    "toCatalog": "Find a water on the map",
+    "place": {
+      "label": "Water",
+      "withPermit": "{{water}} — {{permit}}",
+      "ended": "{{place}} (valid until {{date}})"
+    },
+    "species": {
+      "label": "Species",
+      "placeholder": "Choose a species",
+      "error": "Choose a species."
+    },
+    "fate": {
+      "legend": "Fish",
+      "error": "Mark whether the fish was kept or released."
+    },
+    "length": {
+      "label": "Length (cm)",
+      "error": "Enter the length in whole centimetres, from 1 to 400."
+    },
+    "weight": {
+      "label": "Weight (kg)",
+      "hint": "E.g. 1.25",
+      "error": "Enter the weight in kilograms, e.g. 1.25 — up to 300 kg."
+    },
+    "caughtAt": {
+      "label": "Time of catch",
+      "error": "Enter an existing date and time."
+    },
+    "location": {
+      "add": "Add my location",
+      "locating": "Getting location…",
+      "added": "The location will be saved with the catch.",
+      "remove": "Remove location",
+      "failed": "Could not get the location — you can save the catch without it."
+    },
+    "submit": "Save catch",
+    "save": "Save changes",
+    "cancel": "Cancel",
+    "unknownOutcome": "It is not known whether the catch reached the register. Send it again — it will not be saved twice. You can correct it later in the register.",
+    "retry": "Send again",
+    "noDeviceData": "Your permits are not on this device yet. Connect to the network to download them.",
+    "fetchDeviceData": "Download permits",
+    "deviceError": "Could not save the catch on the device. Check that your browser allows sites to store data.",
+    "check": {
+      "passed": "Complies with the water's rules",
+      "kept": "The fish counts towards the daily limit.",
+      "released": "A released fish does not count towards the limit."
+    }
+  },
+  "result": {
+    "accepted": "Catch saved in the register",
+    "acceptedText": "The catch complies with the water's rules.",
+    "rejected": "Catch rejected",
+    "rejectedText": "The entry is in the register as rejected. You can correct or delete it until {{until}}.",
+    "another": "Add another catch",
+    "toRegister": "Go to the register",
+    "rejectedClosed": "The entry is in the register as rejected. The time to change it has passed.",
+    "saved": "Saved on the device",
+    "savedText": "The catch will be sent to the register when the network is back.",
+    "sending": "Sending the catch to the register…",
+    "sendNow": "Send now",
+    "failed": "Could not send the catch",
+    "failedText": "The server did not accept this catch and will not accept it again. You can delete it from the device in the register.",
+    "notSent": "Could not send the catch right now — it is waiting on the device. We will try again when you open the app or the network is back."
+  },
+  "register": {
+    "title": "Catch register",
+    "season": "Season",
+    "loading": "Loading the register…",
+    "empty": "No catches have been recorded this season yet.",
+    "editableUntil": "Can be changed until {{until}}",
+    "edit": "Correct",
+    "editLabel": "Correct the catch: {{name}}, {{time}}",
+    "delete": "Delete",
+    "deleteLabel": "Delete the catch: {{name}}, {{time}}",
+    "deleteConfirm": "Delete this catch from the register?",
+    "deleteConfirmYes": "Yes, delete",
+    "deleteConfirmNo": "Cancel",
+    "deleted": "The catch has been deleted from the register.",
+    "fateAndTime": "{{fate}} · {{time}}",
+    "offline": "Without a network only catches saved on this device are shown. You will see the full register once you are connected."
+  },
+  "fate": {
+    "KEPT": "Kept",
+    "RELEASED": "Released"
+  },
+  "status": {
+    "ACCEPTED": "Accepted",
+    "REJECTED": "Rejected",
+    "PENDING_SYNC": "To be synced",
+    "FAILED": "Not sent"
+  },
+  "violation": {
+    "PERMIT_NOT_ACTIVE": {
+      "title": "Permit not valid",
+      "text": "The permit was not valid at the time of the catch ({{status}}). Valid from {{from}} to {{to}} inclusive."
+    },
+    "PERMIT_WATER_MISMATCH": {
+      "title": "Different water",
+      "text": "The permit does not cover this water."
+    },
+    "BELOW_MIN_LENGTH": {
+      "title": "Below the minimum size",
+      "text": "A fish may be kept from {{cm}} cm — this one must be released."
+    },
+    "CLOSED_SEASON": {
+      "title": "Closed season",
+      "text": "This species may not be kept from {{from}} to {{to}}."
+    },
+    "DAILY_COUNT_LIMIT": {
+      "title": "Daily count limit",
+      "text": "{{kept}} fish have already been kept that day with a limit of {{limit}} — fish from all waters count."
+    },
+    "DAILY_WEIGHT_LIMIT": {
+      "title": "Daily weight limit",
+      "text": "{{kept}} has already been kept that day with a limit of {{limit}} — fish from all waters count."
+    },
+    "PROTECTED_SPECIES": {
+      "title": "Protected species",
+      "text": "This species may only be released."
+    },
+    "CATCH_IN_FUTURE": {
+      "title": "Time in the future",
+      "text": "The time of catch is later than now — check your phone's clock."
+    },
+    "WEIGHT_REQUIRED": {
+      "title": "Weight missing",
+      "text": "This species has a daily weight limit — enter the weight of the kept fish."
+    },
+    "code": "{{ruleId}} · {{code}}"
+  },
+  "offline": {
+    "title": "No network",
+    "text": "Catches are saved on the device and will be sent when the network is back."
+  },
+  "queue": {
+    "title": "On this device",
+    "waiting_one": "{{count}} catch is waiting to be sent.",
+    "waiting_other": "{{count}} catches are waiting to be sent.",
+    "waitingOffline_one": "{{count}} catch is waiting to be sent — we will send it when the network is back.",
+    "waitingOffline_other": "{{count}} catches are waiting to be sent — we will send them when the network is back.",
+    "sync": "Sync",
+    "failedReason": "The server rejected the catch: {{reason}}",
+    "deleteConfirm": "Delete this catch from the device? It will not reach the register.",
+    "sentNoAnswer": "The catch was sent, but the response did not arrive — it may already be in the register. After syncing you can delete it in the register.",
+    "fish": "Catch"
+  },
+  "photo": {
+    "alt": "Photo of the catch: {{name}}",
+    "loading": "Loading photo…",
+    "add": "Add a photo of the catch: {{name}}",
+    "replace": "Replace the photo of the catch: {{name}}",
+    "hint": "JPEG, PNG or WebP, up to {{mb}} MB. Only you can see the photo.",
+    "type": "Choose a JPEG, PNG or WebP photo.",
+    "tooBig": "The photo is larger than {{mb}} MB.",
+    "submit": "Save photo",
+    "remove": "Delete photo",
+    "show": "Show photo",
+    "showLabel": "Show the photo of the catch: {{name}}",
+    "saved": "Photo saved."
+  }
+}

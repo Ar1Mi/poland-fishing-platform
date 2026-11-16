@@ -1,1 +1,120 @@
-{}
+{
+  "mine": {
+    "title": "My organizations",
+    "loading": "Loading organizations…",
+    "empty": "You do not belong to any organization.",
+    "claims": "Water claims",
+    "permitTypes": "Permit types",
+    "rules": "Fishing rules",
+    "inspections": "Inspection reports",
+    "inspectorHint": "To inspect an angler, scan the QR code on their permit with your phone camera.",
+    "status": {
+      "PENDING": "The organization is waiting to be activated by the platform administrator.",
+      "BLOCKED": "The organization is blocked. Contact the platform administrator."
+    },
+    "waters": "Waters",
+    "permits": "Sold permits",
+    "members": "Members and invitations",
+    "stats": "Statistics and catch export",
+    "apply": "Register an organization on the platform"
+  },
+  "role": {
+    "ORG_ADMIN": "Administrator",
+    "INSPECTOR": "Inspector"
+  },
+  "kind": {
+    "PZW": "PZW club or district",
+    "RZGW": "RZGW Wody Polskie",
+    "PRIVATE": "Private fishery"
+  },
+  "orgStatus": {
+    "PENDING": "Awaiting activation",
+    "ACTIVE": "Active",
+    "BLOCKED": "Blocked"
+  },
+  "apply": {
+    "title": "Organization registration",
+    "lead": "Register a club, district or private fishery. You will become its administrator, and once the platform administrator activates it you can claim your waters and start selling permits.",
+    "name": "Organization name",
+    "nameError": "Enter a name (up to {{max}} characters).",
+    "nip": "NIP (tax ID)",
+    "nipHint": "10 digits; spaces and hyphens are allowed.",
+    "nipError": "Invalid NIP — check the digits.",
+    "kind": "Type",
+    "kindPlaceholder": "Choose a type",
+    "kindError": "Choose the type of organization.",
+    "contactEmail": "Organization's contact email",
+    "contactEmailError": "Enter a valid email address.",
+    "submit": "Send registration",
+    "sentTitle": "Registration of \"{{name}}\" sent",
+    "sent": "The organization is waiting to be activated by the platform administrator. You will see its status in \"My organizations\".",
+    "toMine": "Go to \"My organizations\""
+  },
+  "adminNav": {
+    "label": "Platform administration",
+    "orgs": "Organizations",
+    "claims": "Water claims",
+    "waters": "Suggested waters"
+  },
+  "admin": {
+    "title": "Organizations",
+    "filter": "Status",
+    "all": "All",
+    "loading": "Loading organizations…",
+    "empty": "No organizations with this status.",
+    "nip": "NIP",
+    "kind": "Type",
+    "contactEmail": "Email",
+    "appliedAt": "Registered",
+    "activate": "Activate",
+    "reactivate": "Reactivate",
+    "activateLabel": "Activate the organization {{name}}",
+    "block": "Block",
+    "blockLabel": "Block the organization {{name}}",
+    "blockConfirm": "Block the organization? This will suspend permit sales and close the organization's pages to its members. Sold permits remain valid.",
+    "blockYes": "Yes, block",
+    "blockNo": "Do not block"
+  },
+  "members": {
+    "title": "Members and invitations",
+    "listTitle": "Members",
+    "loading": "Loading members…",
+    "inviteTitle": "Invite to the organization",
+    "inviteHint": "We will send a link valid for {{days}} days. Only an account with this email address can accept the invitation; anyone without one creates an account first.",
+    "email": "Email",
+    "emailError": "Enter a valid email address.",
+    "role": "Role",
+    "invite": "Send invitation",
+    "invited": "Invitation sent to {{email}}.",
+    "pendingTitle": "Pending invitations",
+    "validUntil": "link valid until {{date}}",
+    "expired": "link expired",
+    "resend": "Resend",
+    "resendLabel": "Resend the invitation for {{email}}",
+    "cancel": "Cancel",
+    "cancelLabel": "Cancel the invitation for {{email}}",
+    "anonymised": "Account deleted",
+    "you": "(You)",
+    "since": "In the organization since {{date}}",
+    "rolesLegend": "Roles: {{name}}",
+    "saveRoles": "Save roles",
+    "saved": "Roles saved.",
+    "remove": "Remove from the organization",
+    "removeLabel": "Remove from the organization: {{name}}",
+    "removeConfirm": "Remove {{name}} from the organization? They will lose access to its pages and to permit inspections.",
+    "removeYes": "Yes, remove",
+    "removeNo": "Do not remove"
+  },
+  "accept": {
+    "title": "Invitation to an organization",
+    "lead": "Accept the invitation to join the organization.",
+    "leadAs": "You will accept the invitation as {{email}}. The invitation only works for the account with the address it was sent to.",
+    "submit": "Accept invitation",
+    "noToken": "The link is missing the invitation code. Open the link from the email again.",
+    "mismatchHint": "Log out and log in to the account with the address the invitation was sent to — or ask the organization to invite this address.",
+    "joined": "You have joined the organization {{name}} as {{role}}",
+    "inspectorHint": "To inspect an angler, scan the QR code on their permit with your phone camera.",
+    "adminHint": "You will find the organization's sections in \"My organizations\".",
+    "toMine": "Go to \"My organizations\""
+  }
+}

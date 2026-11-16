@@ -1,1 +1,64 @@
-{}
+{
+  "status": {
+    "PENDING": "Awaiting decision",
+    "APPROVED": "Approved",
+    "REJECTED": "Rejected"
+  },
+  "orgStatus": {
+    "PENDING": "organization not activated",
+    "ACTIVE": "active",
+    "BLOCKED": "organization blocked"
+  },
+  "form": {
+    "title": "New water claim",
+    "lead": "Choose a water from the catalogue and attach a document confirming your right to it, e.g. a fishing district lease agreement.",
+    "water": "Water",
+    "changeWater": "Change water",
+    "search": "Water name",
+    "searchPlaceholder": "e.g. Zalew Zegrzyński",
+    "searchSubmit": "Search",
+    "results": "Waters to choose from",
+    "noResults": "No water without an operator on the platform has this name.",
+    "narrow": "Showing the first results. Enter a more precise name.",
+    "chooseFirst": "Choose a water first.",
+    "file": "Document",
+    "fileHint": "PDF, JPG, PNG or WebP, up to 5 MB.",
+    "fileRequired": "Attach a document.",
+    "fileType": "PDF, JPG, PNG and WebP files are allowed.",
+    "fileTooBig": "The file is larger than 5 MB.",
+    "submit": "Submit claim",
+    "submitted": "The claim for the water {{name}} has been submitted. The platform administrator will review it soon."
+  },
+  "org": {
+    "title": "Water claims",
+    "loading": "Loading claims…",
+    "listTitle": "Submitted claims",
+    "empty": "The organization has not submitted any claims yet.",
+    "submittedAt": "Submitted {{date}}",
+    "reviewedAt": "reviewed {{date}}",
+    "comment": "Administrator's comment:",
+    "lostToOther": "The water was connected on the basis of another claim."
+  },
+  "admin": {
+    "title": "Water claims",
+    "filter": "Status",
+    "all": "All",
+    "loading": "Loading claims…",
+    "empty": "No claims with this status.",
+    "organization": "Organization",
+    "nip": "NIP",
+    "submittedAt": "Submitted",
+    "comment": "Comment",
+    "document": "Download document",
+    "documentDeleted": "Document deleted — the claim was rejected more than 90 days ago.",
+    "commentField": "Comment for the organization",
+    "commentHint": "Optional. When rejecting, say what is missing.",
+    "commentTooLong": "The comment can be at most 1000 characters long.",
+    "approve": "Approve",
+    "reject": "Reject",
+    "approveConfirm": "Approve the claim? The water will be connected to this organization and the other claims for it will be rejected. This cannot be undone on the platform.",
+    "approveConfirmYes": "Yes, approve",
+    "approveConfirmNo": "Cancel",
+    "reload": "Refresh the list"
+  }
+}
