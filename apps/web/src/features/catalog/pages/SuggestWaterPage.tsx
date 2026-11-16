@@ -1,6 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
-  REGIONS,
   WATER_NAME_MAX_LENGTH,
   WATER_NAME_MIN_LENGTH,
   type WaterSuggestionFormValues,
@@ -21,6 +20,7 @@ import { TextField } from '../../../shared/ui/form-field';
 import { SelectField } from '../../../shared/ui/select';
 import { useSuggestWater } from '../api/useWaterSuggestions';
 import { PositionPicker } from '../components/PositionPicker';
+import { regionOptions } from '../lib/region';
 
 /** Coordinates are shown with 5 decimals (about 1 m), like the map's bbox. */
 const round = (value: number) => Math.round(value * 1e5) / 1e5;
@@ -103,7 +103,7 @@ function SuggestionForm({
   error: unknown;
   onSubmit: (body: WaterSuggestionInput) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const {
     register,
     handleSubmit,
@@ -159,9 +159,9 @@ function SuggestionForm({
         {...register('region')}
       >
         <option value="">{t('catalog.suggest.regionPlaceholder')}</option>
-        {REGIONS.map((region) => (
-          <option key={region} value={region}>
-            {region}
+        {regionOptions(t, i18n.language).map((region) => (
+          <option key={region.value} value={region.value}>
+            {region.label}
           </option>
         ))}
       </SelectField>

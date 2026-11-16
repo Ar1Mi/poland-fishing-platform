@@ -7,6 +7,7 @@ import { ApiErrorAlert } from '../../../shared/ui/api-error-alert';
 import { Badge } from '../../../shared/ui/badge';
 import { TextField } from '../../../shared/ui/form-field';
 import { useOrgWaters } from '../../permits/api/usePermitTypes';
+import { regionLabel } from '../lib/region';
 
 /**
  * `/org/:orgId/waters` (FR-05): the waters connected to the organization, each leading to what
@@ -60,7 +61,7 @@ export function OrgWatersPage() {
               >
                 <span className="font-semibold underline">{water.name}</span>
                 <span className="text-small text-muted-foreground">
-                  {t(`catalog.waterType.${water.type}`)} · {water.region}
+                  {t(`catalog.waterType.${water.type}`)} · {regionLabel(t, water.region)}
                 </span>
               </Link>
             </li>

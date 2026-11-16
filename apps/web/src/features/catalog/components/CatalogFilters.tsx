@@ -1,4 +1,4 @@
-import { REGIONS, WATER_QUERY_MAX_LENGTH, WaterStatus, WaterType } from '@lowisko/shared';
+import { WATER_QUERY_MAX_LENGTH, WaterStatus, WaterType } from '@lowisko/shared';
 import { ChevronDown, Search, SlidersHorizontal, X } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +6,7 @@ import { Button } from '../../../shared/ui/button';
 import { TextField } from '../../../shared/ui/form-field';
 import { SelectField } from '../../../shared/ui/select';
 import type { WaterQuery } from '../api/useWaters';
+import { regionOptions } from '../lib/region';
 
 export type CatalogFilterValues = Omit<WaterQuery, 'bbox'>;
 
@@ -16,7 +17,7 @@ interface CatalogFiltersProps {
 
 /** Name search (applied on submit) and selects (applied at once). */
 export function CatalogFilters({ value, onChange }: CatalogFiltersProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [search, setSearch] = useState(value.q ?? '');
   // Back/forward in the browser changes the URL, and so the applied search.
   useEffect(() => setSearch(value.q ?? ''), [value.q]);
@@ -82,9 +83,9 @@ export function CatalogFilters({ value, onChange }: CatalogFiltersProps) {
             onChange={(event) => select('region', event.target.value)}
           >
             <option value="">{t('catalog.filters.any')}</option>
-            {REGIONS.map((region) => (
-              <option key={region} value={region}>
-                {region}
+            {regionOptions(t, i18n.language).map((region) => (
+              <option key={region.value} value={region.value}>
+                {region.label}
               </option>
             ))}
           </SelectField>

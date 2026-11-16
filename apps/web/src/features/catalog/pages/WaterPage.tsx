@@ -21,6 +21,7 @@ import { WaterRules } from '../../rules/components/WaterRules';
 import { useWater, type WaterDetail, waterPhotoUrl } from '../api/useWaters';
 import { WaterStatusBadge } from '../components/WaterStatusBadge';
 import { safeExternalUrl } from '../lib/external-url';
+import { regionLabel } from '../lib/region';
 
 /** Water card (FR-06, FR-23): who manages it and where to get a permit. */
 export function WaterPage() {
@@ -90,7 +91,7 @@ function WaterDetails({ water }: { water: WaterDetail }) {
       <div className="flex flex-col gap-2">
         <h1 className="text-h1">{water.name}</h1>
         <p className="text-muted-foreground">
-          {t(`catalog.waterType.${water.type}`)} · {water.region}
+          {t(`catalog.waterType.${water.type}`)} · {regionLabel(t, water.region)}
         </p>
         {suspended ? (
           <Badge variant="warning">

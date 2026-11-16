@@ -52,16 +52,15 @@ describe('language switcher', () => {
     expect(localStorage.getItem('lowisko.locale')).toBe('en');
   });
 
-  it('falls back to Polish for a key not yet translated', async () => {
+  // Until T-31 ru was empty and this checked the fallback to pl; the fallback itself is now
+  // covered in i18n.test.ts with a key that exists only in pl.
+  it('shows the catalogue in Russian', async () => {
     emptyCatalogue();
     renderRoute('/');
 
     await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Język' }), 'Русский');
 
-    // catalog.json in ru is empty until the localisation stage (T-31).
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'Łowiska w Polsce' }),
-    ).toBeVisible();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Водоёмы Польши' })).toBeVisible();
     expect(screen.getByRole('combobox', { name: 'Язык' })).toHaveValue('ru');
   });
 });
